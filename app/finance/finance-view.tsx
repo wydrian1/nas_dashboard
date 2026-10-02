@@ -1,0 +1,45 @@
+import type { FinanceSnapshot } from '@/lib/finance/types';
+import { changeRatio, formatMoney, formatMonth, formatPercent, nextTurnoverMonth, visibleFinanceNote } from '@/lib/finance/types';
+import FinanceChart from './finance-chart';
+import RealGrowth from './real-growth';
+import FinanceComposition from './composition';
+import type { FinanceMarket } from '@/lib/finance/market-types';
+
+const signed=(amount:number)=>(amount>0 ? '+' : '')+formatMoney(amount);
+export default function FinanceView({snapshot,market}:{snapshot:FinanceSnapshot;market?:FinanceMarket}) {
+  const {selected,previous,yearAgo,accounts,balances,previousBalances,months}=snapshot;
+  if(!selected)return <section className="finance-card"><h2>Nincs adat ehhez a hónaphoz</h2><p>Válassz egy rögzített hónapot, vagy importáld a kiinduló táblázatot.</p><a className="secondary-button" href="/finance">Legfrissebb állapot</a></section>;
+  const current=new Map(balances.map(balance=>[balance.account_id,balance])),prior=new Map(previousBalances.map(balance=>[balance.account_id,balance.amount_minor]));
+  const monthly=previous ? selected.net-previous.net : null,yearly=yearAgo ? selected.net-yearAgo.net : null;
+  const index=months.findIndex(month=>month.month===selected.month),next=months[index+1];
+  const movers=accounts.map(account=>({account,now:current.get(account.id)?.amount_minor ?? null,before:prior.get(account.id) ?? null,delta:(current.get(account.id)?.amount_minor || 0)-(prior.get(account.id) || 0)})).filter(item=>item.delta!==0).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  const today=new Date().toISOString().slice(0,7);
+  const latestBalances=selected.month===months.at(-1)?.month ? balances : [];
+  const visibleNote=visibleFinanceNote(selected.note);
+  return <>
+    <section className="finance-period finance-card"><div><span className="eyebrow">{selected.month===months.at(-1)?.month ? 'LEGFRISSEBB HAVI ÁLLAPOT' : 'KORÁBBI HAVI ÁLLAPOT'}</span><h2>{formatMonth(selected.month)}</h2><p>Állapotfelvétel: {selected.as_of} · {selected.source==='excel' ? 'Excel-import' : 'Kézi rögzítés'}</p></div><form method="get" action="/finance"><label htmlFor="finance-month">Hónap visszanézése</label><select id="finance-month" name="month" defaultValue={selected.month}>{[...months].reverse().map(month=><option key={month.month} value={month.month}>{formatMonth(month.month)}</option>)}</select><button className="secondary-button" type="submit">Megnézem</button></form><div className="finance-month-links">{previous && <a href={`/finance?month=${previous.month}`}>← Előző</a>}{next && <a href={`/finance?month=${next.month}`}>Következő →</a>}<a href="/finance">Legfrissebb</a></div></section>
+    <section className="finance-kpis" aria-label="Pénzügyi összefoglaló">
+      <article className="finance-kpi primary"><span>Nettó vagyon</span><strong>{formatMoney(selected.net)}</strong><small>Eszközök + negatív tartozások</small></article>
+      <article className="finance-kpi"><span>Eszközök</span><strong>{formatMoney(selected.assets)}</strong><small>Tartozások levonása előtt</small></article>
+      <article className="finance-kpi"><span>Tartozások / DEBT</span><strong>{formatMoney(selected.debt)}</strong><small>Gyerekek felé fennálló összegekkel együtt</small></article>
+      <article className="finance-kpi"><span>Változás az előző állapothoz</span><strong className={monthly!==null && monthly<0 ? 'finance-negative' : 'finance-positive'}>{monthly===null ? '—' : signed(monthly)}</strong><small>{previous ? `${formatPercent(changeRatio(selected.net,previous.net))} · ${formatMonth(previous.month)}` : 'Nincs korábbi állapot'}</small></article>
+    </section>
+    <p className="finance-year-change">Az előző év azonos hónapjához képest: <strong className={yearly!==null && yearly<0 ? 'finance-negative' : 'finance-positive'}>{yearly===null ? 'nincs összehasonlítható adat' : `${signed(yearly)} (${formatPercent(changeRatio(selected.net,yearAgo!.net))})`}</strong>. A változás nem azonos a befektetési hozammal.</p>
+    <FinanceChart points={months} selectedMonth={selected.month}/>
+    <RealGrowth snapshot={snapshot} inflation={market?.inflation} inflationError={market?.inflationError}/>
+    <div className="finance-two-columns"><FinanceComposition snapshot={snapshot}/>
+      <section className="finance-card"><div className="finance-section-head"><h2>Mi változott leginkább?</h2></div>{!previous ? <p>Nincs korábbi állapot az összehasonlításhoz.</p> : !movers.length ? <p>Nincs összegváltozás.</p> : <div className="finance-movers">{movers.slice(0,8).map(({account,delta,now,before})=><div key={account.id}><span>{account.name}<small>{now===null ? 'Nincs rögzített aktuális érték' : before===null ? 'Újonnan rögzített érték' : account.category}</small></span><strong className={delta<0 ? 'finance-negative' : 'finance-positive'}>{signed(delta)}</strong></div>)}</div>}<p className="footnote">A hiányzó érték az összesítésben nem szerepel. Nem feltételezünk automatikus számlaegyenleget vagy hozamot.</p></section></div>
+    <section className="finance-card"><div className="finance-section-head"><div><span className="eyebrow">GYEREKEK FELÉ FENNÁLLÓ DEBT</span><h2>Kamatfordulók</h2></div></div><p>Az Excel sárga cellái éves fordulóhónapokat jelölnek. Pontos nap és kamatláb nincs rögzítve; kamatot a rendszer nem számít és nem ír jóvá automatikusan.</p><div className="finance-debt-grid">{accounts.filter(account=>account.turnover_month).map(account=>{
+        const balance=current.get(account.id),upcoming=nextTurnoverMonth(account,today),active=latestBalances.some(item=>item.account_id===account.id && item.amount_minor!==0);
+        return <article key={account.id} className="finance-debt"><strong>{account.name}</strong><b>{balance ? formatMoney(balance.amount_minor) : 'Nincs rögzített összeg'}</b><span>Éves fordulóhónap: {account.turnover_month}.</span>{selected.month===months.at(-1)?.month && active && <span className={upcoming===today ? 'finance-due' : ''}>{upcoming===today ? 'Forduló ebben a hónapban' : `Következő fordulóhónap: ${upcoming}`}</span>}{balance?.turnover===1 && <mark>Ebben az állapotban kamatjóváírás jelölve</mark>}<details><summary>Korábbi jelölések</summary><DebtHistory snapshot={snapshot} accountID={account.id}/></details></article>;
+      })}</div></section>
+    <section className="finance-card"><div className="finance-section-head"><h2>Tételes havi állapot</h2><a className="secondary-button" href="#monthly-entry">Havi adatbevitel ↓</a></div><div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Tétel</th><th>Kategória</th><th>{previous ? formatMonth(previous.month) : 'Előző'}</th><th>{formatMonth(selected.month)}</th><th>Változás</th></tr></thead><tbody>{accounts.filter(account=>current.has(account.id) || prior.has(account.id)).map(account=>{const amount=current.get(account.id),old=prior.get(account.id),delta=(amount?.amount_minor || 0)-(old || 0);return <tr key={account.id}><th>{account.name}{amount?.turnover===1 && <mark className="finance-turn-tag">Forduló</mark>}</th><td>{account.category}</td><td>{old===undefined ? '—' : formatMoney(old)}</td><td>{amount ? formatMoney(amount.amount_minor) : '—'}</td><td className={delta<0 ? 'finance-negative' : 'finance-positive'}>{previous ? signed(delta) : '—'}</td></tr>;})}</tbody><tfoot><tr><th colSpan={2}>Nettó vagyon</th><td>{previous ? formatMoney(previous.net) : '—'}</td><td>{formatMoney(selected.net)}</td><td>{monthly===null ? '—' : signed(monthly)}</td></tr></tfoot></table></div><p className="footnote">Minden összeg Ft-ban. „—” = nincs rögzített érték. A külön Lili/Bali sorok külön kötelezettségek maradnak.</p>{visibleNote && <p className="finance-note-text">{visibleNote}</p>}</section>
+  </>;
+}
+
+function DebtHistory({snapshot,accountID}:{snapshot:FinanceSnapshot;accountID:string}) {
+  // Historical marker metadata is supplied by the server, not inferred from balance changes.
+  const history=snapshot.turnovers;
+  const items=history.filter(item=>item.account_id===accountID);
+  return items.length ? <ul>{items.map(item=><li key={item.month}><a href={`/finance?month=${item.month}`}>{formatMonth(item.month)}</a> · {formatMoney(item.amount_minor)}</li>)}</ul> : <p>Nincs jelölt esemény.</p>;
+}

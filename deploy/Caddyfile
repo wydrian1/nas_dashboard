@@ -1,0 +1,27 @@
+{
+    # IIS owns port 80. Do not bind HTTP or change existing IIS sites.
+    auto_https disable_redirects
+    admin off
+    storage file_system {
+        root data/caddy
+    }
+}
+
+nas.wydrian.hu {
+    tls {
+        issuer acme {
+            disable_http_challenge
+        }
+    }
+    encode zstd gzip
+    header Strict-Transport-Security "max-age=31536000"
+    # Only these two informational files are public; no dashboard or backup data.
+    @backupInfo path /backup-info.html /backup-privacy.html
+    handle @backupInfo {
+        root * deploy/backup-public
+        file_server
+    }
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+}

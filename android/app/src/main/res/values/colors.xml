@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Match app/globals.css: bg, panel, border, text, muted and accent. -->
+    <color name="nas_background">#0C1017</color>
+    <color name="nas_panel">#131923</color>
+    <color name="nas_border">#242C39</color>
+    <color name="nas_text">#ECF0F7</color>
+    <color name="nas_muted">#8A95A9</color>
+    <color name="nas_accent">#A8EFC9</color>
+</resources>

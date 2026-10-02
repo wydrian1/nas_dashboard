@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+    id 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'hu.wydrian.nas'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'hu.wydrian.nas'
+        minSdk 26
+        targetSdk 35
+        versionCode 3
+        versionName '1.0.2'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    signingConfigs {
+        release {
+            def filePath = System.getenv('WYDRIAN_KEYSTORE')
+            if (filePath) {
+                storeFile file(filePath)
+                storePassword System.getenv('WYDRIAN_KEYSTORE_PASSWORD')
+                keyAlias 'wydrian-nas'
+                keyPassword System.getenv('WYDRIAN_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+    }
+}
+
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'androidx.work:work-runtime:2.10.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
+    testImplementation 'junit:junit:4.13.2'
+}

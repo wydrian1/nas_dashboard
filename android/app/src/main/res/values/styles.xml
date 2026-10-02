@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="BaseAppTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/nas_accent</item>
+        <item name="android:colorBackground">@color/nas_background</item>
+        <item name="android:colorBackgroundFloating">@color/nas_panel</item>
+        <item name="android:windowBackground">@color/nas_background</item>
+        <item name="android:textColorPrimary">@color/nas_text</item>
+        <item name="android:textColorSecondary">@color/nas_muted</item>
+        <item name="android:colorButtonNormal">@color/nas_panel</item>
+        <item name="android:statusBarColor">@color/nas_background</item>
+        <item name="android:navigationBarColor">@color/nas_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:popupMenuStyle">@style/NasPopupMenu</item>
+    </style>
+    <style name="AppTheme" parent="BaseAppTheme" />
+    <style name="NasPopupMenu" parent="android:style/Widget.Material.PopupMenu">
+        <item name="android:popupBackground">@drawable/nas_surface</item>
+        <item name="android:popupElevation">8dp</item>
+    </style>
+</resources>
