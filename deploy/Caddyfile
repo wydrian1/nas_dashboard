@@ -7,6 +7,18 @@
     }
 }
 
+opencode.nas.wydrian.hu {
+    tls {
+        issuer acme {
+            disable_http_challenge
+        }
+    }
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy 127.0.0.1:3101 {
+        flush_interval -1
+    }
+}
+
 nas.wydrian.hu {
     tls {
         issuer acme {

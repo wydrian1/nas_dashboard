@@ -16,6 +16,10 @@ public class RefreshPolicyTest {
         assertFalse(RefreshPolicy.allowed(PAGE, true, false, false, 100));
         assertFalse(RefreshPolicy.allowed(PAGE, true, false, true, 100));
     }
+    @Test public void openCodeNestedScrollingDoesNotTriggerPullRefresh() {
+        assertFalse(RefreshPolicy.allowed(UrlPolicy.ORIGIN+"/opencode",true,false,false,0));
+        assertFalse(RefreshPolicy.allowed(UrlPolicy.OPENCODE_ORIGIN+"/",true,false,false,0));
+    }
     @Test public void loginAndBusyStatesCannotRefresh() {
         assertFalse(RefreshPolicy.allowed(PAGE, false, false, false, 0));
         assertFalse(RefreshPolicy.allowed(PAGE, true, true, false, 0));

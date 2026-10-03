@@ -6,6 +6,7 @@ import { refreshFeeds } from "@/lib/rss";
 import { toggleRead, refreshNews } from "../actions";
 import DashboardSidebar from "../dashboard-sidebar";
 import NewsImage from "../news-image";
+import { isOpenCodeOwner } from '@/lib/opencode-access';
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Hírolvasó · Wydrian" };
@@ -16,7 +17,7 @@ export default async function NewsPage() {
   if (session.role!=='admin') redirect('/pokemon');
   await refreshFeeds();
   const news = articles(), unread = news.filter(article=>!article.is_read).length;
-  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="news" unread={unread}/><main className="main-content news-page">
+  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="news" unread={unread} openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content news-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">SAJÁT HÍRFOLYAM</span><h1>Hírolvasó</h1><p>A világ hírei, a saját ritmusodban.</p></div><a className="secondary-button" href="/config#sources">RSS-források · Konfig</a></section>
     <section className="news-section" id="news"><div className="section-heading"><h2>Legfrissebb hírek <span>{unread} új</span></h2><form action={refreshNews}><button className="secondary-button">↻ Frissítés</button></form></div>

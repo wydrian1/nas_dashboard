@@ -1,0 +1,21 @@
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { requireUser } from '@/auth';
+import { isOpenCodeOwner } from '@/lib/opencode-access';
+import DashboardSidebar from '../dashboard-sidebar';
+import OpenCodeFrame from './opencode-frame';
+import './opencode.css';
+export const dynamic='force-dynamic';
+export const metadata:Metadata={title:'OpenCode · Wydrian',robots:{index:false,follow:false}};
+export default async function OpenCodePage() {
+  const session=await requireUser().catch(()=>null);
+  if(!session)redirect('/');
+  if(session.role!=='admin')redirect('/pokemon');
+  if(!isOpenCodeOwner(session.user?.email))redirect('/');
+  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="opencode" openCode/><main className="main-content opencode-page">
+    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
+    <section className="page-heading"><div><span className="eyebrow">PRIVÁT FEJLESZTŐI MUNKATERÜLET</span><h1>OpenCode</h1><p>Az eredeti OpenCode-felület. Kizárólag a tulajdonosnak, a dashboard belépése mögött.</p></div></section>
+    <OpenCodeFrame enabled={process.env.OPENCODE_WEB_ENABLED==='true'}/>
+    <p className="footnote">Az itt végzett műveletek fájlokat módosíthatnak és parancsokat futtathatnak a szerveren. A hozzáférést rövid élettartamú, HttpOnly cookie védi; szerverjelszó nem kerül a böngészőbe vagy az appba.</p>
+  </main></div>;
+}

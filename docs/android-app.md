@@ -15,6 +15,12 @@ A hozzáférés 90 nap után újrapárosítást igényel; nincs örök credentia
 
 Az admin eszközkezelés a **Konfig / Telefonok / push** részre költözött (`/config#mobile`); a régi `/mobile` cím oda irányít. A főmenüben nincs külön telefonos link. Az APK, párosítás és natív eszköz-API változatlan, reader nem lát eszközlistát.
 
+## OpenCode (1.0.3)
+
+VersionCode **4**, ugyanazzal a release aláírókulccsal. A dashboard **OpenCode** menüpontja kizárólag a tulajdonosnak látható. A teljes webfelület `https://opencode.nas.wydrian.hu` alatt, a dashboardba beágyazva használható; a WebView csak ezt az egy pontos HTTPS hostot engedi hozzá a meglévő hosthoz. Nincs új natív jogosultság vagy JS/native bridge, harmadik fél cookie-ja továbbra is tiltott. Az OpenCode-cookie azonos site-hoz tartozik, HttpOnly/Secure és ötperces; a dashboard külön belépési cookie-ja nem kerül az aldomainre. OpenCode alatt a lehúzásos frissítés tiltott a beágyazott chat/terminál zavartalan görgetéséhez, a menübeli Frissítés használható.
+
+Az új APK-t a meglévő appra telepítsd, **eltávolítás és újrapárosítás nélkül**. Részletek: [opencode.md](opencode.md). Fizikai telefonos WebView/próbafuttatás külön ellenőrizendő.
+
 ## Lehúzással frissítés (1.0.2)
 
 Kiadás: versionCode 3, APK `.runtime/artifacts/Wydrian-NAS-1.0.2.apk`, 3 305 339 bájt, SHA256 `8fbce9bcd3bedcd3fe219cbb64a6e90d17bda0285e340230a21ec0f9ee94a859`. 7 Android-unit teszt és release build/aláírás-ellenőrzés sikeres, lint 0 hiba / 13 figyelmeztetés. Az eredeti aláíró tanúsítvány változatlan; az ellenőrzött APK és a védett letöltés legacy aliasa azonos. Telepítés a meglévő appra, eltávolítás nélkül.
@@ -37,7 +43,7 @@ Főkeret-betöltés végén vagy hálózati/TLS/HTTP hiba esetén leáll a jelz�
 
 ## Biztonság
 
-WebView csak a pontos HTTPS `nas.wydrian.hu` originre navigál; webshoplinkek a külső böngészőben nyílnak. Nincs JS/native bridge, file/content access, mixed content, harmadik fél cookie, cleartext HTTP, felülbírált TLS-hiba, release WebView-debug vagy eszközbackup. Native API HTTPS, fix origin/útvonal, átirányítás nélkül, korlátozott válaszmérettel. A pairing JSON API a szükséges nyilvános kivétel; nem ad dashboard-hozzáférést Google-jóváhagyás + verifier nélkül. Eszköz API csak bearer credentialt fogad, nem böngészős cookie-t.
+WebView csak a pontos HTTPS `nas.wydrian.hu` és (1.0.3-tól) `opencode.nas.wydrian.hu` originre navigál; webshoplinkek a külső böngészőben nyílnak. Nincs JS/native bridge, file/content access, mixed content, harmadik fél cookie, cleartext HTTP, felülbírált TLS-hiba, release WebView-debug vagy eszközbackup. Native API HTTPS, fix origin/útvonal, átirányítás nélkül, korlátozott válaszmérettel. A pairing JSON API a szükséges nyilvános kivétel; nem ad dashboard-hozzáférést Google-jóváhagyás + verifier nélkül. Eszköz API csak bearer credentialt fogad, nem böngészős cookie-t.
 
 Firebase `android/app/google-services.json` klienskonfiguráció, **nem** szolgáltatásfiók-kulcs; helyi és gitignore-olt. A szerver szolgáltatásfiók JSON-ja `.runtime/secrets/firebase-service-account.json`, tulajdonos/System/Admin full, LocalService csak olvasás. A privát kulcs **soha nem kerül az APK-ba**. FCM OAuth endpoint és projekt fix, nem a JSON/page tartalma vezérli. Ne tedd a szerver credentialt az `android/` mappába.
 
@@ -47,7 +53,7 @@ A felhasználó elfogadta az Android SDK licencet. `scripts/Prepare-Android.ps1`
 
 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Build-Android.ps1`
 
-Java unit tesztek, lintRelease, assembleRelease, aláírás-ellenőrzés. A build a Gradle verziószámából képezi a verziózott APK nevét, aktuálisan `.runtime/artifacts/Wydrian-NAS-1.0.2.apk`. A jelenlegi védett download route régi `Wydrian-NAS-1.0.0.apk` útvonala kompatibilitási alias, amelyet csak sikeres build/teszt/aláírás-ellenőrzés után frissítünk az aktuális csomagra. Állandó, privát RSA-aláírókulcs: `.runtime/android-signing/`, csak tulajdonos/System/Admin. **Ezt és a védett password fájlt őrizd meg:** ugyanazzal az aláírással később frissíthető az app, elveszett kulcs esetén újratelepítés/újrapárosítás szükséges. Nincs debug-aláírás release APK-ban.
+Java unit tesztek, lintRelease, assembleRelease, aláírás-ellenőrzés. A build a Gradle verziószámából képezi a verziózott APK nevét, aktuálisan `.runtime/artifacts/Wydrian-NAS-1.0.3.apk`. A jelenlegi védett download route régi `Wydrian-NAS-1.0.0.apk` útvonala kompatibilitási alias, amelyet csak sikeres build/teszt/aláírás-ellenőrzés után frissítünk az aktuális csomagra. Állandó, privát RSA-aláírókulcs: `.runtime/android-signing/`, csak tulajdonos/System/Admin. **Ezt és a védett password fájlt őrizd meg:** ugyanazzal az aláírással később frissíthető az app, elveszett kulcs esetén újratelepítés/újrapárosítás szükséges. Nincs debug-aláírás release APK-ban.
 
 Szerver env: `POKEMON_FCM_CREDENTIALS=.runtime/secrets/firebase-service-account.json`, `POKEMON_PUSH_ENABLED=true`; csak worker/server olvassa. `scripts/Configure-Mobile.ps1` mentés után csak ezt a két változót módosítja. SMTP-konfiguráció többé nem használt. Dashboard staging build és `scripts/Deploy-Pokemon.ps1` új immutable workert telepít; a mobilmodul is része a release-nek. HTTP/robots shopadapterek és ütemezés változatlanok.
 

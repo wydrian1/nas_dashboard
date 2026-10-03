@@ -11,6 +11,7 @@ import './finance.css';
 import { financeMarket } from '@/lib/finance/market';
 import { readLego } from '@/lib/finance/lego';
 import LegoInventory from './lego-inventory';
+import { isOpenCodeOwner } from '@/lib/opencode-access';
 
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Pénzügy · Wydrian',robots:{index:false,follow:false}};
@@ -22,7 +23,7 @@ export default async function FinancePage({searchParams}:{searchParams:Promise<{
   try{month=query.month ? validMonth(query.month) : undefined;}catch{redirect('/finance');}
   const snapshot=readFinanceSnapshot(db(),month),latest=month ? readFinanceSnapshot(db()) : snapshot;
   const market=await financeMarket(),lego=readLego(db());
-  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="finance"/><main className="main-content finance-page">
+  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="finance" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content finance-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <div className="finance-fx-header">{market.rates ? <><strong>1 USD = {new Intl.NumberFormat('hu-HU',{maximumFractionDigits:2}).format(market.rates.usdHuf)} Ft</strong><strong>1 EUR = {new Intl.NumberFormat('hu-HU',{maximumFractionDigits:2}).format(market.rates.eurHuf)} Ft</strong><small>ECB / Frankfurter · {market.rates.date}</small></> : <span>Árfolyam jelenleg nem érhető el.</span>}</div>
     <section className="page-heading"><div><span className="eyebrow">VAGYON ÉS GYARAPODÁS</span><h1>Pénzügy</h1><p>Havi állapotok, követhető változások, éves kamatfordulók. Privát, csak adminoknak.</p></div></section>

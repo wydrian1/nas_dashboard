@@ -10,6 +10,7 @@ import { personalData } from "@/lib/personal-data";
 import { QuickLinks } from "./personal-sections";
 import WeatherCard from "./weather-card";
 import DashboardSidebar from "./dashboard-sidebar";
+import { isOpenCodeOwner } from '@/lib/opencode-access';
 
 export const dynamic = "force-dynamic";
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -28,7 +29,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const [services, system] = await Promise.all([serviceStatuses(), systemSnapshot()]);
   const unread = articles().filter(article => !article.is_read).length;
   const personal = personalData();
-  return <div className="dashboard-shell"><DashboardSidebar name={session?.user?.name} unread={unread}/><main className="main-content" id="overview"><header className="topbar"><span>Az otthonod, online.</span><span className="domain"><i />nas.wydrian.hu</span></header>
+  return <div className="dashboard-shell"><DashboardSidebar name={session?.user?.name} unread={unread} openCode={isOpenCodeOwner(session?.user?.email)}/><main className="main-content" id="overview"><header className="topbar"><span>Az otthonod, online.</span><span className="domain"><i />nas.wydrian.hu</span></header>
     <section className="page-heading"><div><h1>Dashboard</h1></div><span className="date">{new Intl.DateTimeFormat("hu-HU", { month: "long", day: "numeric", weekday: "long", timeZone: "Europe/Budapest" }).format(new Date())}</span></section>
     <section><div className="section-heading"><h2>Szolgáltatások <span>03</span></h2><span className="subtle">Élő állapot</span></div><ServiceCards initial={services} /></section>
     <QuickLinks links={personal.links}/>
