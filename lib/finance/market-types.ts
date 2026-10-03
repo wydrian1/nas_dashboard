@@ -4,10 +4,12 @@ import type { InflationSeries } from './inflation-types.ts';
 
 export const USD_ACCOUNT_IDS=['cashflow-row-17','cashflow-row-35','cashflow-row-45'] as const;
 export const COLLECTR_ACCOUNT_ID='cashflow-row-45';
+export const ETORO_ACCOUNT_ID='cashflow-row-35';
 export const COLLECTR_PROFILE='https://app.getcollectr.com/showcase/profile/@wydrian';
 export type ExchangeRates={date:string;usdHuf:number;eurHuf:number;fetchedAt:string};
 export type CollectrValue={usdMinor:number;fetchedAt:string};
-export type FinanceMarket={rates:ExchangeRates|null;collectr:CollectrValue|null;rateError:string|null;collectrError:string|null;inflation:InflationSeries|null;inflationError:string|null};
+export type EtoroValue={usdMinor:number;fetchedAt:string};
+export type FinanceMarket={rates:ExchangeRates|null;collectr:CollectrValue|null;rateError:string|null;collectrError:string|null;inflation:InflationSeries|null;inflationError:string|null;etoro?:EtoroValue|null;etoroError?:string|null};
 export function usdAccount(id:string):boolean{return (USD_ACCOUNT_IDS as readonly string[]).includes(id);}
 export function usdToHuf(usdMinor:number,rate:number):number {
   if(!Number.isSafeInteger(usdMinor) || usdMinor<0 || !Number.isFinite(rate) || rate<=0 || rate>10000)throw new FinanceInputError('Érvénytelen USD-összeg vagy árfolyam.');
