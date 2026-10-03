@@ -1,0 +1,29 @@
+'use client';
+import { useCallback,useEffect,useRef,useState } from 'react';
+import { ADMIN_TARGETS,type HelperJob,type HelperStatus } from '@/lib/admin-helper/policy';
+// Import only serializable policy data here; server crypto/auth parsing remains outside the client bundle.
+const stateLabels:Record<HelperJob['state'],string>={pending:'Jóváhagyásra vár',review:'Áttekintve, megerősítésre vár',queued:'Jóváhagyva',running:'Újraindítás folyamatban',succeeded:'Windows-szolgáltatás Running',failed:'Hiba — nincs automatikus újrapróbálás',cancelled:'Elutasítva',expired:'Lejárt',uncertain:'Megszakadt / bizonytalan — nincs automatikus újrapróbálás'};
+export default function AdminHelper({enabled}:{enabled:boolean}) {
+  const [status,setStatus]=useState<HelperStatus>(),[error,setError]=useState<string>(),[review,setReview]=useState<HelperJob>(),[phrase,setPhrase]=useState(''),[busy,setBusy]=useState(false);
+  const requestBusy=useRef(false);
+  const refresh=useCallback(async()=>{
+    if(!enabled || requestBusy.current)return;requestBusy.current=true;
+    try{const response=await fetch('/api/admin-helper',{cache:'no-store',credentials:'same-origin',signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error(response.status===401?'A belépés lejárt.':response.status===403?'Nincs tulajdonosi hozzáférés.':'A dashboard vagy a segéd nem érhető el. Újraindítás közben ez átmeneti lehet.');const data=await response.json() as HelperStatus;if(!Array.isArray(data.jobs))throw new Error('Nem várt állapotválasz.');setStatus(data);setError(undefined);}catch(error){setError(error instanceof Error?error.message:'A lekérdezés nem sikerült.');}finally{requestBusy.current=false;}
+  },[enabled]);
+  useEffect(()=>{void refresh();const timer=setInterval(()=>void refresh(),5000);return()=>clearInterval(timer);},[refresh]);
+  async function send(data:Record<string,string>) {
+    const response=await fetch('/api/admin-helper',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(10000)});
+    const result=await response.json();if(!response.ok)throw new Error(result.error || 'A kérés nem sikerült.');return result.job as HelperJob;
+  }
+  async function run(operation:()=>Promise<void>){if(busy)return;setBusy(true);setError(undefined);try{await operation();await refresh();}catch(error){setError(error instanceof Error?error.message:'A kérés nem sikerült.');}finally{setBusy(false);}}
+  const active=status?.jobs.some(job=>job.state==='queued'||job.state==='running');
+  return <section id="admin-helper" className="sources-section"><div className="section-heading"><h2>Korlátozott admin-segéd</h2></div><div className="sources-panel admin-helper-panel">
+    <p>Az OpenCode csak kérést hozhat létre. Újraindítás kizárólag az itt áttekintett és külön megerősített kérésből indul. A segéd nem futtat parancsot, szkriptet, telepítést vagy build-élesítést.</p>
+    {!enabled && <p className="footnote">Még nincs aktiválva. Az egyszeri helyi, UAC-jóváhagyásos telepítés szükséges.</p>}
+    {enabled && <><div className="admin-helper-targets">{ADMIN_TARGETS.map(target=><div className="admin-helper-target" key={target.id}><div><strong>{target.label}</strong><small>{status?.targets.find(item=>item.id===target.id)?.status || 'Lekérdezés…'}</small></div><p>{target.warning}</p><button type="button" className="secondary-button" disabled={busy||active||!status?.available} onClick={()=>void run(async()=>{const job=await send({action:'request',target:target.id});setReview(await send({action:'review',id:job.id}));setPhrase('');})}>Újraindítás áttekintése</button></div>)}</div>
+    {review && <div className="admin-helper-confirm" role="region" aria-label="Újraindítás megerősítése"><h3>{review.service} újraindítása</h3><p>{ADMIN_TARGETS.find(target=>target.id===review.target)?.warning} A kérés két percig érvényes, és csak egyszer indítható.</p><label>Írd be pontosan: <strong>{review.service}</strong><input value={phrase} onChange={event=>setPhrase(event.target.value)} autoComplete="off" autoCapitalize="off" spellCheck={false}/></label><div><button className="primary-button" type="button" disabled={busy||phrase!==review.service||active} onClick={()=>void run(async()=>{await send({action:'confirm',id:review.id,confirmation:phrase});setReview(undefined);setPhrase('');})}>Jóváhagyom az újraindítást</button><button className="secondary-button" type="button" disabled={busy} onClick={()=>void run(async()=>{await send({action:'cancel',id:review.id});setReview(undefined);setPhrase('');})}>Elutasítás</button></div></div>}
+    <div className="admin-helper-jobs"><h3>Kérések és eredmények</h3>{status?.jobs.length===0 && <p>Nincs még kérés.</p>}{status?.jobs.slice().reverse().slice(0,15).map(job=><div className="admin-helper-job" key={job.id}><div><strong>{job.service}</strong><span>{stateLabels[job.state]}</span><small>{job.requestedBy} · {new Date(job.createdAt).toLocaleString('hu-HU')} {job.errorCode?`· Windows hibakód: ${job.errorCode}`:''}</small></div>{(job.state==='pending'||job.state==='review') && <div><button type="button" className="secondary-button" disabled={busy||active} onClick={()=>void run(async()=>{setReview(await send({action:'review',id:job.id}));setPhrase('');})}>Áttekintés</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>void run(async()=>{await send({action:'cancel',id:job.id});if(review?.id===job.id)setReview(undefined);})}>Elutasítás</button></div>}</div>)}</div></>}
+    {error && <p className="error" role="alert">{error}</p>}
+    <p className="footnote">Ez csak a Windows-szolgáltatás újraindítását ellenőrzi, nem a teljes alkalmazás működését. A meglévő szolgáltatás a saját fiókja alatt fut tovább; ez nem izolálja annak kódját. Megszakadt válasznál az eredményt ellenőrizd, ne indíts automatikusan új kérést.</p>
+  </div></section>;
+}

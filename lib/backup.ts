@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { open, link, unlink, readFile, writeFile, readdir, lstat, mkdir, copyFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative,resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { spawn } from 'node:child_process';
@@ -78,9 +78,31 @@ export async function prepareStage(root:string,stage:string,now=new Date()):Prom
     await copy(join(root,entry),join(stage,entry),(path,name)=>name!=='.gradle' && !(relative(root,path).split(/[\\/]/)[0]==='android' && name==='build'));
   }
   await mkdir(join(stage,'data'),{recursive:true});await snapshotDatabase(join(root,'data/dashboard.sqlite'),join(stage,'data/dashboard.sqlite'));
-  for(const path of ['data/caddy','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway']){
+  for(const path of ['data/caddy','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway','.runtime/admin-helper-client']){
     try{await lstat(join(root,path));}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')continue;throw error;}
     await copy(join(root,path),join(stage,path));
+  }
+  // Approved protected Windows component; archive into the project recovery tree,
+  // never restore directly into privileged Program Files or enable a Windows service.
+  if(process.platform==='win32' && resolve(root)===resolve(process.cwd())){
+    const helper=join(process.env.ProgramFiles || process.env.PROGRAMFILES || 'C:\\Program Files','Wydrian NAS Admin Helper');
+    let installed=false;try{await lstat(join(helper,'installation.json'));installed=true;}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+    if(installed){
+      const destination=join(stage,'.runtime/admin-helper-recovery');
+      await copy(helper,destination,(parent,name)=>!(parent===helper && name==='data'));
+      const data=join(helper,'data'),target=join(destination,'data');await mkdir(target,{recursive:true});
+      const dataStat=await lstat(data),stateStat=await lstat(join(data,'state.json'));
+      if(!dataStat.isDirectory() || dataStat.isSymbolicLink() || !stateStat.isFile() || stateStat.isSymbolicLink())throw new Error('Unsafe helper state path');
+      // Node readFile shares delete on Windows: the broker's atomic File.Replace
+      // remains possible. Never CopyFile its live state/new/previous files.
+      const state=await readFile(join(data,'state.json'),'utf8');if(!Array.isArray(JSON.parse(state)))throw new Error('Invalid helper backup state');
+      await writeFile(join(target,'state.json'),state);
+      for(const name of await readdir(data))if(/^audit-\d{4}-\d{2}\.jsonl$/.test(name)){
+        const path=join(data,name),stat=await lstat(path);if(!stat.isFile() || stat.isSymbolicLink())throw new Error('Unsafe helper audit path');
+        const bytes=await readFile(path),end=bytes.lastIndexOf(10)+1;
+        await writeFile(join(target,name),bytes.subarray(0,end)); // Only complete captured audit records.
+      }
+    }
   }
   const files:BackupManifest['files']=[];
   async function walk(path:string){for(const name of await readdir(path)){const full=join(path,name),stat=await lstat(full);if(stat.isDirectory())await walk(full);else files.push({path:relative(stage,full).replaceAll('\\','/'),size:stat.size,sha256:await fileHash(full)});}}
