@@ -67,6 +67,16 @@ test('phone settings live under admin configuration; legacy route redirects and 
   assert.match(source('app/mobile/page.tsx'),/redirect\('\/config#mobile'\)/);
   assert.match(source('app/mobile/actions.ts'),/revalidatePath\('\/config'\)/);
 });
+test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
+  const Sidebar=component('app/dashboard-sidebar.tsx').default;
+  const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
+  assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/opencode','/config']);
+  const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
+  assert.equal(reader('nav a[href="/opencode"]').length,0);
+  assert.match(source('app/opencode/page.tsx'),/if\(!isOpenCodeOwner\(session.user\?\.email\)\)redirect\('\/'\)/);
+  for(const path of ['app/page.tsx','app/news/page.tsx','app/finance/page.tsx','app/notes/page.tsx','app/pokemon/page.tsx','app/config/page.tsx'])assert.match(source(path),/openCode=\{isOpenCodeOwner\(session\??\.user\?\.email\)\}/);
+});
 
 test('notes page is private and keeps existing note/task editors, including completed tasks',()=>{
   const text=source('app/notes/page.tsx');

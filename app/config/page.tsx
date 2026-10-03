@@ -11,6 +11,7 @@ import UserSettings from '../user-settings';
 import { ownerEmail, type User } from '@/lib/users';
 import { plainSqlRow } from '@/lib/sql-rows';
 import MobileSettings from '../mobile/settings';
+import { isOpenCodeOwner } from '@/lib/opencode-access';
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Konfig · Wydrian" };
@@ -21,7 +22,7 @@ export default async function ConfigPage() {
   if (session.role!=='admin') redirect('/pokemon');
   const sources = feeds(), personal = personalData();
   const users=(db().prepare('SELECT * FROM dashboard_users ORDER BY email').all() as User[]).map(plainSqlRow);
-  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="config"/><main className="main-content config-page">
+  return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="config" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content config-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">SAJÁT BEÁLLÍTÁSOK</span><h1>Konfig</h1><p>Gyorslinkek, RSS-források, felhasználók és telefonos push kezelése.</p></div></section>
     <div className="page-shortcuts" role="navigation" aria-label="Konfig szekciók"><a href="#quicklinks">Gyorslinkek</a><a href="#sources">RSS-források</a><a href="#users">Felhasználók</a><a href="#mobile">Telefonok / push</a></div>

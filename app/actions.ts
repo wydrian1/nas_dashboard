@@ -6,9 +6,15 @@ import { db } from "@/lib/db";
 import { feedUrl } from "@/lib/url-policy";
 import { refreshFeeds } from "@/lib/rss";
 import { readArticleLimit } from "@/lib/rss-settings";
+import { cookies,headers } from 'next/headers';
+import { OPENCODE_COOKIE,OPENCODE_COOKIE_DOMAIN,revokeOpenCodeFamily } from '@/lib/opencode-access';
 
 export async function login() { await signIn("google", { redirectTo: "/" }); }
-export async function logout() { await signOut({ redirectTo: "/" }); }
+export async function logout() {
+  if(process.env.AUTH_SECRET)await revokeOpenCodeFamily(db(),(await headers()).get('cookie'),process.env.AUTH_SECRET);
+  (await cookies()).set(OPENCODE_COOKIE,'',{httpOnly:true,secure:true,sameSite:'lax',path:'/',domain:OPENCODE_COOKIE_DOMAIN,maxAge:0});
+  await signOut({ redirectTo: "/" });
+}
 
 function revalidateNewsPages() {
   revalidatePath("/");

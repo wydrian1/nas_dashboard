@@ -74,6 +74,7 @@ Az alábbi teljes oldalkészlet admin jogosultsághoz tartozik. A `pokemon-reade
 - `/config`: külön, védett **Konfig** oldal; gyorslinkek, RSS-források, felhasználók és **Telefonok / push** (`#mobile`) kezelése. A régi `/mobile` cím admin esetén ide irányít; reader továbbra sem fér hozzá az eszközlistához. Párosítás, APK-letöltés és natív API változatlan.
 - `/pokemon`: a lap tetején minden webshop neve belső gyorslink (`#shop-…`), amely az adott webshop kártyájához ugrik.
 - `/finance`: admin-only **Pénzügy**; importált havi vagyoni állapotok, legfrissebb hónap alapnézettel, teljes előzményválasztóval, gyarapodási grafikonokkal, DEBT-fordulókkal és kézi havi rögzítéssel. A Pokémon-reader sem oldalhoz, sem pénzügyi API-hoz/mentéshez nem fér hozzá. Részletek és importfolyamat: [docs/finance.md](docs/finance.md).
+- `/opencode`: kizárólag a tulajdonosnak, az eredeti OpenCode 2 webfelületével, védett külön aldomainen, a dashboardba beágyazva. Weben és Android **1.0.3**-tól érhető el. Rövid HttpOnly hozzáférés, visszavonás és üzemeltetés: [docs/opencode.md](docs/opencode.md). Nem indítja újra a meglévő OpenCode-ot.
 
 A pénzügyben kiemelt reálnövekedés-oszlopdiagram (automatikus KSH CPI), vagyonösszetétel-kördiagram, fejlécbeli ECB/Frankfurter USD/HUF és EUR/HUF, Collectr-előtöltés és USD→Ft szerveroldali mentés működik. Legalul szerkeszthető LEGO-lista. Új hónapnál csak a Lili/Bali DEBT értékei másolódnak az előző állapotból; Pokémon a Collectrből, LEGO a listaösszegből, minden más mező üres. Korábbi havi értékeket a külső források/listamódosítások nem írnak át.
 
@@ -83,7 +84,7 @@ Mind a felső listában, mind a webshoponkénti **Legutóbbi változások** szek
 
 Az oldalsávból elérhető a Hírolvasó és a Konfig; a főoldali gyorslinkek fejlécéből közvetlenül a linkbeállításokhoz lehet jutni. Az RSS- és linkmódosítások a kapcsolódó új útvonalakat is újraérvényesítik. A főoldal betöltése többé nem vár RSS-hálózati frissítésre; az a Hírolvasó megnyitásakor/a Frissítés gombbal történik, a meglévő 15 perces gyorsítótárral. Ehhez a webes frissítéshez Android APK-frissítés nem szükséges.
 
-Admin főmenü sorrendje: **Dashboard → Hírolvasó → Pénzügy → Jegyzetek / teendők → Pokémon figyelő → Konfig**. A reader menüje továbbra is kizárólag Pokémon.
+Admin főmenü sorrendje: **Dashboard → Hírolvasó → Pénzügy → Jegyzetek / teendők → Pokémon figyelő → Konfig**. A tulajdonosnak a Pokémon és Konfig között külön **OpenCode** menüpont is megjelenik. A reader menüje továbbra is kizárólag Pokémon.
 
 ## Pokémon worker és push
 
