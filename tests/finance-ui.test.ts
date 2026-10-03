@@ -61,6 +61,17 @@ test('composition pie excludes debt even if an asset and liability share the sam
   const page=load(renderToStaticMarkup(React.createElement(Composition,{snapshot:data})));
   assert.equal(page('.finance-pie-legend li').length,1);assert.match(page('.finance-pie-legend').text(),/100%/);assert.match(page('.finance-composition-debt').text(),/-200/);
 });
+test('eToro editor displays Total Balance prefill with fetch time, explicit save and untouched empty crypto row',()=>{
+  const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
+  for(const [id,name]of [['cashflow-row-35','eToro (stock)'],['cashflow-row-19','crypto (etoro)']] as const)data.accounts.push({id,name,category:'Test',kind:'asset',sort_order:35,turnover_month:null});
+  const market={rates:{date:'2026-10-02',usdHuf:300,eurHuf:350,fetchedAt:'2026-10-02T00:00:00Z'},collectr:null,inflation:null,rateError:null,collectrError:null,inflationError:null,etoro:{usdMinor:98765,fetchedAt:'2026-10-03T09:30:00Z'}};
+  const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market})));
+  assert.equal(page('input[name="amount:cashflow-row-35"]').val(),'987.65');assert.equal(page('select[name="currency:cashflow-row-35"]').val(),'USD');
+  assert.equal(page('input[name="amount:cashflow-row-19"]').val(),'');assert.match(page.text(),/Total Balance/);assert.match(page.text(),/készpénzzel és kriptóval együtt/);assert.match(page.text(),/2026-10-03 09:30 UTC/);
+  assert.equal(page('input[name="confirmed"][required]').length,1);assert.match(page.text(),/mentés Ft-ban/);
+  const unavailable=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market:{...market,etoro:null,etoroError:'eToro nem érhető el'}})));
+  assert.equal(unavailable('input[name="amount:cashflow-row-35"]').val(),'');assert.match(unavailable('[role="alert"]').text(),/eToro nem érhető el/);
+});
 test('new-month LEGO prefill uses live inventory total rather than last month, including a zero total',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
   data.accounts.push({id:'cashflow-row-46',name:'LEGO',category:'Collectibles',kind:'asset',sort_order:46,turnover_month:null});data.balances.push({account_id:'cashflow-row-46',amount_minor:10000,turnover:0,source_cell:null});
@@ -84,7 +95,7 @@ test('finance monthly editor contains complete account fields, explicit confirma
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default,page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances})));
   assert.equal(page('input[name="month"]').val(),'2026-10');assert.equal(page('input[name="revision"]').val(),'0');
   assert.equal(page('input[name^="amount:"]').length,2);assert.equal(page('input[name="confirmed"][required]').length,1);
-  assert.equal(page('input[name="turnover:child"][checked]').length,0);assert.match(page.text(),/nem friss banki adatok/);
+   assert.equal(page('input[name="turnover:child"][checked]').length,0);assert.match(page.text(),/nem visszamenőleges havi adatok/);
 });
 test('finance guards precede database reads; worker installer includes the new schema dependency',()=>{
   const source=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');

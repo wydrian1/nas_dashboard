@@ -4,6 +4,7 @@ import { COLLECTR_PROFILE, validRateDate } from './market-types.ts';
 import type { CollectrValue, ExchangeRates, FinanceMarket } from './market-types.ts';
 import { loadInflation } from './inflation.ts';
 import { boundedText } from './download.ts';
+import { loadEtoroValue,EtoroError } from './etoro.ts';
 
 type Fetcher=typeof fetch;
 export function parseCollectrValue(html:string):number {
@@ -59,10 +60,13 @@ export async function loadCollectrValue(fetcher:Fetcher=fetch,now=Date.now()):Pr
   return pending;
 }
 export async function financeMarket():Promise<FinanceMarket> {
-  const [rates,collectr,inflation]=await Promise.allSettled([loadExchangeRates(),loadCollectrValue(),loadInflation()]);
+  const enabled=process.env.FINANCE_ETORO_ENABLED==='true';
+  const [rates,collectr,inflation,etoro]=await Promise.allSettled([loadExchangeRates(),loadCollectrValue(),loadInflation(),enabled ? loadEtoroValue() : Promise.resolve(null)]);
   return {rates:rates.status==='fulfilled' ? rates.value : null,collectr:collectr.status==='fulfilled' ? collectr.value : null,
     rateError:rates.status==='rejected' ? 'Az árfolyam most nem érhető el. USD-ben menteni ellenőrzött árfolyam nélkül nem lehet; Ft-bevitel használható.' : null,
     collectrError:collectr.status==='rejected' ? 'A Collectr értéke most nem érhető el. A Pokémon-mezőt kézzel töltsd ki; nem másoljuk az előző hónapot.' : null,
+    etoro:etoro.status==='fulfilled' ? etoro.value : null,
+    etoroError:etoro.status==='rejected' ? new EtoroError().message : null,
     inflation:inflation.status==='fulfilled' ? inflation.value : null,
     inflationError:inflation.status==='rejected' ? 'A KSH idősora most nem érhető el. Csak a korábban importált éves inflációval számolunk; új hónapra nem becsülünk adatot.' : null};
 }
