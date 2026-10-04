@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { GAMERUNNER_URL, MYTHGAMES_URL, POTTYOSZEBRA_URL, GRANDLINE_URL, KRODOMCARDS_URL, JATEKNET_URL, REFLEXSHOP_URL, GEEKEMPIRE_URL, TCGFUTAR_URL, SPORTKARTYABOLT_URL, RTCOLLECTORSCLUB_URL, CARDVERSE_URL } from "./types.ts";
+import { GAMERUNNER_URL, MYTHGAMES_URL, POTTYOSZEBRA_URL, GRANDLINE_URL, KRODOMCARDS_URL, JATEKNET_URL, REFLEXSHOP_URL, GEEKEMPIRE_URL, TCGFUTAR_URL, SPORTKARTYABOLT_URL, RTCOLLECTORSCLUB_URL, CARDVERSE_URL, METAGAMES_URL } from "./types.ts";
 
 export function initializePokemon(database: DatabaseSync) {
   database.exec(`
@@ -57,6 +57,7 @@ export function initializePokemon(database: DatabaseSync) {
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('sportkartyabolt','Sport Kártya Bolt',?)").run(SPORTKARTYABOLT_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('rtcollectorsclub','RT Collectors Club',?)").run(RTCOLLECTORSCLUB_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('cardverse','Cardverse',?)").run(CARDVERSE_URL);
+  database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('metagames','Metagames',?)").run(METAGAMES_URL);
   // One-time, non-destructive retirement. Historical rows remain; no SMTP sender exists.
   if(!database.prepare("SELECT 1 FROM pokemon_migrations WHERE id='retire-email-v1'").get()){
     database.exec('BEGIN IMMEDIATE');

@@ -20,7 +20,7 @@ New-Item -ItemType Directory -Path "$release\lib","$release\scripts" -Force | Ou
 Copy-Item -Recurse -LiteralPath 'lib\pokemon' -Destination "$release\lib\pokemon"
 Copy-Item -Recurse -LiteralPath 'lib\mobile' -Destination "$release\lib\mobile"
 Copy-Item -Recurse -LiteralPath 'lib\finance' -Destination "$release\lib\finance"
-foreach ($file in @('db-schema.ts','users.ts','url-policy.ts','feed-download.ts','sql-rows.ts')) { Copy-Item -LiteralPath "lib\$file" -Destination "$release\lib\$file" }
+foreach ($file in @('db-schema.ts','opencode-schema.ts','users.ts','url-policy.ts','feed-download.ts','sql-rows.ts')) { Copy-Item -LiteralPath "lib\$file" -Destination "$release\lib\$file" }
 Copy-Item -LiteralPath 'scripts\Pokemon-Worker.ts' -Destination "$release\scripts\Pokemon-Worker.ts"
 & (Join-Path $node.FullName 'node.exe') 'scripts\Backup-Database.mjs'
 if ($LASTEXITCODE -ne 0) { throw 'Database backup failed.' }

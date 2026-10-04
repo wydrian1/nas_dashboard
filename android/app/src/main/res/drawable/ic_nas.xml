@@ -1,4 +1,4 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#734CF5" android:pathData="M0,0h48v48h-48z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M7,14h5l3,17 5,-17h5l5,17 3,-17h5l-5,23h-6l-5,-15 -5,15h-6z" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/nas_brand"/>
+    <item android:drawable="@drawable/ic_nas_foreground"/>
+</layer-list>

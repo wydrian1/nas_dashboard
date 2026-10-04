@@ -9,6 +9,7 @@ import { load } from 'cheerio';
 import ts from 'typescript';
 import { initializeDatabase } from '../lib/db-schema.ts';
 import { readPokemonSnapshot } from '../lib/pokemon/snapshot.ts';
+import { SHOP_IDS } from '../lib/pokemon/types.ts';
 
 const require = createRequire(import.meta.url);
 const source = (path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -97,13 +98,13 @@ test('notes page is private and keeps existing note/task editors, including comp
   assert.equal(page('textarea[name="content"]').length,2);
 });
 
-test('all twelve shop shortcuts precede the event feed and point to existing shop sections',()=>{
+test('all configured shop shortcuts precede the event feed and point to existing shop sections',()=>{
   const db=new DatabaseSync(':memory:');initializeDatabase(db);
   try{
     const snapshot=readPokemonSnapshot(db),Panel=component('app/pokemon-panel.tsx').default;
     const page=load(renderToStaticMarkup(React.createElement(Panel,{initial:snapshot})));
     assert.equal(page('#pokemon').children().first().attr('aria-label'),'Ugrás a webshophoz');
-    const links=page('[aria-label="Ugrás a webshophoz"] a');assert.equal(links.length,12);
+    const links=page('[aria-label="Ugrás a webshophoz"] a');assert.equal(links.length,SHOP_IDS.length);
     snapshot.shops.forEach(({shop},index)=>{
       assert.equal(links.eq(index).text(),shop.name);assert.equal(links.eq(index).attr('href'),'#shop-'+shop.id);
       assert.equal(page('#shop-'+shop.id).length,1);
@@ -120,10 +121,10 @@ test('reader navigation exposes only Pokemon; reader settings expose only their 
     const snapshot=readPokemonSnapshot(db,false,Date.now(),{email:'reader@example.com',role:'pokemon-reader'});
     const Panel=component('app/pokemon-panel.tsx').default;
     const page=load(renderToStaticMarkup(React.createElement(Panel,{initial:snapshot})));
-    assert.equal(page('.pokemon-panel').length,12);assert.equal(page('input[name="notifications"]').length,12);
+    assert.equal(page('.pokemon-panel').length,SHOP_IDS.length);assert.equal(page('input[name="notifications"]').length,SHOP_IDS.length);
     assert.equal(page('input[name="interval"],input[name="enabled"],input[name="new"],input[name="restock"],input[name="preorder"]').length,0);
     assert.equal(page('a[href="/mobile"],a[href="/config#mobile"]').length,0);assert.doesNotMatch(page.text(),/Kézi vizsgálat/);
-    assert.equal(page('.pokemon-products').length,12);assert.equal(page('.pokemon-events').length,12);
+    assert.equal(page('.pokemon-products').length,SHOP_IDS.length);assert.equal(page('.pokemon-events').length,SHOP_IDS.length);
   }finally{db.close();}
 });
 

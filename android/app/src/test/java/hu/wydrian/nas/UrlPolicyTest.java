@@ -14,6 +14,7 @@ public class UrlPolicyTest {
     }
     @Test public void pushCanOnlyOpenPokemonPageAndKnownShapeOfAnchor() {
         assertEquals("/pokemon#shop-cardverse", UrlPolicy.notificationPath("/pokemon#shop-cardverse"));
+        assertEquals("/pokemon#shop-metagames", UrlPolicy.notificationPath("/pokemon#shop-metagames"));
         for (String path : new String[]{"https://evil.example", "//evil.example", "/api/auth/signout", "/pokemon?redirect=https://evil", "/pokemon#shop-<script>"}) assertEquals("/pokemon", UrlPolicy.notificationPath(path));
     }
     @Test public void externalNeverOpensIntentOrScriptSchemes() {
