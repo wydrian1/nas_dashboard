@@ -19,7 +19,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const allowed = session?.role==='admin';
   const { error } = await searchParams;
   if (!allowed) return <main className="login-shell">
-    <div className="login-card"><img className="brand-mark" src="/brand.svg" alt="Wydrian" width="60" height="60"/><span className="eyebrow">SZEMÉLYES VEZÉRLŐKÖZPONT</span>
+    <div className="login-card"><img className="brand-mark" src="/brand-w-modules.svg" alt="Wydrian" width="60" height="60"/><span className="eyebrow">SZEMÉLYES VEZÉRLŐKÖZPONT</span>
     <h1>Minden egy helyen.</h1><p>Szolgáltatások, hírek és a saját digitális otthonod.<br />Biztonságosan, bárhonnan.</p>
     <form action={login}><button className="google-button"><span className="google-g">G</span>Folytatás Google-fiókkal<span>→</span></button></form>
     {error && <p className="error">A belépés nem sikerült. Csak az admin által engedélyezett Google-fiók használható.</p>}
