@@ -23,6 +23,7 @@ function component(path:string) {
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
     };
     if(name==='@/lib/personal-types')return require('../lib/personal-types.ts');
+    if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
     if(['./personal-actions','./pokemon-actions','./actions'].includes(name))return {};
     throw new Error('Unexpected component dependency: '+name);
   },exports);
