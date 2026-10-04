@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import { pinnedAddressOptions } from "../feed-download.ts";
 import { isPublicAddress } from "../url-policy.ts";
-import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY } from "./types.ts";
+import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY } from "./types.ts";
 
 export class ShopRequestError extends Error {
   retryAfterMs: number;
@@ -76,6 +76,7 @@ export function shopFetchUrl(input:string):URL {
   if(origin==='https://sportkartyabolt.hu')return sportkartyaboltFetchUrl(input);
   if(origin==='https://rtcollectorsclub.com')return rtcollectorsclubFetchUrl(input);
   if(origin==='https://www.cardverse.hu')return cardverseFetchUrl(input);
+  if(origin==='https://www.metagames.hu')return metagamesFetchUrl(input);
   return gamerunnerFetchUrl(input);
 }
 export function pottyoszebraFetchUrl(input:string):URL {
@@ -147,5 +148,14 @@ export function cardverseFetchUrl(input:string):URL {
   if(url.origin!=='https://www.cardverse.hu' || url.username || url.password || url.hash)throw new ShopRequestError('Nem engedélyezett Cardverse-cím.');
   if(url.pathname==='/robots.txt'){if(url.search)throw new ShopRequestError('Érvénytelen robots-cím.');return url;}
   if(url.pathname!==CARDVERSE_CATEGORY || url.searchParams.get('_stock')!=='instock' || url.searchParams.get('_cat')!=='gyujtogetos-kartyajatekok' || url.searchParams.get('_brand')!=='pokemon-tcg' || url.searchParams.get('~1')!=='' || [...url.searchParams.keys()].some(key=>!['_stock','_cat','_brand','~1'].includes(key) || url.searchParams.getAll(key).length!==1))throw new ShopRequestError('Nem engedélyezett Cardverse-szűrő vagy útvonal.');
+  return url;
+}
+export function metagamesFetchUrl(input:string):URL {
+  const url=new URL(input);
+  if(url.origin!=='https://www.metagames.hu' || url.username || url.password || url.hash)throw new ShopRequestError('Nem engedélyezett Metagames-cím.');
+  if(url.pathname==='/robots.txt'){if(url.search)throw new ShopRequestError('Érvénytelen robots-cím.');return url;}
+  if(url.pathname!==METAGAMES_CATEGORY || url.searchParams.get('keszlet')!=='csak-keszleten' || [...url.searchParams.keys()].some(key=>!['keszlet','page'].includes(key) || url.searchParams.getAll(key).length!==1))throw new ShopRequestError('Nem engedélyezett Metagames-kategória vagy készletszűrő.');
+  const page=url.searchParams.get('page');
+  if(page!==null && (!/^(0|[1-9]\d*)$/.test(page) || Number(page)>49))throw new ShopRequestError('Érvénytelen Metagames-lapozás.');
   return url;
 }

@@ -1,0 +1,13 @@
+# Metagames Pokémon TCG
+
+- Kijelölt kategória: `https://www.metagames.hu/gyujtogetos-kartyajatekok/pokemon-tcg?keszlet=csak-keszleten`.
+- A 2026-10-04-i normál `WydrianMonitor` GET ellenőrzés 15 oldalon 178, „Készleten” jelzésű terméket talált. A robots.txt a kategóriát és a normál `page` lapozást engedi; Wicket listener/AJAX, kosár, belépés és checkout nem használható.
+- Saját adapter: `lib/pokemon/adapters/metagames.ts`. A kiválasztott készletszűrő, Pokémon-fejléc, 12-es oldalméret (a HTML option value **0**, a felirat **12**), két lapozó, ismert gombszöveg és az URL `-pid…` azonosítójával egyező `buy…` gomb szükséges. Csak aktív gomb + „Készleten” kerül be; ismeretlen állapot hibát okoz, nem előrendelésnek találgatjuk.
+- A lapozás **nullától indul**. Nincs igazolt összes-termék számláló: az adapter a kezdőoldal utolsóoldal-határából és külön ellenőrzött záróoldalából számol. Minden köztes oldal 12 kártyás; minden azonosító egyedi. A végén a záróoldal és a lista eleje újra ellenőrzött. Megváltozott határ/azonosítók, ismételt oldal vagy hiányos eredmény nem commitolható.
+- A normál monitor-kérés magyar, más egyszerű GET angol lapozófeliratot is kaphat; mindkét megfigyelt feliratkészlet támogatott. Ez nem böngésző-/botmegszemélyesítés: a változatlan `WydrianMonitor` user-agent, DNS-címrögzítés és letöltési védelem érvényesül.
+- A teljesen üres kategória HTML-szerződése még nem igazolt; üres/átalakult lista esetén hibát jelez és megtartja az előző állapotot. Normál teljes, elfogadott vizsgálatból hiányzó termék a meglévő 24 órás eseménylistából azonnal kiesik; történelme megmarad.
+- HUF-ár opcionális; hibánál `null`, nem nulla. Kép csak a saját `/thumb/?path=/upload/images/…` útvonalról, bejárás/egyéb paraméter nélkül. A worker képet és termékoldalt nem tölt le, nem futtat oldalszkriptet és **semmilyen POST/kosárműveletet nem végez**.
+- Alapütemezés 10 perc, meglévő 5–60 perces beállításokkal. Robots-késleltetés legalább 1,5 másodperc, a nagyobb megadott crawl-delay érvényesül; meglévő 3 perces scan-timeout/lease/backoff/Retry-After marad. Az első baseline csendes, régi termékekről nincs tömeges push.
+- A `metagames` shop beillesztése `INSERT OR IGNORE`: meglévő shopbeállításokat, baseline-okat, pénzügyet és telefonokat nem ír át. Az új bolt bekerül az összesített feedbe, a kliensoldali keresőbe, a saját webshop-/értesítésvezérlőkbe és a `/pokemon#shop-metagames` pushhorgonyba.
+
+Élesítés külön tulajdonosi engedéllyel, a dashboard **és a verziózott Pokémon-worker** frissítésével történik (`scripts/Deploy-Pokemon.ps1`), előtte staging build, SQLite-mentés és adatmegőrzési ellenőrzés szükséges. Egy dashboard-only restart nem frissíti a régi immutable workert.

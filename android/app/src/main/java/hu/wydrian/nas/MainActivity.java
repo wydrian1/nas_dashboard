@@ -70,9 +70,8 @@ public class MainActivity extends Activity {
         });
         LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(16), 0, dp(16), 0); toolbar.setBackgroundColor(getColor(R.color.nas_background));
-        TextView brand = new TextView(this); brand.setText("w."); brand.setTextSize(25); brand.setTextColor(getColor(R.color.nas_accent));
-        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); brand.setGravity(Gravity.CENTER);
-        brand.setLetterSpacing(-.08f); brand.setBackgroundResource(R.drawable.nas_brand);
+        android.widget.ImageView brand = new android.widget.ImageView(this); brand.setImageResource(R.drawable.ic_nas);
+        brand.setContentDescription("Wydrian"); brand.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         toolbar.addView(brand, new LinearLayout.LayoutParams(dp(38), dp(38)));
         LinearLayout heading = new LinearLayout(this); heading.setOrientation(LinearLayout.VERTICAL); heading.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this); title.setText("wydrian"); title.setTextSize(17); title.setTextColor(getColor(R.color.nas_text));

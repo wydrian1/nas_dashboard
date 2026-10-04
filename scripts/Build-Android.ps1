@@ -1,3 +1,4 @@
+param([switch]$PublishDownload)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $tools=Join-Path $root '.runtime\android-tools'
@@ -38,6 +39,6 @@ try{
   if($LASTEXITCODE -ne 0){throw 'APK signature verification failed.'}
   # The already deployed protected download route uses this legacy filename.
   # Publish only after successful tests and signature verification; no server restart needed.
-  if($version -ne '1.0.0'){Copy-Item $apk (Join-Path $destination 'Wydrian-NAS-1.0.0.apk')}
+  if($PublishDownload -and $version -ne '1.0.0'){Copy-Item $apk (Join-Path $destination 'Wydrian-NAS-1.0.0.apk')}
   Get-FileHash $apk -Algorithm SHA256 | Select-Object Path,Hash
 }finally{Remove-Item Env:\WYDRIAN_KEYSTORE_PASSWORD -ErrorAction SilentlyContinue}
