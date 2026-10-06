@@ -95,7 +95,7 @@ try{
   & (Join-Path $node.FullName 'node.exe') (Join-Path $project 'scripts\Backup-Database.mjs');if($LASTEXITCODE -ne 0){throw 'Pre-account-change SQLite backup failed.'}
   [IO.File]::WriteAllText((Join-Path $root 'dashboard-before.xml'),$oldDashboardXml,(New-Object Text.UTF8Encoding $false))
   Stop-Service WydrianDashboard;$dashboardStopped=$true
-  [xml]$xml=$oldDashboardXml;$xml.service.serviceaccount.RemoveAll();$username=$xml.CreateElement('username');$username.InnerText='NT SERVICE\WydrianDashboard';[void]$xml.service.serviceaccount.AppendChild($username);[IO.File]::WriteAllText($dashboardXml,$xml.OuterXml,(New-Object Text.UTF8Encoding $false))
+  [xml]$xml=$oldDashboardXml;$accountElement=$xml.SelectSingleNode('/service/serviceaccount');if(-not $accountElement){throw 'Dashboard account XML element missing.'};$accountElement.RemoveAll();$username=$xml.CreateElement('username');$username.InnerText='NT SERVICE\WydrianDashboard';[void]$accountElement.AppendChild($username);[IO.File]::WriteAllText($dashboardXml,$xml.OuterXml,(New-Object Text.UTF8Encoding $false))
   & $sc config WydrianDashboard obj= 'NT SERVICE\WydrianDashboard' | Out-Null;if($LASTEXITCODE -ne 0){throw 'Dashboard non-admin account change failed.'};$accountChanged=$true
   & $sc privs WydrianDashboard SeChangeNotifyPrivilege | Out-Null;if($LASTEXITCODE -ne 0){throw 'Dashboard privilege restriction failed.'}
   $config=@{key=$key;node='node.exe';java='jdk\bin\java.exe';aapt='aapt.exe';signer=$signerHash;dashboardXmlHash=(Get-FileHash $dashboardXml -Algorithm SHA256).Hash.ToLower();workerTemplate=[IO.File]::ReadAllText($workerXml)}

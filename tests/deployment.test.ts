@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {readFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {join} from 'node:path';
 import {deploymentSignature,deploymentResult,deploymentPath} from '../lib/deployment/protocol.ts';
 const key=Buffer.alloc(32).toString('base64'),id='a'.repeat(32),hash='b'.repeat(64);
 const source=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -14,7 +16,10 @@ test('deployment signatures bind id, timestamp and manifest; signed result tampe
 });
 test('deployment package paths reject traversal, alternate streams, reserved names, credentials and other services',()=>{
   for(const path of ['web/BUILD_ID','web/server/app/page.js','worker/lib/pokemon/store.ts','worker/lib/db-schema.ts','apk/release.apk'])assert.equal(deploymentPath(path),true,path);
-  for(const path of ['web/../data/file','web/.env.local','web/C:/x','web/CON.txt','web/server/foo.','worker/scripts/other.ts','worker/lib/admin-helper/client.ts','apk/other.apk','https/file','web//file','web\\file','web/x:y','web/%2e%2e/file','web/foo/../../.env.local'])assert.equal(deploymentPath(path),false,path);
+  for(const path of ['web/../data/file','web/.env.local','web/C:/x','web/CON.txt','web/server/foo.','worker/scripts/other.ts','worker/lib/admin-helper/client.ts','apk/other.apk','https/file','web//file','web\\file','web/x:y','web/%2e%2e/file','web/foo/../../.env.local','web/data.sqlite-shm','web/private.key','web/signing.jks'])assert.equal(deploymentPath(path),false,path);
+});
+test('build output tracing excludes live data, WAL, private runtime/credentials/logs and rollback builds',()=>{
+  const config=source('next.config.ts');assert.match(config,/outputFileTracingExcludes/);for(const pattern of ['./data/**/*','./.runtime/**/*','./logs/**/*','./.env*','./.next-backup-*/**/*'])assert.ok(config.includes(pattern),pattern);
 });
 test('deployment broker is separate, non-admin, replay-safe and cannot invoke a shell or alter service configuration',()=>{
   const native=source('deployment/NasDeployer.cs');assert.match(native,/identity\.IsSystem\|\|new WindowsPrincipal/);assert.match(native,/NT SERVICE\\WydrianDeployer/);assert.match(native,/name!="WydrianDashboard"&&name!="WydrianPokemon"/);assert.match(native,/interrupted-no-retry/);assert.match(native,/jobs\.Exists\(job=>job\.id==id\)/);assert.match(native,/Artifact hash changed/);assert.match(native,/info\.links!=1/);assert.match(native,/Redirected file rejected/);assert.match(native,/APK downgrade\/version reuse rejected/);assert.match(native,/Rollback uncertain/);
@@ -22,4 +27,12 @@ test('deployment broker is separate, non-admin, replay-safe and cannot invoke a 
   assert.match(source('scripts/Install-Deployer.ps1'),/privs \$name SeChangeNotifyPrivilege/);assert.match(source('scripts/Install-Deployer.ps1'),/config WydrianDashboard obj= 'NT SERVICE\\WydrianDashboard'/);assert.match(source('scripts/Install-Deployer.ps1'),/NoPropagateInherit,InheritOnly/);
   assert.match(source('scripts/Prepare-Deployment.mjs'),/Build-Dashboard\.ps1/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--test/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--noEmit/);assert.match(source('scripts/Prepare-Deployment.mjs'),/finally\{writeFileSync\('next-env.d.ts',declarations\)/);
   assert.match(source('docs/admin-helper.md'),/Kizárólag a négy/);assert.match(source('admin-helper/NasAdminHelper.cs'),/owner-confirmed/);
+});
+test('Windows installer retains the serviceaccount XmlElement after clearing its children',()=>{
+  const script=source('scripts/Install-Deployer.ps1'),line=script.split('\n').find(line=>line.includes("$accountElement=$xml.SelectSingleNode('/service/serviceaccount')"))!;
+  assert.ok(line,'use XPath instead of the PowerShell XML adapter which returns a string for an emptied element');
+  if(process.platform!=='win32')return;
+  const operation=line.slice(line.indexOf('$accountElement='),line.indexOf(';[IO.File]::WriteAllText'));
+  const command=`$ErrorActionPreference='Stop';foreach($content in @('<username>LocalSystem</username>','<domain>NT AUTHORITY</domain><user>LocalService</user>','')){[xml]$xml=('<service><id>WydrianDashboard</id><serviceaccount>'+$content+'</serviceaccount></service>');${operation};if($xml.SelectSingleNode('/service/serviceaccount/username').InnerText -ne 'NT SERVICE\\WydrianDashboard'){throw 'Account XML mismatch'};if($xml.SelectSingleNode('/service/id').InnerText -ne 'WydrianDashboard'){throw 'Other XML changed'}}`;
+  const result=spawnSync(join(process.env.WINDIR||'C:\\Windows','System32/WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',timeout:30_000});assert.equal(result.status,0,result.stderr);
 });
