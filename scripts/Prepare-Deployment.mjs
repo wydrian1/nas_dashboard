@@ -12,12 +12,14 @@ function run(exe,args,env={}){const result=spawnSync(exe,args,{cwd:root,encoding
 if(run(git,['status','--porcelain']).trim())throw new Error('Commit intended source before preparing deployment; working tree must be clean');
 const commit=run(git,['rev-parse','HEAD']).trim(),declarations=readFileSync('next-env.d.ts','utf8');
 const branch=run(git,['branch','--show-current']).trim();if(!branch||run(git,['ls-remote','origin','refs/heads/'+branch]).split(/\s+/)[0]!==commit)throw new Error('Push the exact source commit and create/update its PR before preparing deployment');
+if(web)run(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','scripts/Test-Deployment-Access.ps1']);
 try{run(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','scripts/Build-Dashboard.ps1'],{DASHBOARD_BUILD_DIR:'.next-staging',NEXT_TELEMETRY_DISABLED:'1'});}
 finally{writeFileSync('next-env.d.ts',declarations);}
 const testOutput=run(node,['--experimental-strip-types','--test',...readdirSync('tests').filter(name=>name.endsWith('.test.ts')).map(name=>'tests/'+name)]);
 run(node,['node_modules/typescript/bin/tsc','--noEmit']);
 if(apk)run(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','scripts/Build-Android.ps1']);
 if(run(git,['status','--porcelain']).trim())throw new Error('Checks changed tracked source; review before deployment');
+if(web)run(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','scripts/Test-Deployment-Access.ps1']);
 const id=randomBytes(16).toString('hex'),directory=join(root,'.runtime/deployment/inbox',id),files=[];mkdirSync(directory);
 function add(source,path){if(!deploymentPath(path))throw new Error('Package path rejected: '+path);const stat=lstatSync(source);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw new Error('Linked/non-file artifact rejected');const bytes=readFileSync(source);mkdirSync(join(directory,path,'..'),{recursive:true});copyFileSync(source,join(directory,path));files.push({path,size:bytes.length,sha256:digest(bytes)});}
 function tree(source,prefix){for(const entry of readdirSync(source,{withFileTypes:true})){if(entry.isSymbolicLink())throw new Error('Linked artifact rejected');if(prefix==='web'&&entry.name==='cache')continue;const path=join(source,entry.name),target=prefix+'/'+entry.name;if(entry.isDirectory())tree(path,target);else add(path,target);}}
