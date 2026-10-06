@@ -5,7 +5,7 @@ const config: NextConfig = {
   serverExternalPackages: ["node:sqlite"],
   // Runtime data/credentials stay on the server; never trace or ship live WAL,
   // private service state, credentials, archives or previous releases in a build.
-  outputFileTracingExcludes: {"/*": ["./data/**/*", "./.runtime/**/*", "./logs/**/*", "./.env*", "./.next-backup-*/**/*"]},
+  outputFileTracingExcludes: {"/*": ["./data/**/*", "./.runtime/**/*", "./cert/**/*", "./logs/**/*", "./.env*", "./.next-backup-*/**/*"]},
   async headers() {
     return [{ source: "/(.*)", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

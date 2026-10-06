@@ -31,3 +31,6 @@ recovery-key.json
 google-oauth-client.json
 client_secret_*.json
 rclone.conf
+
+# User-supplied TLS certificates and ZeroSSL EAB credentials are private inputs.
+/cert/

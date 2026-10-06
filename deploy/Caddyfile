@@ -1,9 +1,26 @@
 {
-    # IIS owns port 80. Do not bind HTTP or change existing IIS sites.
-    auto_https disable_redirects
+    # Port 80 is handed over from IIS by the owner-approved activation script.
+    # Automatic HTTP redirects and the apex ZeroSSL HTTP-01 challenge use that port.
     admin off
     storage file_system {
         root data/caddy
+    }
+}
+
+# Private snippet contains the ZeroSSL EAB credentials; never publish or serve this file.
+import ../.runtime/secrets/zerossl-apex.caddy
+
+wydrian.hu {
+    import zerossl-apex
+    encode zstd gzip
+    header Strict-Transport-Security "max-age=31536000"
+    @backupInfo path /backup-info.html /backup-privacy.html
+    handle @backupInfo {
+        root * deploy/backup-public
+        file_server
+    }
+    handle {
+        reverse_proxy 127.0.0.1:3000
     }
 }
 

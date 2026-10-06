@@ -1,6 +1,7 @@
 import { createHmac,randomBytes,createHash,timingSafeEqual } from 'node:crypto';
 import { AccessError } from '../users.ts';
 import { ADMIN_TARGETS,DASHBOARD_ORIGIN,type AdminTarget } from './policy.ts';
+import {dashboardSameOrigin} from '../dashboard-origin.ts';
 export { ADMIN_TARGETS,DASHBOARD_ORIGIN,HELPER_ORIGIN,type AdminTarget,type HelperJob,type HelperStatus } from './policy.ts';
 export function adminTarget(value:unknown):AdminTarget {
   if(typeof value!=='string' || !ADMIN_TARGETS.some(target=>target.id===value))throw new AccessError('Nem engedélyezett szolgáltatás.',400);
@@ -22,7 +23,7 @@ export function verifyHelperResponse(status:number,body:string,key:string,role:'
   return timingSafeEqual(Buffer.from(signature,'hex'),Buffer.from(helperResponseSignature(status,body,key,role,nonce),'hex'));
 }
 export async function adminBody(request:Request):Promise<Record<string,unknown>> {
-  if(request.headers.get('origin')!==DASHBOARD_ORIGIN || request.headers.get('sec-fetch-site')==='cross-site')throw new AccessError('Nem engedélyezett eredet.');
+  if(!dashboardSameOrigin(request))throw new AccessError('Nem engedélyezett eredet.');
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json' || Number(request.headers.get('content-length')||0)>1024)throw new AccessError('Érvénytelen kérés.',400);
   const reader=request.body?.getReader();if(!reader)throw new AccessError('Üres kérés.',400);
   let size=0;const chunks:Uint8Array[]=[];
