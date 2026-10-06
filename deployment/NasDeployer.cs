@@ -53,7 +53,27 @@ namespace WydrianDeployment {
   }
   public sealed class Artifact{public string path,sha256;public long size;}
   public sealed class Manifest{public string id,commit;public bool web,worker,apk;public List<Artifact> files=new List<Artifact>();}
-  public sealed class Job{public string id,commit,state,phase;public int errorCode;public long at;}
+  public sealed class Job{public string id,commit,state,phase,failurePhase,failureKind;public int errorCode;public long at;public List<RecoveryError> rollbackErrors;}
+  public sealed class RecoveryError{public string step;public int errorCode;}
+  public sealed class DeploymentFailure:Exception {
+    public readonly string Phase;public readonly List<RecoveryError> RecoveryErrors;
+    public DeploymentFailure(string phase,Exception cause,List<RecoveryError> errors):base("Deployment failed",cause){Phase=phase;RecoveryErrors=errors;}
+    public static int Code(Exception error){var win32=error as Win32Exception;if(win32!=null)return win32.NativeErrorCode;return (error.HResult&unchecked((int)0xffff0000))==unchecked((int)0x80070000)?error.HResult&0xffff:1;}
+    public static string Kind(Exception error){return error is Win32Exception?"win32":error is UnauthorizedAccessException?"access":error is TimeoutException?"timeout":error is IOException?"io":"policy";}
+  }
+  public static class Recovery {
+    public static List<RecoveryError> Run(Services services,bool web,bool worker,Action restoreWeb,Func<bool> webSafe,Action restoreWorker,Func<bool> workerSafe,Action restoreApk){
+      var errors=new List<RecoveryError>();Func<string,Action,bool> attempt=(step,action)=>{try{action();return true;}catch(Exception error){errors.Add(new RecoveryError{step=step,errorCode=DeploymentFailure.Code(error)});return false;}};
+      if(web&&attempt("stop-web",()=>services.Stop("WydrianDashboard")))attempt("restore-web",restoreWeb);
+      if(worker&&attempt("stop-worker",()=>services.Stop("WydrianPokemon")))attempt("restore-worker",restoreWorker);
+      if(restoreApk!=null)attempt("restore-apk",restoreApk);
+      // Every safe previous component gets an independent restart attempt, even
+      // when an APK, hash marker, or another service's restoration failed.
+      if(web)attempt("start-web",()=>{if(!webSafe())throw new InvalidDataException("Previous web not verified");services.Start("WydrianDashboard");});
+      if(worker)attempt("start-worker",()=>{if(!workerSafe())throw new InvalidDataException("Previous worker not verified");services.Start("WydrianPokemon");});
+      return errors;
+    }
+  }
   public sealed class WebSwap {
     readonly string active,previous,incoming,failed;bool oldMoved,newMoved;
     public WebSwap(string current,string old,string next,string rejected){active=current;previous=old;incoming=next;failed=rejected;}
@@ -72,6 +92,29 @@ namespace WydrianDeployment {
     public static void Rewrite(string path,string text){Directories(path);using(var stream=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None)){Handle(stream,path);byte[] bytes=Encoding.UTF8.GetBytes(text);stream.Position=0;stream.Write(bytes,0,bytes.Length);stream.SetLength(bytes.Length);stream.Flush(true);}}
     public static void Atomic(string path,string text){Directories(path);string temp=path+".new";using(var stream=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None)){byte[] bytes=Encoding.UTF8.GetBytes(text);stream.Write(bytes,0,bytes.Length);stream.Flush(true);}if(File.Exists(path))File.Replace(temp,path,null);else File.Move(temp,path);}
     public static void Folder(string path){if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw new InvalidDataException("Reparse target rejected");Directories(Path.Combine(path,"entry"));}
+  }
+  public static class ApkPublisher {
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileEx(string source,string destination,uint flags);
+    public static void Publish(string source,string destination){
+      if(string.Equals(Path.GetFullPath(source),Path.GetFullPath(destination),StringComparison.OrdinalIgnoreCase)||!string.Equals(Path.GetPathRoot(Path.GetFullPath(source)),Path.GetPathRoot(Path.GetFullPath(destination)),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Same-volume distinct files required");
+      using(var incoming=SafeFiles.Read(source))using(var current=SafeFiles.Read(destination)){}
+      // Atomic same-volume name replacement, NOT ReplaceFile's ACL/owner/stream
+      // metadata merge. No COPY_ALLOWED, metadata-error bypass, or added rights.
+      if(!MoveFileEx(source,destination,0x1|0x8))throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
+    public static void Probe(string parent){
+      string root=Path.Combine(parent,"publisher-probe-"+Guid.NewGuid().ToString("N")),folder=Path.Combine(root,"alias");Directory.CreateDirectory(folder);
+      string incoming=Path.Combine(root,"incoming.apk"),current=Path.Combine(folder,"current.apk");
+      try{
+        File.WriteAllText(incoming,"new");File.WriteAllText(current,"old");var actor=WindowsIdentity.GetCurrent().User;
+        // Deliberately deny ACL/owner changes to BOTH files, including implicit
+        // owner rights; publication must work using Modify/delete only.
+        foreach(string file in new[]{incoming,current}){var acl=new FileSecurity();acl.SetAccessRuleProtection(true,false);acl.AddAccessRule(new FileSystemAccessRule(actor,FileSystemRights.Modify,AccessControlType.Allow));acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-3-4"),FileSystemRights.ChangePermissions|FileSystemRights.TakeOwnership,AccessControlType.Deny));File.SetAccessControl(file,acl);}
+        var directory=new DirectorySecurity();directory.SetAccessRuleProtection(true,false);directory.AddAccessRule(new FileSystemAccessRule(actor,FileSystemRights.CreateFiles|FileSystemRights.ReadAttributes|FileSystemRights.Traverse|FileSystemRights.Synchronize|FileSystemRights.ReadPermissions|FileSystemRights.Delete,AccessControlType.Allow));Directory.SetAccessControl(folder,directory);
+        using(var locked=SafeFiles.Read(current)){bool rejected=false;try{Publish(incoming,current);}catch(Win32Exception){rejected=true;}if(!rejected||File.ReadAllText(current)!="old"||File.ReadAllText(incoming)!="new")throw new InvalidDataException("Locked destination must be unchanged");}
+        Publish(incoming,current);if(File.ReadAllText(current)!="new"||File.Exists(incoming))throw new InvalidDataException("Publication failed");
+      }finally{if(File.Exists(incoming))File.Delete(incoming);if(File.Exists(current))File.Delete(current);Directory.Delete(folder);Directory.Delete(root);}
+    }
   }
   public interface Services{void Validate();void Stop(string name);void Start(string name);}
   public sealed class WindowsServices:Services {
@@ -94,7 +137,8 @@ namespace WydrianDeployment {
   public sealed class Operations {
     readonly Dictionary<string,object> config;readonly Services services;readonly string area=Path.Combine(Policy.Project,@".runtime\deployment");
     public Operations(Dictionary<string,object> settings,Services targets){config=settings;services=targets;}
-    string Process(string tool,string arguments,int seconds){string executable=Path.Combine(Policy.Protected,(string)config[tool]);var start=new ProcessStartInfo(executable,arguments){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=Policy.Protected};foreach(string name in new[]{"NODE_OPTIONS","NODE_PATH","JAVA_TOOL_OPTIONS","_JAVA_OPTIONS","JDK_JAVA_OPTIONS"})start.EnvironmentVariables.Remove(name);var text=new StringBuilder();var gate=new object();using(var process=new Process{StartInfo=start}){DataReceivedEventHandler read=(sender,eventArgs)=>{if(eventArgs.Data!=null)lock(gate){if(text.Length<65536)text.AppendLine(eventArgs.Data);}};process.OutputDataReceived+=read;process.ErrorDataReceived+=read;process.Start();process.BeginOutputReadLine();process.BeginErrorReadLine();if(!process.WaitForExit(seconds*1000)){process.Kill();throw new TimeoutException();}process.WaitForExit();if(process.ExitCode!=0)throw new InvalidDataException("Fixed verifier failed");return text.ToString();}}
+    string Process(string tool,string arguments,int seconds){string executable=Path.Combine(Policy.Protected,(string)config[tool]);var start=new ProcessStartInfo(executable,arguments){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=Policy.Protected};foreach(string name in new[]{"NODE_OPTIONS","NODE_PATH","JAVA_TOOL_OPTIONS","_JAVA_OPTIONS","JDK_JAVA_OPTIONS"})start.EnvironmentVariables.Remove(name);var text=new StringBuilder();var gate=new object();using(var process=new Process{StartInfo=start}){DataReceivedEventHandler read=(sender,eventArgs)=>{if(eventArgs.Data!=null)lock(gate){if(text.Length<65536)text.AppendLine(eventArgs.Data);}};process.OutputDataReceived+=read;process.ErrorDataReceived+=(sender,eventArgs)=>{}; // drain stderr; warnings must not corrupt numeric heartbeat/stdout
+      process.Start();process.BeginOutputReadLine();process.BeginErrorReadLine();if(!process.WaitForExit(seconds*1000)){process.Kill();throw new TimeoutException();}process.WaitForExit();if(process.ExitCode!=0)throw new InvalidDataException("Fixed verifier failed");return text.ToString();}}
     static string Quote(string value){return "\""+value+"\"";}
     void Apk(string path){string output=Process("java","-jar "+Quote(Path.Combine(Policy.Protected,"apksigner.jar"))+" verify --print-certs "+Quote(path),60);var signers=Regex.Matches(output,@"Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})");if(signers.Count!=1||!string.Equals(signers[0].Groups[1].Value,(string)config["signer"],StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("APK signer mismatch");string metadata=Process("aapt","dump badging "+Quote(path),60);var package=Regex.Match(metadata,@"(?m)^package: name='hu\.wydrian\.nas' versionCode='(\d+)' versionName='([0-9.]+)'");if(!package.Success)throw new InvalidDataException("APK package mismatch");string existing=Process("aapt","dump badging "+Quote(Path.Combine(Policy.Project,@".runtime\artifacts\Wydrian-NAS-1.0.0.apk")),60);var version=Regex.Match(existing,@"versionCode='(\d+)'");if(!version.Success||int.Parse(package.Groups[1].Value)<int.Parse(version.Groups[1].Value)||(package.Groups[1].Value==version.Groups[1].Value&&Policy.FileHash(path)!=Policy.FileHash(Path.Combine(Policy.Project,@".runtime\artifacts\Wydrian-NAS-1.0.0.apk"))))throw new InvalidDataException("APK downgrade/version reuse rejected");}
     public void Apply(Manifest manifest,string release,Action<string> phase){
@@ -104,22 +148,24 @@ namespace WydrianDeployment {
       if(manifest.apk)Apk(newApk);if(manifest.web){SafeFiles.Folder(active);SafeFiles.Folder(Path.Combine(release,"web"));if(Directory.Exists(previous))throw new InvalidDataException();}
       SafeFiles.Atomic(Path.Combine(release,"previous-worker.xml"),oldWorker);if(manifest.apk){var info=new FileInfo(apk);SafeFiles.Copy(apk,oldApk,new Artifact{size=info.Length,sha256=Policy.FileHash(apk)});}
       phase("backup");Process("node",Quote(Path.Combine(Policy.Protected,"Deployment-Database.mjs"))+" backup",120);
+      string previousBuildHash=manifest.web?Policy.FileHash(Path.Combine(active,"BUILD_ID")):null,previousApkHash=manifest.apk?Policy.FileHash(oldApk):null,currentPhase="activating";
       var swap=new WebSwap(active,previous,Path.Combine(release,"web"),Path.Combine(release,"failed-web"));bool dashboardStopped=false,workerStopped=false,xmlChanged=false,apkChanged=false;
       try{
         phase("activating");if(manifest.web){dashboardStopped=true;services.Stop("WydrianDashboard");}if(manifest.worker){workerStopped=true;services.Stop("WydrianPokemon");}
         if(manifest.web){swap.Activate();string cache=Path.Combine(active,"cache");Directory.CreateDirectory(cache);var acl=Directory.GetAccessControl(cache);acl.AddAccessRule(new FileSystemAccessRule(@"NT SERVICE\WydrianDashboard",FileSystemRights.Modify,InheritanceFlags.ContainerInherit|InheritanceFlags.ObjectInherit,PropagationFlags.None,AccessControlType.Allow));Directory.SetAccessControl(cache,acl);}
         if(manifest.worker){var xml=new XmlDocument{XmlResolver=null};xml.LoadXml((string)config["workerTemplate"]);xml.SelectSingleNode("/service/arguments").InnerText="--env-file="+Quote(Path.Combine(Policy.Project,".env.local"))+" --experimental-strip-types "+Quote(Path.Combine(release,@"worker\scripts\Pokemon-Worker.ts"));xmlChanged=true;SafeFiles.Rewrite(workerXml,xml.OuterXml);SafeFiles.Atomic(workerHash,Policy.FileHash(workerXml));}
         long started=Policy.Now();if(manifest.web)services.Start("WydrianDashboard");if(manifest.worker)services.Start("WydrianPokemon");
-        phase("health");if(manifest.web){bool ready=false;for(int i=0;i<25;i++){try{var request=(HttpWebRequest)WebRequest.Create("http://127.0.0.1:3000/");request.Timeout=2000;request.AllowAutoRedirect=false;using(var response=(HttpWebResponse)request.GetResponse())if(response.StatusCode==HttpStatusCode.OK){ready=true;break;}}catch{}Thread.Sleep(1000);}if(!ready)throw new InvalidDataException("Dashboard health failed");}
+        currentPhase="health";phase(currentPhase);if(manifest.web){bool ready=false;for(int i=0;i<25;i++){try{var request=(HttpWebRequest)WebRequest.Create("http://127.0.0.1:3000/");request.Timeout=2000;request.AllowAutoRedirect=false;using(var response=(HttpWebResponse)request.GetResponse())if(response.StatusCode==HttpStatusCode.OK){ready=true;break;}}catch{}Thread.Sleep(1000);}if(!ready)throw new InvalidDataException("Dashboard health failed");}
         if(manifest.worker){bool ready=false;for(int i=0;i<20;i++){long heartbeat;if(long.TryParse(Process("node",Quote(Path.Combine(Policy.Protected,"Deployment-Database.mjs"))+" worker",30).Trim(),out heartbeat)&&heartbeat>=started){ready=true;break;}Thread.Sleep(1000);}if(!ready)throw new InvalidDataException("Worker heartbeat failed");}
         // Same-volume atomic replacement from the broker-owned release directory:
         // no write/read/delete grant to unrelated artifacts or new alias-directory files.
-        if(manifest.apk){string temporary=Path.Combine(release,"publish.apk");var info=new FileInfo(newApk);SafeFiles.Copy(newApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(newApk)});apkChanged=true;File.Replace(temporary,apk,null);}
-        phase("verified");
-      }catch{
-        try{phase("rollback");}catch{}bool restored=true;
-        try{if(manifest.web&&dashboardStopped){services.Stop("WydrianDashboard");swap.Rollback();}if(manifest.worker&&workerStopped){services.Stop("WydrianPokemon");if(xmlChanged){SafeFiles.Rewrite(workerXml,oldWorker);SafeFiles.Atomic(workerHash,oldHash);}}if(apkChanged){string temporary=Path.Combine(release,"rollback.apk");var info=new FileInfo(oldApk);SafeFiles.Copy(oldApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(oldApk)});File.Replace(temporary,apk,null);}if(dashboardStopped)services.Start("WydrianDashboard");if(workerStopped)services.Start("WydrianPokemon");}catch{restored=false;}
-        if(!restored)throw new IOException("Rollback uncertain; do not retry automatically");throw;
+        if(manifest.apk){currentPhase="publishing-apk";phase(currentPhase);string temporary=Path.Combine(release,"publish.apk");var info=new FileInfo(newApk);SafeFiles.Copy(newApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(newApk)});ApkPublisher.Publish(temporary,apk);apkChanged=true;if(Policy.FileHash(apk)!=Policy.FileHash(newApk))throw new InvalidDataException("Published APK hash mismatch");}
+        currentPhase="verified";phase(currentPhase);
+      }catch(Exception original){
+        try{phase("rollback");}catch{}
+        Action restoreApk=null;if(manifest.apk)restoreApk=()=>{if(!apkChanged&&Policy.FileHash(apk)==previousApkHash)return;string temporary=Path.Combine(release,"rollback.apk");var info=new FileInfo(oldApk);SafeFiles.Copy(oldApk,temporary,new Artifact{size=info.Length,sha256=previousApkHash});ApkPublisher.Publish(temporary,apk);if(Policy.FileHash(apk)!=previousApkHash)throw new InvalidDataException("Previous APK not verified");};
+        var errors=Recovery.Run(services,dashboardStopped,workerStopped,()=>swap.Rollback(),()=>Policy.FileHash(Path.Combine(active,"BUILD_ID"))==previousBuildHash,()=>{if(xmlChanged){SafeFiles.Rewrite(workerXml,oldWorker);SafeFiles.Atomic(workerHash,oldHash);}},()=>Policy.FileHash(workerXml)==oldHash,restoreApk);
+        throw new DeploymentFailure(currentPhase,original,errors);
       }
     }
   }
@@ -130,7 +176,7 @@ namespace WydrianDeployment {
     void Audit(Job job){string path=Path.Combine(data,"audit-"+DateTime.UtcNow.ToString("yyyy-MM")+".jsonl");if(File.Exists(path)&&new FileInfo(path).Length>16*1024*1024)throw new IOException("Audit full");using(var stream=new FileStream(path,FileMode.Append,FileAccess.Write,FileShare.Read)){byte[] bytes=Encoding.UTF8.GetBytes(Policy.Json().Serialize(job)+"\n");stream.Write(bytes,0,bytes.Length);stream.Flush(true);}}
     void Change(Job job,string state,string phase){job.state=state;job.phase=phase;job.at=Policy.Now();Audit(job);Save();string payload=Policy.Json().Serialize(job);SafeFiles.Atomic(Path.Combine(area,@"results",job.id+".json"),Policy.Json().Serialize(new{payload,signature=Policy.Sign(key,"result\n"+payload)}));}
     protected override void OnStart(string[] args){using(var identity=WindowsIdentity.GetCurrent())if(identity.IsSystem||new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)||!string.Equals(identity.Name,@"NT SERVICE\WydrianDeployer",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Dedicated non-admin identity required");
-      var config=Policy.Parse(SafeFiles.Text(Path.Combine(Policy.Protected,"config.json"),65536));key=(string)config["key"];Policy.Sign(key,"startup");operations=new Operations(config,new WindowsServices());string state=Path.Combine(data,"state.json");jobs=File.Exists(state)?Policy.Json().Deserialize<List<Job>>(SafeFiles.Text(state,4*1024*1024)):new List<Job>();if(jobs==null||jobs.Count>500)throw new InvalidDataException();foreach(var job in jobs){if(job==null||!Policy.Id.IsMatch(job.id??""))throw new InvalidDataException();if(job.state=="accepted"||job.state=="running")Change(job,"uncertain","interrupted-no-retry");}Save();timer=new Timer(Tick,null,1000,2000);
+      var config=Policy.Parse(SafeFiles.Text(Path.Combine(Policy.Protected,"config.json"),65536));key=(string)config["key"];Policy.Sign(key,"startup");ApkPublisher.Probe(Path.Combine(area,"releases"));string proof=Policy.Json().Serialize(new{id="publisher-preflight",state="succeeded",at=Policy.Now()});SafeFiles.Atomic(Path.Combine(area,@"results\publisher-preflight.json"),Policy.Json().Serialize(new{payload=proof,signature=Policy.Sign(key,"result\n"+proof)}));operations=new Operations(config,new WindowsServices());string state=Path.Combine(data,"state.json");jobs=File.Exists(state)?Policy.Json().Deserialize<List<Job>>(SafeFiles.Text(state,4*1024*1024)):new List<Job>();if(jobs==null||jobs.Count>500)throw new InvalidDataException();foreach(var job in jobs){if(job==null||!Policy.Id.IsMatch(job.id??""))throw new InvalidDataException();if(job.state=="accepted"||job.state=="running")Change(job,"uncertain","interrupted-no-retry");}Save();timer=new Timer(Tick,null,1000,2000);
     }
     protected override void OnStop(){if(timer!=null)timer.Dispose();}
     void Tick(object ignored){if(!Monitor.TryEnter(gate))return;try{SafeFiles.Folder(Path.Combine(area,"inbox"));string[] directories=Directory.GetDirectories(Path.Combine(area,"inbox"));if(directories.Length>500)return;foreach(string directory in directories){string id=Path.GetFileName(directory);if(!Policy.Id.IsMatch(id)||jobs.Exists(job=>job.id==id)||!File.Exists(Path.Combine(directory,"request.json")))continue;Run(directory,id);}}catch{try{EventLog.WriteEntry("Deployment broker failed closed; inspect audit/state. No automatic job retry.",EventLogEntryType.Error);}catch{}}finally{Monitor.Exit(gate);}}
@@ -140,7 +186,7 @@ namespace WydrianDeployment {
         string text=SafeFiles.Text(Path.Combine(directory,"manifest.json"),4*1024*1024);if(Policy.Digest(Encoding.UTF8.GetBytes(text))!=hash)throw new InvalidDataException("Manifest changed");var manifest=Policy.Manifest(text,id);job=new Job{id=id,commit=manifest.commit};jobs.Add(job);if(jobs.Count>500)throw new IOException("State capacity exhausted");Change(job,"accepted","authenticated");
         string release=Path.Combine(area,@"releases",id);if(Directory.Exists(release))throw new InvalidDataException("Existing release rejected");Directory.CreateDirectory(release);Change(job,"running","copying");foreach(var file in manifest.files)SafeFiles.Copy(Path.Combine(directory,file.path.Replace('/',Path.DirectorySeparatorChar)),Path.Combine(release,file.path.Replace('/',Path.DirectorySeparatorChar)),file);
         operations.Apply(manifest,release,phase=>Change(job,"running",phase));Change(job,"succeeded","complete");
-      }catch(Exception error){if(job==null){job=new Job{id=id,commit="",errorCode=1};jobs.Add(job);}else job.errorCode=error is Win32Exception?((Win32Exception)error).NativeErrorCode:1;Change(job,error is IOException&&error.Message.StartsWith("Rollback uncertain")?"uncertain":"failed",job.phase??"rejected");}
+      }catch(Exception error){if(job==null){job=new Job{id=id,commit=""};jobs.Add(job);}var deployment=error as DeploymentFailure;var cause=deployment==null?error:deployment.InnerException;job.errorCode=DeploymentFailure.Code(cause);job.failureKind=DeploymentFailure.Kind(cause);job.failurePhase=deployment==null?job.phase??"rejected":deployment.Phase;job.rollbackErrors=deployment==null?null:deployment.RecoveryErrors;Change(job,deployment!=null&&deployment.RecoveryErrors.Count>0?"uncertain":"failed",job.phase??"rejected");}
     }
     public static int Main(string[] args){
 #if DEPLOYER_TESTS
@@ -151,6 +197,13 @@ namespace WydrianDeployment {
   }
 #if DEPLOYER_TESTS
   public static class SelfTests {
+    sealed class FakeServices:Services {
+      public readonly List<string> calls=new List<string>();public string fail;
+      public void Validate(){}
+      public void Stop(string name){Call("stop:"+name);}
+      public void Start(string name){Call("start:"+name);}
+      void Call(string operation){calls.Add(operation);if(operation==fail)throw new Win32Exception(5);}
+    }
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateHardLink(string file,string existing,IntPtr reserved);
     static int checks;static void Assert(bool value){checks++;if(!value)throw new Exception("Check "+checks);}
     static void Reject(Action action){bool failed=false;try{action();}catch{failed=true;}Assert(failed);}
@@ -159,10 +212,18 @@ namespace WydrianDeployment {
       foreach(string path in new[]{"web/../data/file","web/.env.local","web/C:/x","web/CON.txt","web/server/foo.","worker/scripts/other.ts","worker/lib/admin-helper/client.ts","apk/other.apk","https/file","web//file",@"web\file","web/x:y","web/data.sqlite-shm","web/private.key","web/signing.jks"})Assert(!Policy.PathAllowed(path));
       string id=new string('a',32),key=Convert.ToBase64String(new byte[32]),hash=new string('b',64);Assert(Policy.Sign(key,"deploy\n"+id+"\n1791000000000\n"+hash)=="9efa7cd7962549d5830a9bb3df995c15a42446f0c24f9b1208f3d063b88f6d27");
       var manifest=new{version=1,id,commit=new string('c',40),checks=new{tests=true,typecheck=true,build=true,worker=true,android=true},files=new[]{new{path="apk/release.apk",size=1,sha256=hash}}};var valid=Policy.Json().Serialize(manifest);Assert(Policy.Manifest(valid,id).apk);Reject(()=>Policy.Manifest(valid.Replace("\"tests\":true","\"tests\":false"),id));Reject(()=>Policy.Manifest(valid.Replace("apk/release.apk","web/../file"),id));Reject(()=>Policy.Manifest(valid.Replace("apk/release.apk","worker/lib/pokemon/store.ts"),id));Reject(()=>Policy.Manifest(valid.Replace("\"version\":1","\"command\":\"whoami\",\"version\":1"),id));Reject(()=>Policy.Manifest(valid,new string('d',32)));Reject(()=>new WindowsServices().Stop("WydrianHttps"));Reject(()=>new WindowsServices().Start("WydrianOpenCodeGateway"));
+      var targets=new FakeServices();int restored=0;var errors=Recovery.Run(targets,true,true,()=>restored++,()=>true,()=>restored++,()=>true,()=>{throw new Win32Exception(5);});Assert(restored==2);Assert(errors.Count==1&&errors[0].step=="restore-apk"&&errors[0].errorCode==5);Assert(targets.calls.Contains("start:WydrianDashboard")&&targets.calls.Contains("start:WydrianPokemon"));
+      foreach(string failure in new[]{"stop:WydrianDashboard","stop:WydrianPokemon","start:WydrianDashboard","start:WydrianPokemon"}){targets=new FakeServices{fail=failure};errors=Recovery.Run(targets,true,true,()=>{},()=>true,()=>{},()=>true,()=>{throw new IOException();});Assert(errors.Count>=2);Assert(targets.calls.Contains("start:WydrianDashboard")&&targets.calls.Contains("start:WydrianPokemon"));}
+      targets=new FakeServices();errors=Recovery.Run(targets,true,true,()=>{throw new IOException();},()=>false,()=>{},()=>true,null);Assert(!targets.calls.Contains("start:WydrianDashboard"));Assert(targets.calls.Contains("start:WydrianPokemon"));Assert(errors.Exists(error=>error.step=="start-web"));
+      targets=new FakeServices();errors=Recovery.Run(targets,true,true,()=>{},()=>true,()=>{throw new IOException();},()=>false,null);Assert(targets.calls.Contains("start:WydrianDashboard"));Assert(!targets.calls.Contains("start:WydrianPokemon"));
+      targets=new FakeServices();errors=Recovery.Run(targets,false,false,()=>{throw new Exception();},()=>false,()=>{throw new Exception();},()=>false,()=>{throw new IOException();});Assert(targets.calls.Count==0&&errors.Count==1);
+      Assert(DeploymentFailure.Code(new UnauthorizedAccessException())==5);Assert(DeploymentFailure.Code(new Win32Exception(32))==32);
       string temporary=Path.Combine(Policy.Project,@".runtime\deployer-build","test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);try{
         string artifact=Path.Combine(temporary,"source.bin"),copy=Path.Combine(temporary,"copy.bin");File.WriteAllText(artifact,"approved");SafeFiles.Copy(artifact,copy,new Artifact{size=new FileInfo(artifact).Length,sha256=Policy.FileHash(artifact)});Assert(Policy.FileHash(copy)==Policy.FileHash(artifact));Reject(()=>SafeFiles.Copy(artifact,Path.Combine(temporary,"tampered.bin"),new Artifact{size=new FileInfo(artifact).Length,sha256=new string('0',64)}));Assert(CreateHardLink(Path.Combine(temporary,"linked.bin"),artifact,IntPtr.Zero));Reject(()=>SafeFiles.Read(artifact));File.Delete(Path.Combine(temporary,"linked.bin"));
         string active=Path.Combine(temporary,"active"),previous=Path.Combine(temporary,"previous"),incoming=Path.Combine(temporary,"incoming"),failed=Path.Combine(temporary,"failed");Directory.CreateDirectory(active);Directory.CreateDirectory(incoming);File.WriteAllText(Path.Combine(active,"BUILD_ID"),"old");File.WriteAllText(Path.Combine(incoming,"BUILD_ID"),"new");var swap=new WebSwap(active,previous,incoming,failed);swap.Activate();Assert(File.ReadAllText(Path.Combine(active,"BUILD_ID"))=="new");Assert(File.ReadAllText(Path.Combine(previous,"BUILD_ID"))=="old");swap.Rollback();Assert(File.ReadAllText(Path.Combine(active,"BUILD_ID"))=="old");Assert(File.ReadAllText(Path.Combine(failed,"BUILD_ID"))=="new");
         var refusal=new WebSwap(active,failed,failed,previous);Reject(()=>refusal.Activate());Assert(File.ReadAllText(Path.Combine(active,"BUILD_ID"))=="old");
+        ApkPublisher.Probe(temporary);Assert(true); // real locked + restricted-ACL file replacement, no live alias
+        Reject(()=>ApkPublisher.Publish(artifact,artifact));Reject(()=>ApkPublisher.Publish(artifact,@"C:\other-volume.apk"));
       }finally{Directory.Delete(temporary,true);}
       Console.WriteLine("Deployer native self-tests: "+checks+" passed; no service was touched.");return 0;
     }catch(Exception error){Console.Error.WriteLine(error.Message);return 1;}}

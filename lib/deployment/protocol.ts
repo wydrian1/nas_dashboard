@@ -10,7 +10,7 @@ export function deploymentResult(text:string,key:string){
   const envelope=JSON.parse(text);if(typeof envelope.payload!=='string'||!SHA256.test(envelope.signature))throw new Error('Invalid deployment result');
   const expected=createHmac('sha256',Buffer.from(key,'base64')).update('result\n'+envelope.payload).digest();
   if(!timingSafeEqual(expected,Buffer.from(envelope.signature,'hex')))throw new Error('Unauthenticated deployment result');
-  return JSON.parse(envelope.payload) as {id:string;commit:string;state:string;phase:string;errorCode:number;at:number};
+  return JSON.parse(envelope.payload) as {id:string;commit:string;state:string;phase:string;errorCode:number;at:number;failurePhase?:string;failureKind?:string;rollbackErrors?:Array<{step:string;errorCode:number}>};
 }
 export function deploymentPath(path:string):boolean {
   if(path.length>240||! /^[A-Za-z0-9_@()+.,/\[\]-]+$/.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..'||/[. ]$/.test(part)||/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))return false;

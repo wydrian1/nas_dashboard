@@ -18,6 +18,14 @@ Tulajdonosi felhatalmazás: web + Pokémon-worker + meglévő kulccsal aláírt 
 4. Konzisztens, integrity/FK-ellenőrzött SQLite-mentés, korábbi build/worker-XML/APK megőrzése. Csak érintett dashboard/worker stop/start, localhost web-health és friss worker-heartbeat. Hibánál komponensrollback, **soha nem teljes adatbázis-visszaállítás**.
 5. Flush-olt audit/állapot és HMAC-os eredmény. Félbeszakadt munka `uncertain`, soha nem fut újra automatikusan. 500 job vagy 16 MiB havi audit fölött admin-karbantartás kell; nincs automatikus előzménytörlés. A buildküldő teszt-attesztációja bizalmi határ: a delegált helyi operátor forráskódot telepíthet, a broker nem bizonyítja függetlenül, hogy a tesztek lefutottak. Ez nem teljes helyi támadó elleni Windows-sandbox.
 
+### APK és hibás élesítés helyreállítása
+
+Az APK-publikálás az élesítő saját, dashboard által olvasható kiadásából **ugyanazon köteten, atomi `MoveFileExW(REPLACE_EXISTING | WRITE_THROUGH)` átnevezést** használ. Nem másol át kötetek között, és nem próbálja meg a régi fájl tulajdonosi/ACL/stream-metaadatait a `ReplaceFile` API-val összeolvasztani. A kész fájl a védett kiadás jogosultságait tartja meg; nincs új adminjog, szélesebb artifact-jog vagy nem-atomi felülírás. Megosztási zárolás esetén a régi APK érintetlen marad.
+
+Induláskor a **tényleges nem-admin szolgáltatásfiók** saját, elkülönített fájlokon publikálási próbát végez: mindkét fájlon tiltott ACL/tulajdonos-módosítás, szűk célkönyvtár-jogok, zárolt cél elutasítása és sikeres atomi csere. A próba nem érinti az éles APK-t vagy szolgáltatásokat; hiba esetén az élesítő el sem indul. Az eredmény hitelesített `results/publisher-preflight.json`.
+
+A rollback minden komponenst külön próbál helyreállítani. APK-, marker-, audit- vagy más szolgáltatáshiba **nem hagyja ki** a többi biztonságosan visszaállított szolgáltatás újraindítását. A dashboard csak az ellenőrzött korábbi build-ID, a worker csak a korábbi XML-hash egyezése esetén indulhat újra; nem indul vakon az új, hibás kiadás. Eredményben az eredeti hibafázis, hibakategória, Windows/HRESULT hibakód és a sikertelen rollback-lépések szerepelnek, nem nyers exception-szöveg vagy titok. Hiányos helyreállítás továbbra is `uncertain`, automatikus újrapróbálás nélkül.
+
 ## Egyszeri telepítés / visszavonás
 
 `scripts/Test-Deployer.ps1`, teljes `npm test`, typecheck, `.next-staging` production build; majd egyszeri tulajdonosi UAC-val `scripts/Install-Deployer.ps1 -ExpectedBinarySha256 <tesztelt hash>`. Nem ír felül meglévő broker-telepítést. Mentés után a dashboard fiókját átállítja és a jelenlegi éles buildet indítja újra; más szolgáltatás nem indul újra. Telepítési hiba esetén korábbi dashboard-fiók/XML visszaállítása és broker letiltása; csak saját ACL-grant eltávolítás, nincs más adminváltozás visszavonása.
