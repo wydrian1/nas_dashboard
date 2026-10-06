@@ -13,7 +13,7 @@ export function deploymentResult(text:string,key:string){
   return JSON.parse(envelope.payload) as {id:string;commit:string;state:string;phase:string;errorCode:number;at:number};
 }
 export function deploymentPath(path:string):boolean {
-  if(path.length>240||! /^[A-Za-z0-9_@()+.,/-]+$/.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..'||/[. ]$/.test(part)||/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))return false;
+  if(path.length>240||! /^[A-Za-z0-9_@()+.,/\[\]-]+$/.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..'||/[. ]$/.test(part)||/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))return false;
   if(path.split('/').some(part=>/^\.env(?:\.|$)/i.test(part))||/\.(?:sqlite(?:[-.].*)?|jks|keystore|pem|key|p12|pfx|nasbackup(?:\..*)?)$/i.test(path))return false;
   return path.startsWith('web/')||/^worker\/(?:lib\/(?:pokemon\/|mobile\/|finance\/).+\.ts|lib\/(?:db-schema|opencode-schema|users|url-policy|feed-download|sql-rows)\.ts|scripts\/Pokemon-Worker\.ts)$/.test(path)||path==='apk/release.apk';
 }

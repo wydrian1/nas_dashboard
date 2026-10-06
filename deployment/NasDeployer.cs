@@ -33,7 +33,7 @@ namespace WydrianDeployment {
     public static void Fields(Dictionary<string,object> data,params string[] keys){if(data==null||data.Count!=keys.Length)throw new InvalidDataException();foreach(var key in keys)if(!data.ContainsKey(key))throw new InvalidDataException();}
     public static Dictionary<string,object> Parse(string text){return Json().DeserializeObject(text) as Dictionary<string,object>;}
     public static bool PathAllowed(string path){
-      if(path==null||path.Length>240||!Regex.IsMatch(path,"^[A-Za-z0-9_@()+.,/-]+$")||Regex.IsMatch(path,@"\.(?:sqlite(?:[-.].*)?|jks|keystore|pem|key|p12|pfx|nasbackup(?:\..*)?)$",RegexOptions.IgnoreCase))return false;
+      if(path==null||path.Length>240||!Regex.IsMatch(path,@"^[A-Za-z0-9_@()+.,/\[\]-]+$")||Regex.IsMatch(path,@"\.(?:sqlite(?:[-.].*)?|jks|keystore|pem|key|p12|pfx|nasbackup(?:\..*)?)$",RegexOptions.IgnoreCase))return false;
       foreach(string part in path.Split('/'))if(part==""||part=="."||part==".."||Regex.IsMatch(part,@"[. ]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)|^\.env(?:\.|$)",RegexOptions.IgnoreCase))return false;
       return path.StartsWith("web/",StringComparison.Ordinal)||Regex.IsMatch(path,@"^worker/(?:lib/(?:pokemon/|mobile/|finance/).+\.ts|lib/(?:db-schema|opencode-schema|users|url-policy|feed-download|sql-rows)\.ts|scripts/Pokemon-Worker\.ts)$")||path=="apk/release.apk";
     }
@@ -112,11 +112,13 @@ namespace WydrianDeployment {
         long started=Policy.Now();if(manifest.web)services.Start("WydrianDashboard");if(manifest.worker)services.Start("WydrianPokemon");
         phase("health");if(manifest.web){bool ready=false;for(int i=0;i<25;i++){try{var request=(HttpWebRequest)WebRequest.Create("http://127.0.0.1:3000/");request.Timeout=2000;request.AllowAutoRedirect=false;using(var response=(HttpWebResponse)request.GetResponse())if(response.StatusCode==HttpStatusCode.OK){ready=true;break;}}catch{}Thread.Sleep(1000);}if(!ready)throw new InvalidDataException("Dashboard health failed");}
         if(manifest.worker){bool ready=false;for(int i=0;i<20;i++){long heartbeat;if(long.TryParse(Process("node",Quote(Path.Combine(Policy.Protected,"Deployment-Database.mjs"))+" worker",30).Trim(),out heartbeat)&&heartbeat>=started){ready=true;break;}Thread.Sleep(1000);}if(!ready)throw new InvalidDataException("Worker heartbeat failed");}
-        if(manifest.apk){string temporary=Path.Combine(Policy.Project,@".runtime\artifacts\delegated-"+manifest.id+".apk");var info=new FileInfo(newApk);SafeFiles.Copy(newApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(newApk)});apkChanged=true;File.Replace(temporary,apk,null);}
+        // Same-volume atomic replacement from the broker-owned release directory:
+        // no write/read/delete grant to unrelated artifacts or new alias-directory files.
+        if(manifest.apk){string temporary=Path.Combine(release,"publish.apk");var info=new FileInfo(newApk);SafeFiles.Copy(newApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(newApk)});apkChanged=true;File.Replace(temporary,apk,null);}
         phase("verified");
       }catch{
         try{phase("rollback");}catch{}bool restored=true;
-        try{if(manifest.web&&dashboardStopped){services.Stop("WydrianDashboard");swap.Rollback();}if(manifest.worker&&workerStopped){services.Stop("WydrianPokemon");if(xmlChanged){SafeFiles.Rewrite(workerXml,oldWorker);SafeFiles.Atomic(workerHash,oldHash);}}if(apkChanged){string temporary=Path.Combine(Policy.Project,@".runtime\artifacts\rollback-"+manifest.id+".apk");var info=new FileInfo(oldApk);SafeFiles.Copy(oldApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(oldApk)});File.Replace(temporary,apk,null);}if(dashboardStopped)services.Start("WydrianDashboard");if(workerStopped)services.Start("WydrianPokemon");}catch{restored=false;}
+        try{if(manifest.web&&dashboardStopped){services.Stop("WydrianDashboard");swap.Rollback();}if(manifest.worker&&workerStopped){services.Stop("WydrianPokemon");if(xmlChanged){SafeFiles.Rewrite(workerXml,oldWorker);SafeFiles.Atomic(workerHash,oldHash);}}if(apkChanged){string temporary=Path.Combine(release,"rollback.apk");var info=new FileInfo(oldApk);SafeFiles.Copy(oldApk,temporary,new Artifact{size=info.Length,sha256=Policy.FileHash(oldApk)});File.Replace(temporary,apk,null);}if(dashboardStopped)services.Start("WydrianDashboard");if(workerStopped)services.Start("WydrianPokemon");}catch{restored=false;}
         if(!restored)throw new IOException("Rollback uncertain; do not retry automatically");throw;
       }
     }
@@ -153,7 +155,7 @@ namespace WydrianDeployment {
     static int checks;static void Assert(bool value){checks++;if(!value)throw new Exception("Check "+checks);}
     static void Reject(Action action){bool failed=false;try{action();}catch{failed=true;}Assert(failed);}
     public static int Run(){try{
-      foreach(string path in new[]{"web/BUILD_ID","web/server/app/page.js","worker/lib/pokemon/store.ts","worker/lib/finance/schema.ts","apk/release.apk"})Assert(Policy.PathAllowed(path));
+      foreach(string path in new[]{"web/BUILD_ID","web/server/app/page.js","web/server/app/api/auth/[...nextauth]/route/app-paths-manifest.json","worker/lib/pokemon/store.ts","worker/lib/finance/schema.ts","apk/release.apk"})Assert(Policy.PathAllowed(path));
       foreach(string path in new[]{"web/../data/file","web/.env.local","web/C:/x","web/CON.txt","web/server/foo.","worker/scripts/other.ts","worker/lib/admin-helper/client.ts","apk/other.apk","https/file","web//file",@"web\file","web/x:y","web/data.sqlite-shm","web/private.key","web/signing.jks"})Assert(!Policy.PathAllowed(path));
       string id=new string('a',32),key=Convert.ToBase64String(new byte[32]),hash=new string('b',64);Assert(Policy.Sign(key,"deploy\n"+id+"\n1791000000000\n"+hash)=="9efa7cd7962549d5830a9bb3df995c15a42446f0c24f9b1208f3d063b88f6d27");
       var manifest=new{version=1,id,commit=new string('c',40),checks=new{tests=true,typecheck=true,build=true,worker=true,android=true},files=new[]{new{path="apk/release.apk",size=1,sha256=hash}}};var valid=Policy.Json().Serialize(manifest);Assert(Policy.Manifest(valid,id).apk);Reject(()=>Policy.Manifest(valid.Replace("\"tests\":true","\"tests\":false"),id));Reject(()=>Policy.Manifest(valid.Replace("apk/release.apk","web/../file"),id));Reject(()=>Policy.Manifest(valid.Replace("apk/release.apk","worker/lib/pokemon/store.ts"),id));Reject(()=>Policy.Manifest(valid.Replace("\"version\":1","\"command\":\"whoami\",\"version\":1"),id));Reject(()=>Policy.Manifest(valid,new string('d',32)));Reject(()=>new WindowsServices().Stop("WydrianHttps"));Reject(()=>new WindowsServices().Start("WydrianOpenCodeGateway"));

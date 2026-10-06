@@ -15,7 +15,7 @@ test('deployment signatures bind id, timestamp and manifest; signed result tampe
   assert.equal(deploymentResult(JSON.stringify({payload,signature}),key).state,'succeeded');assert.throws(()=>deploymentResult(JSON.stringify({payload:payload.replace('succeeded','failed'),signature}),key));assert.throws(()=>deploymentResult(JSON.stringify({payload,signature:'a'}),key));
 });
 test('deployment package paths reject traversal, alternate streams, reserved names, credentials and other services',()=>{
-  for(const path of ['web/BUILD_ID','web/server/app/page.js','worker/lib/pokemon/store.ts','worker/lib/db-schema.ts','apk/release.apk'])assert.equal(deploymentPath(path),true,path);
+  for(const path of ['web/BUILD_ID','web/server/app/page.js','web/server/app/api/auth/[...nextauth]/route/app-paths-manifest.json','worker/lib/pokemon/store.ts','worker/lib/db-schema.ts','apk/release.apk'])assert.equal(deploymentPath(path),true,path);
   for(const path of ['web/../data/file','web/.env.local','web/C:/x','web/CON.txt','web/server/foo.','worker/scripts/other.ts','worker/lib/admin-helper/client.ts','apk/other.apk','https/file','web//file','web\\file','web/x:y','web/%2e%2e/file','web/foo/../../.env.local','web/data.sqlite-shm','web/private.key','web/signing.jks'])assert.equal(deploymentPath(path),false,path);
 });
 test('build output tracing excludes live data, WAL, private runtime/credentials/logs and rollback builds',()=>{
@@ -24,6 +24,7 @@ test('build output tracing excludes live data, WAL, private runtime/credentials/
 test('deployment broker is separate, non-admin, replay-safe and cannot invoke a shell or alter service configuration',()=>{
   const native=source('deployment/NasDeployer.cs');assert.match(native,/identity\.IsSystem\|\|new WindowsPrincipal/);assert.match(native,/NT SERVICE\\WydrianDeployer/);assert.match(native,/name!="WydrianDashboard"&&name!="WydrianPokemon"/);assert.match(native,/interrupted-no-retry/);assert.match(native,/jobs\.Exists\(job=>job\.id==id\)/);assert.match(native,/Artifact hash changed/);assert.match(native,/info\.links!=1/);assert.match(native,/Redirected file rejected/);assert.match(native,/APK downgrade\/version reuse rejected/);assert.match(native,/Rollback uncertain/);
   assert.doesNotMatch(native,/ChangeServiceConfig|CreateService|cmd\.exe|powershell\.exe|ProcessStartInfo\([^,]*request/i);
+  assert.match(native,/Path.Combine\(release,"publish.apk"\)/);assert.match(native,/Path.Combine\(release,"rollback.apk"\)/);assert.doesNotMatch(native,/artifacts\\(?:delegated|rollback)-/);
   assert.match(source('scripts/Install-Deployer.ps1'),/privs \$name SeChangeNotifyPrivilege/);assert.match(source('scripts/Install-Deployer.ps1'),/config WydrianDashboard obj= 'NT SERVICE\\WydrianDashboard'/);assert.match(source('scripts/Install-Deployer.ps1'),/NoPropagateInherit,InheritOnly/);
   assert.match(source('scripts/Prepare-Deployment.mjs'),/Build-Dashboard\.ps1/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--test/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--noEmit/);assert.match(source('scripts/Prepare-Deployment.mjs'),/finally\{writeFileSync\('next-env.d.ts',declarations\)/);
   assert.match(source('docs/admin-helper.md'),/Kizárólag a négy/);assert.match(source('admin-helper/NasAdminHelper.cs'),/owner-confirmed/);
