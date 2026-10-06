@@ -27,8 +27,15 @@ Copy-Item -LiteralPath $previous -Destination (Join-Path $backup 'previous.Caddy
 Copy-Item -LiteralPath "$env:windir\System32\inetsrv\config\applicationHost.config" -Destination (Join-Path $backup 'applicationHost.config')
 Copy-Item -LiteralPath '.env.local' -Destination (Join-Path $backup 'environment.snapshot')
 @{iisStartMode=$iis.StartMode;iisState=$iis.State;httpsIdentity=$https.StartName;configSha256=$ExpectedConfigSha256} | ConvertTo-Json | Set-Content (Join-Path $backup 'before.json')
-& $caddy validate --config $config --adapter caddyfile *> (Join-Path $backup 'validation.private.log')
-if($LASTEXITCODE -ne 0){throw 'Caddy validation failed; IIS untouched'}
+# Windows PowerShell 5.1 treats native stderr INFO logs as terminating errors
+# with ErrorActionPreference=Stop. Capture both streams without interpreting stderr.
+try {
+  $validation=Start-Process -FilePath $caddy -ArgumentList ('validate --config "'+$config+'" --adapter caddyfile') -Wait -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $backup 'validation.stdout.private.log') -RedirectStandardError (Join-Path $backup 'validation.stderr.private.log')
+  if($validation.ExitCode -ne 0){throw 'Caddy validation returned a nonzero exit code'}
+} catch {
+  @{passed=$false;phase='validation';iisUntouched=$true;httpsUntouched=$true;rollbackErrors=@();backup=$backup;error='Caddy preflight failed; inspect protected validation logs'} | ConvertTo-Json | Set-Content '.runtime/research/apex-https-activation-result.json'
+  throw 'Caddy validation failed; IIS and HTTPS untouched'
+}
 $createdFirewall=$false;$iisChanged=$false;$httpsChanged=$false
 try {
   if((Get-FileHash -LiteralPath $config -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedConfigSha256){throw 'Configuration changed before activation'}
