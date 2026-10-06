@@ -22,7 +22,7 @@ export default async function ConfigPage() {
   const session = await requireUser().catch(()=>null);
   if (!session) redirect("/");
   if (session.role!=='admin') redirect('/pokemon');
-  const sources = feeds(), personal = personalData();
+  const sources = feeds(), personal = personalData(session.user!.email!);
   const users=(db().prepare('SELECT * FROM dashboard_users ORDER BY email').all() as User[]).map(plainSqlRow);
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="config" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content config-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>

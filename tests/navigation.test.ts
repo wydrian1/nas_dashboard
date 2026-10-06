@@ -24,6 +24,8 @@ function component(path:string) {
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
     };
     if(name==='@/lib/personal-types')return require('../lib/personal-types.ts');
+    if(name==='@/lib/mobile/task-reminders')return require('../lib/mobile/task-reminders.ts');
+    if(name==='@/lib/mobile/release')return require('../lib/mobile/release.ts');
     if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
     if(['./personal-actions','./pokemon-actions','./actions'].includes(name))return {};
     throw new Error('Unexpected component dependency: '+name);
@@ -82,7 +84,7 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
 
 test('notes page is private and keeps existing note/task editors, including completed tasks',()=>{
   const text=source('app/notes/page.tsx');
-  assert.ok(text.indexOf('await requireUser()')<text.indexOf('const personal = personalData()'));
+  assert.ok(text.indexOf('await requireUser()')<text.indexOf('const personal = personalData(session.user!.email!)'));
   assert.match(text,/if \(!session\) redirect\("\/"\)/);
   assert.match(text,/<NotesAndTasks notes=\{personal.notes\} todos=\{personal.todos\}/);
   assert.doesNotMatch(source('app/page.tsx'),/NotesAndTasks/);

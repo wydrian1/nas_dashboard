@@ -1,21 +1,14 @@
 export type QuickLink = { id: number; title: string; url: string; description: string; updated_at: string };
 export type Note = { id: number; title: string; content: string; updated_at: string };
-export type Todo = { id: number; text: string; done: number; updated_at: string };
+export type Todo = { id: number; text: string; done: number; updated_at: string; due_date?:string|null;owner_email?:string };
 export type WeatherLocation = { name: string; latitude: number; longitude: number };
 export type ActionResult = { error?: string; success?: string };
 export type FormAction = (previous: ActionResult, data: FormData) => Promise<ActionResult>;
 
 export const PERSONAL_LIMITS = { quickLinks: 60, notes: 50, todos: 100 };
 
-export class InputError extends Error {}
-
-export function inputText(value: unknown, label: string, max: number, optional = false): string {
-  if (optional && (value === null || value === undefined)) return "";
-  if (typeof value !== "string") throw new InputError(`${label}: szöveges érték szükséges.`);
-  const text = value.trim();
-  if ((!optional && !text) || text.length > max) throw new InputError(`${label}: ${optional ? "legfeljebb " : "1–"}${max} karakter adható meg.`);
-  return text;
-}
+import {InputError,inputText} from './mobile/task-inputs.ts';
+export {InputError,inputText};
 
 export function inputId(value: unknown): number {
   if (typeof value !== "string" || !/^\d+$/.test(value)) throw new InputError("Érvénytelen azonosító.");

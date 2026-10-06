@@ -17,7 +17,7 @@ final class UrlPolicy {
         catch(Exception ignored) { return false; }
     }
     static String notificationPath(String value) {
-        return value != null && value.matches("/pokemon(?:#shop-[a-z0-9]+)?") ? value : "/pokemon";
+        return value != null && (value.matches("/pokemon(?:#shop-[a-z0-9]+)?") || value.matches("/notes#task-[1-9][0-9]*") || value.equals("/")) ? value : "/pokemon";
     }
     static boolean external(String input) {
         try { URI uri = URI.create(input); return "https".equals(uri.getScheme()) && uri.getHost() != null && uri.getRawUserInfo() == null; }

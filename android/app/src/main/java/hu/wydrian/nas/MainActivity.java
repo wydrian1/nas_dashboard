@@ -39,6 +39,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import androidx.core.content.FileProvider;
 
 public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -50,7 +51,8 @@ public class MainActivity extends Activity {
     private Button login;
     private String nextPath = "/";
     private boolean pairingBusy, polling, restoring, destroyed;
-    private boolean pageLoading;
+    private boolean pageLoading, updateBusy;
+    private boolean installPermissionPending, resumed;
     private final Runnable loadingTimeout = this::finishPageLoad;
     private volatile int generation;
 
@@ -76,7 +78,7 @@ public class MainActivity extends Activity {
         LinearLayout heading = new LinearLayout(this); heading.setOrientation(LinearLayout.VERTICAL); heading.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this); title.setText("wydrian"); title.setTextSize(17); title.setTextColor(getColor(R.color.nas_text));
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); heading.addView(title);
-        TextView subtitle = new TextView(this); subtitle.setText("NAS DASHBOARD"); subtitle.setTextSize(9); subtitle.setLetterSpacing(.16f);
+        TextView subtitle = new TextView(this); subtitle.setText("NAS DASHBOARD · v" + BuildConfig.VERSION_NAME); subtitle.setTextSize(9); subtitle.setLetterSpacing(.12f);
         subtitle.setTextColor(getColor(R.color.nas_muted)); heading.addView(subtitle);
         LinearLayout.LayoutParams headingLayout = new LinearLayout.LayoutParams(0, -1, 1); headingLayout.setMargins(dp(12), 0, dp(12), 0);
         toolbar.addView(heading, headingLayout);
@@ -158,12 +160,15 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
-        if (store.get("secret") != null) { restoreSession(); enableMessaging(); }
+        resumed=true;
+        if (store.get("secret") != null) { restoreSession(); enableMessaging(); boolean retryInstall=getIntent().getBooleanExtra("updateReady",false) || (installPermissionPending && getPackageManager().canRequestPackageInstalls()); getIntent().removeExtra("updateReady"); installPermissionPending=false; checkAppUpdate(retryInstall); AppUpdateWorker.schedule(this); }
         else if (store.get("pair") != null) { showPairCode(); pollPair(); }
     }
+    @Override protected void onPause() { resumed=false; super.onPause(); }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
         if (intent.hasExtra("path")) { nextPath = UrlPolicy.notificationPath(intent.getStringExtra("path")); restoreSession(); }
+        if (intent.getBooleanExtra("updateReady",false)) checkAppUpdate(true);
     }
     private void showStatus(String message) { if (destroyed) return; status.setText(message); status.setVisibility(View.VISIBLE); }
     private void showLogin(String message) { finishPageLoad(); showStatus(message); login.setVisibility(View.VISIBLE); web.setVisibility(View.GONE); refresh.setVisibility(View.GONE); }
@@ -215,7 +220,7 @@ public class MainActivity extends Activity {
                         if (current != generation || destroyed) return;
                         store.put("secret", response.data.getString("secret")); clearPair();
                     }
-                    ui.post(() -> { polling = false; if (current == generation) { installSession(response.cookie); enableMessaging(); } }); return;
+                    ui.post(() -> { polling = false; if (current == generation) { installSession(response.cookie); enableMessaging(); checkAppUpdate(false); AppUpdateWorker.schedule(this); } }); return;
                 }
                 if (response.status != 202) { clearPair(); ui.post(() -> { polling = false; showLogin(response.data.optString("error", "Új párosítás szükséges.")); login.setText("Google-belépés böngészőben"); }); return; }
             } catch (Exception ignored) { /* Temporary network failures do not discard the verifier. */ }
@@ -262,9 +267,11 @@ public class MainActivity extends Activity {
         PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add("Frissítés"); popup.getMenu().add("Értesítések be/ki"); popup.getMenu().add("Android értesítési beállítások");
         popup.getMenu().add("Teszt push"); popup.getMenu().add("Párosítás megszakítása"); popup.getMenu().add("Telefon leválasztása");
+        popup.getMenu().add("Appfrissítés keresése");popup.getMenu().add("Appverzió: " + BuildConfig.VERSION_NAME).setEnabled(false);
         popup.setOnMenuItemClickListener(item -> {
             switch (item.getTitle().toString()) {
                 case "Frissítés": restoreSession(); if (web.getVisibility() == View.VISIBLE) web.reload(); break;
+                case "Appfrissítés keresése": checkAppUpdate(true); break;
                 case "Értesítések be/ki":
                     boolean wanted = !getSharedPreferences("settings", MODE_PRIVATE).getBoolean("pushWanted", true);
                     getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("pushWanted", wanted).apply();
@@ -299,9 +306,21 @@ public class MainActivity extends Activity {
                 })).show();
     }
     private void clearLocal() {
+        androidx.work.WorkManager.getInstance(this).cancelUniqueWork("app-update-check");
         synchronized (store) { generation++; store.clear(); } FirebaseMessaging.getInstance().setAutoInitEnabled(false);
         CookieManager.getInstance().removeAllCookies(null); CookieManager.getInstance().flush(); web.loadUrl("about:blank"); web.clearHistory(); web.clearCache(true);
         android.webkit.WebStorage.getInstance().deleteAllData(); login.setText("Google-belépés böngészőben");
+    }
+    private void checkAppUpdate(boolean manual) {
+        if (updateBusy || destroyed || store.get("secret") == null) return;
+        updateBusy=true;int current=generation;
+        network.execute(()->{try{boolean ready=AppUpdater.check(this);JSONObject release=ready?AppUpdater.ready(this):null;ui.post(()->{updateBusy=false;if(destroyed||!resumed||current!=generation)return;if(release!=null)installUpdate(release,manual);else if(manual)toast("A legfrissebb appverziót használod: "+BuildConfig.VERSION_NAME);});}catch(Exception ignored){ui.post(()->{updateBusy=false;if(manual)toast("A frissítés nem érhető el vagy nem ment át a biztonsági ellenőrzésen.");});}});
+    }
+    private void installUpdate(JSONObject release, boolean manual) {
+        int version=release.optInt("versionCode");if(!manual&&getPreferences(MODE_PRIVATE).getInt("installerShownVersion",0)==version)return;
+        if(!getPackageManager().canRequestPackageInstalls()) { showStatus("Új appverzió letöltve: "+release.optString("versionName")+". Engedélyezd ennek az appnak a frissítések telepítését; az Android megerősítést kérhet.");if(manual||getPreferences(MODE_PRIVATE).getInt("installPermissionVersion",0)!=version){getPreferences(MODE_PRIVATE).edit().putInt("installPermissionVersion",version).apply();installPermissionPending=true;startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName())));}return; }
+        try { var uri=FileProvider.getUriForFile(this,getPackageName()+".updates",AppUpdater.file(this));startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));getPreferences(MODE_PRIVATE).edit().putInt("installerShownVersion",version).apply(); }
+        catch(Exception ignored){toast("Nem indítható az Android telepítője. A menüből újra próbálhatod.");}
     }
     private void goBackOrFinish() { if (web.getVisibility() == View.VISIBLE && web.canGoBack()) web.goBack(); else finish(); }
     @Override public void onBackPressed() { goBackOrFinish(); }

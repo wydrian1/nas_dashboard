@@ -1,5 +1,6 @@
 import { logout } from "./actions";
 import type { Role } from '@/lib/users';
+import {WEB_VERSION} from '@/lib/mobile/release';
 
 export default function DashboardSidebar({name,active='overview',unread,role='admin',openCode=false}:{name?:string|null;active?:'overview'|'pokemon'|'news'|'config'|'notes'|'finance'|'opencode';unread?:number;role?:Role;openCode?:boolean}) {
   return <aside className="sidebar">
@@ -14,6 +15,7 @@ export default function DashboardSidebar({name,active='overview',unread,role='ad
       {role==='admin' && openCode && <a className={active==='opencode' ? 'active' : undefined} aria-current={active==='opencode' ? 'page' : undefined} href="/opencode">⌘ <span>OpenCode</span></a>}
       {role==='admin' && <a className={active==='config' ? 'active' : undefined} aria-current={active==='config' ? 'page' : undefined} href="/config">⚙ <span>Konfig</span></a>}
     </nav>
+    <span className="version-label" aria-label="Dashboard verzió">Web v{WEB_VERSION}</span>
     <div className="sidebar-bottom"><div className="avatar">W</div><div className="user-info"><strong>{name || 'Wydrian'}</strong><span>Privát dashboard</span></div><form action={logout}><button className="logout" title="Kijelentkezés" aria-label="Kijelentkezés">↪</button></form></div>
   </aside>;
 }

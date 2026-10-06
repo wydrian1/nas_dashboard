@@ -19,6 +19,7 @@ import { SHOP_IDS } from "../lib/pokemon/types.ts";
 import { claimScan, finishScan, failScan } from "../lib/pokemon/store.ts";
 import { ShopRequestError } from "../lib/pokemon/fetch-policy.ts";
 import { sendNextPush } from "../lib/mobile/push.ts";
+import {checkTaskDeadlines} from '../lib/mobile/task-reminders.ts';
 
 mkdirSync('data',{recursive:true});
 const database=new DatabaseSync('data/dashboard.sqlite');
@@ -26,6 +27,10 @@ initializeDatabase(database);
 const shutdown=new AbortController();
 process.on('SIGINT',()=>shutdown.abort());process.on('SIGTERM',()=>shutdown.abort());
 console.log('Pokémon worker started; no browser or page view is required.');
+// Independent of serial webshop scans: a slow/blocked shop must not postpone 10:00 reminders.
+const checkReminders=()=>{if(shutdown.signal.aborted)return;try{checkTaskDeadlines(database);}catch{console.error('Reminder scheduling failed; will retry.');}};
+checkReminders();const deadlineTimer=setInterval(checkReminders,10_000);
+const reminders=(async()=>{while(!shutdown.signal.aborted){try{for(let i=0;i<10&&!shutdown.signal.aborted;i++)await sendNextPush(database);}catch{console.error('Push scheduling failed; will retry.');}try{await delay(10_000,undefined,{signal:shutdown.signal});}catch{break;}}})();
 while(!shutdown.signal.aborted){
   try {
     database.prepare("INSERT INTO pokemon_worker VALUES(1,?,'running') ON CONFLICT(id) DO UPDATE SET heartbeat=excluded.heartbeat,message=excluded.message").run(Date.now());
@@ -46,8 +51,7 @@ while(!shutdown.signal.aborted){
       database.prepare("UPDATE pokemon_worker SET heartbeat=? WHERE id=1").run(Date.now());
     }
     database.prepare("UPDATE pokemon_worker SET heartbeat=? WHERE id=1").run(Date.now());
-    if(!shutdown.signal.aborted)for(let i=0;i<10 && !shutdown.signal.aborted;i++)await sendNextPush(database);
   }catch{console.error('Pokémon worker storage or scheduling error; will retry.');}
   try{await delay(10_000,undefined,{signal:shutdown.signal});}catch{break;}
 }
-database.close();
+clearInterval(deadlineTimer);await reminders;database.close();

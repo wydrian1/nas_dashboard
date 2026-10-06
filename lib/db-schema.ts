@@ -4,6 +4,7 @@ import { initializeMobile } from "./mobile/schema.ts";
 import { initializeUsers } from "./users.ts";
 import { initializeFinance } from "./finance/schema.ts";
 import { initializeOpenCode } from './opencode-schema.ts';
+import { initializeTaskReminders } from './mobile/task-reminders.ts';
 
 export type Feed = { id: number; name: string; url: string; article_limit: number; checked_at: string | null; error: string | null };
 export type Article = { id: number; title: string; url: string; published: string | null; image_url: string | null; is_read: number; feed_name: string };
@@ -50,6 +51,7 @@ export function initializeDatabase(database: DatabaseSync) {
   initializePokemon(database);
   initializeMobile(database);
   initializeUsers(database);
+  initializeTaskReminders(database);
   initializeFinance(database);
   initializeOpenCode(database);
   const columns = (table: string) => (database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(column => column.name);
