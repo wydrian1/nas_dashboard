@@ -38,7 +38,7 @@ Csak robots.txt és a pontos szűrőlista GET URL-je kérhető le. Mindkét szű
 
 Minden kategóriakártya ID-ját számoljuk és deduplikáljuk, beleértve a várólistás/elfogyott kártyákat. Folytonos tartományok, stabil teljes termékszám és a végső teljes kártyaszám kötelező. Nem teljes scan nem írja felül a korábbi állapotot. Limit: 600 kártya, 50 oldal, 20 s/kérés, 3 MiB/HTML, 3 perc/workerscan; oldalanként legalább 1500 ms szünet és robots-ellenőrzés.
 
-Önálló tízperces ütemezés (5–60 percre állítható), baseline, termék-/eseményállapot, lease/backoff és értesítési beállítások. A baseline csendes; e-mail alapból kikapcsolva. Későbbi új elérhetőségek a `/pokemon` összes webshopot összesítő felső listáján is megjelennek. A GrandLine és a régi webshopok baseline-ját nem cseréljük le.
+Önálló háromperces ütemezés (3–60 percre állítható), baseline, termék-/eseményállapot, lease/backoff és értesítési beállítások. A baseline csendes; e-mail alapból kikapcsolva. Későbbi új elérhetőségek a `/pokemon` összes webshopot összesítő felső listáján is megjelennek. A GrandLine és a régi webshopok baseline-ját nem cseréljük le.
 
 Tesztek: `tests/krodomcards.test.ts`, anonim minta: `tests/fixtures/pokemon/krodomcards/catalog.html`. Külön regresszió: az „Értesítés” ál-kosárgombot kizárjuk azonos CSS-osztály mellett is; cart/waiting-list linket soha nem kérünk le; szűrők és oldalszámok validálása; teljes egyedi katalógus; saját baseline/aggregált esemény/levélnév; webshoponkénti levéltörlés.
 

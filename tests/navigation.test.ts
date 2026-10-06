@@ -105,6 +105,7 @@ test('all configured shop shortcuts precede the event feed and point to existing
     const page=load(renderToStaticMarkup(React.createElement(Panel,{initial:snapshot})));
     assert.equal(page('#pokemon').children().first().attr('aria-label'),'Ugrás a webshophoz');
     const links=page('[aria-label="Ugrás a webshophoz"] a');assert.equal(links.length,SHOP_IDS.length);
+    assert.equal(page('input[name="interval"][min="3"][max="60"][value="3"]').length,SHOP_IDS.length);
     snapshot.shops.forEach(({shop},index)=>{
       assert.equal(links.eq(index).text(),shop.name);assert.equal(links.eq(index).attr('href'),'#shop-'+shop.id);
       assert.equal(page('#shop-'+shop.id).length,1);

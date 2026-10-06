@@ -77,7 +77,7 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
       <details className="pokemon-settings"><summary>Figyelés és értesítések beállítása</summary>{admin ? <ActionForm key={key} action={savePokemonSettings} className="pokemon-settings-form">
         <input type="hidden" name="shopID" value={shop.id}/>
         <label><input type="checkbox" name="enabled" defaultChecked={!!shop.enabled}/> Automatikus figyelés</label>
-        <label>Gyakoriság (perc)<input name="interval" type="number" min="5" max="60" step="1" required defaultValue={shop.interval_minutes}/></label>
+        <label>Gyakoriság (perc)<input name="interval" type="number" min="3" max="60" step="1" required defaultValue={shop.interval_minutes}/></label>
         <ActionButton className="primary-button">Mentés</ActionButton>
         <p className="footnote">Az automatikus figyelés és a gyakoriság közös, csak admin módosíthatja.</p>
       </ActionForm> : <p>Automatikus figyelés: {shop.enabled ? 'bekapcsolva' : 'szünetel'} · Gyakoriság: {shop.interval_minutes} perc. Ezt az admin állítja be.</p>}

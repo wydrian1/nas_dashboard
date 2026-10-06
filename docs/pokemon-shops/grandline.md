@@ -39,7 +39,7 @@ Az összes kategóriakártyát számoljuk és deduplikáljuk, **az elfogyottakat
 
 Most 12 kártya/oldal, az utolsó oldalon 8. A workerscan 14 kategóriaoldalt kér le, nem 37 külön termékoldalt. Általános korlátok: 600 kategóriakártya, 50 oldal, 20 s/HTTP-kérés, 3 MiB/HTML, 3 perc/teljes workerscan. A letöltő kizárólag a www-s HTTPS origin robots.txt és pontos kategória/lapozási útvonalait engedi; nincs query, fragment, tetszőleges termékoldal/API vagy idegen originre átirányítás. Nyilvános DNS-cím ellenőrzése és rögzítése kötelező.
 
-Tízperces alapütemezés, 5–60 percre állíthatóan; ez a teljes 14 oldalas kategória vizsgálata. Önálló baseline, lease, backoff, termékállapot és események; közös eltűnés-/nagyesés-védelem. Az új elérhetőségek a `/pokemon` oldal közös felső eseménylistájába is bekerülnek, GrandLine jelöléssel. A baseline nem újdonságesemény, nem küld tömeges levelet.
+Háromperces alapütemezés, 3–60 percre állíthatóan; ez a teljes 14 oldalas kategória vizsgálata. Önálló baseline, lease, backoff, termékállapot és események; közös eltűnés-/nagyesés-védelem. Az új elérhetőségek a `/pokemon` oldal közös felső eseménylistájába is bekerülnek, GrandLine jelöléssel. A baseline nem újdonságesemény, nem küld tömeges levelet.
 
 Tesztek: `tests/grandline.test.ts`, anonim Shoptet-struktúra: `tests/fixtures/pokemon/grandline/catalog.html`. Külön tesztek: a tiltott készletszűrt URL-t soha nem kérjük le; csak engedett lapozás; teljes kártyaszám és ID-uniqueness (elfogyottaknál is); aktív gomb és ID-egyezés; biztonságos ár/kép/link; webshoponkénti baseline, aggregált esemény, levélnév és hibakezelés.
 
