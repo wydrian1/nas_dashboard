@@ -14,7 +14,7 @@ $process=Get-Process -Id $registration.pid -ErrorAction Stop
 $cli=$process.Path
 if($ExpectedRunnerSha256 -notmatch '^[a-f0-9]{64}$' -or $ExpectedCliSha256 -notmatch '^[a-f0-9]{64}$' -or (Get-FileHash $runner -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedRunnerSha256 -or (Get-FileHash $cli -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedCliSha256){throw 'Reviewed source/CLI changed'}
 if($registration.url -ne 'http://127.0.0.1:49374' -or $cli -notlike ($env:USERPROFILE+'\AppData\Roaming\ai.opencode.desktop\cli\*\opencode-cli.exe')){throw 'Unexpected original OpenCode instance'}
-$directory=Join-Path $root ('.runtime\opencode-autostart\releases\'+$ExpectedRunnerSha256)
+$directory=Join-Path $root ('.runtime\opencode-autostart\releases\'+$ExpectedRunnerSha256+'-'+[Guid]::NewGuid().ToString('N'))
 if(Test-Path -LiteralPath $directory){throw 'Prepared release exists; inspect before retry'}
 if($CheckOnly){@{passed=$true;checkOnly=$true;bootTrigger=$true;logonType='Password';runLevel='Limited';originalUser=$true;noTaskOrServiceChanges=$true} | ConvertTo-Json -Compress;exit 0}
 $credential=Get-Credential -UserName $identity.Name -Message 'Enter this Windows account PASSWORD (not Windows Hello PIN). Used only by Task Scheduler to start the existing OpenCode before sign-in. Do not send it in chat.'
@@ -38,15 +38,18 @@ $principal=New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Password
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $task=New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Start the existing owner OpenCode shared service after boot, without Windows interactive sign-in; preserve its original profile and sessions.'
 $registered=$false
+$phase='register'
 try {
   Register-ScheduledTask -TaskName $name -InputObject $task -User $identity.Name -Password $credential.GetNetworkCredential().Password | Out-Null
   $registered=$true
   $credential=$null
+  $phase='verify-definition'
   $installed=Get-ScheduledTask -TaskName $name
   $sid=$installed.Principal.UserId
   if($sid -notmatch '^S-1-'){ $sid=([Security.Principal.NTAccount]::new($sid)).Translate([Security.Principal.SecurityIdentifier]).Value }
   if($sid -ne $ExpectedUserSid -or $installed.Principal.LogonType -ne 'Password' -or $installed.Principal.RunLevel -ne 'Limited' -or $installed.Triggers.CimClass.CimClassName -ne 'MSFT_TaskBootTrigger'){throw 'Task scope mismatch'}
   $before=(Get-ScheduledTaskInfo -TaskName $name).LastRunTime
+  $phase='verify-batch-run'
   Start-ScheduledTask -TaskName $name
   $passed=$false
   for($attempt=0;$attempt -lt 60;$attempt++){
@@ -60,8 +63,17 @@ try {
   Export-ScheduledTask -TaskName $name | Set-Content -LiteralPath (Join-Path $directory 'task.xml')
   @{passed=$true;task=$name;bootTrigger=$true;delaySeconds=30;logonType='Password';runLevel='Limited';originalPidUnchanged=$true;batchContextNoOpPassed=$true;realRebootNotYetTested=$true;credentialsStoredOnlyByWindows=$true;release=$directory;at=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content '.runtime/research/opencode-autostart-install-result.json'
 } catch {
+  # Preserve only structured codes/classification, never the exception text or credential.
+  $failure=$_
+  $hresult=$failure.Exception.HResult.ToString('X8')
+  $windowsCode=$null
+  if($failure.Exception.Message -match '0x[0-9a-fA-F]{8}'){$windowsCode=$matches[0]}
+  $category='registration-or-verification'
+  if($windowsCode -eq '0x8007052e' -or $hresult -eq '8007052E'){$category='windows-logon-failed'}
+  elseif($windowsCode -eq '0x80070569' -or $hresult -eq '80070569'){$category='batch-logon-right-missing'}
+  elseif($windowsCode -eq '0x80070005' -or $hresult -eq '80070005'){$category='windows-access-denied'}
   $credential=$null
   if($registered){Unregister-ScheduledTask -TaskName $name -Confirm:$false}
-  @{passed=$false;taskRemoved=$registered;originalOpenCodeNotStopped=$true;error='Owner startup task registration or verification failed; no account password logged'} | ConvertTo-Json | Set-Content '.runtime/research/opencode-autostart-install-result.json'
+  @{passed=$false;phase=$phase;category=$category;hresult=$hresult;windowsCode=$windowsCode;taskRemoved=$registered;originalOpenCodeNotStopped=$true;noAutomaticCredentialRetry=$true;error='Owner startup task registration or verification failed; no account password logged'} | ConvertTo-Json | Set-Content '.runtime/research/opencode-autostart-install-result.json'
   throw 'OpenCode startup registration failed; inspect protected result before retry'
 }

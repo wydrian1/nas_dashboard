@@ -12,6 +12,7 @@ test('owner-installed task starts at boot with original password logon and limit
   const installer=source('Install-OpenCodeStartup.ps1');
   assert.match(installer,/New-ScheduledTaskTrigger -AtStartup/);assert.match(installer,/Delay='PT30S'/);assert.match(installer,/-LogonType Password -RunLevel Limited/);assert.match(installer,/Get-Credential/);assert.match(installer,/GetNetworkCredential\(\)\.Password/);assert.match(installer,/\$credential=\$null/);assert.match(installer,/MultipleInstances IgnoreNew/);assert.match(installer,/refusing overwrite/);
   assert.match(installer,/batchContextNoOpPassed=\$true;realRebootNotYetTested=\$true/);assert.match(installer,/Unregister-ScheduledTask -TaskName \$name -Confirm:\$false/);
+  assert.match(installer,/noAutomaticCredentialRetry=\$true/);assert.match(installer,/windows-logon-failed/);assert.match(installer,/batch-logon-right-missing/);assert.match(installer,/\[Guid\]::NewGuid\(\)/);assert.doesNotMatch(installer,/error=\$.*Exception\.Message|ConvertTo-Json.*credential/i);
   assert.doesNotMatch(installer,/-LogonType (?:S4U|ServiceAccount)|-RunLevel Highest|-User(?:Id)? ['"]SYSTEM|Restart-Computer|service (?:stop|restart|set|unset)|Stop-Process/);
   assert.ok(installer.indexOf('if($CheckOnly)')<installer.indexOf('$credential=Get-Credential'));
 });
