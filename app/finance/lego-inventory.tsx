@@ -1,14 +1,15 @@
 import { ActionForm, ActionButton } from '../action-form';
 import { saveLegoItem, deleteLegoItem } from './lego-actions';
-import { formatMoney, moneyInput } from '@/lib/finance/types';
+import { formatMoney } from '@/lib/finance/types';
 import type { LegoItem, LegoSnapshot } from '@/lib/finance/lego-types';
+import IntegerAmountInput from './integer-amount-input';
 
 function Fields({item}:{item?:LegoItem}) {
   return <><input type="hidden" name="id" value={item?.id || ''}/><input type="hidden" name="revision" value={item?.revision || 0}/>
     <label>Készletszám<input name="set_number" defaultValue={item?.set_number} maxLength={14} pattern="[0-9]{3,10}(-[0-9]{1,3})?" required/></label>
     <label className="finance-lego-name">Megnevezés<input name="name" defaultValue={item?.name} maxLength={200} required/></label>
     <label>Darabszám<input name="quantity" type="number" min={1} max={9999} defaultValue={item?.quantity || 1} required/></label>
-    <label>Egységár · Ft<input name="unit_price" inputMode="decimal" maxLength={24} defaultValue={moneyInput(item?.unit_price_minor)} required/></label>
+    <label>Egységár · Ft<IntegerAmountInput name="unit_price" minor={item?.unit_price_minor} required/></label>
     <label>Beszerzés dátuma<input name="acquired_on" type="date" defaultValue={item?.acquired_on || ''}/><small>Üres = ismeretlen</small></label></>;
 }
 export default function LegoInventory({snapshot}:{snapshot:LegoSnapshot}) {
