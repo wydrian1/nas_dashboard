@@ -47,6 +47,13 @@ export function initializeDatabase(database: DatabaseSync) {
       latitude REAL NOT NULL CHECK(latitude BETWEEN -90 AND 90),
       longitude REAL NOT NULL CHECK(longitude BETWEEN -180 AND 180)
     );
+    CREATE TABLE IF NOT EXISTS important_info (
+      id INTEGER PRIMARY KEY CHECK(id=1),html TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS important_info_audit (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,before_html TEXT NOT NULL,after_html TEXT NOT NULL,
+      revision INTEGER NOT NULL,occurred_at TEXT NOT NULL
+    );
   `);
   initializePokemon(database);
   initializeMobile(database);

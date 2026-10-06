@@ -7,6 +7,7 @@ import { toggleRead, refreshNews } from "../actions";
 import DashboardSidebar from "../dashboard-sidebar";
 import NewsImage from "../news-image";
 import { isOpenCodeOwner } from '@/lib/opencode-access';
+import {homeForRole} from '@/lib/users';
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Hírolvasó · Wydrian" };
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Hírolvasó · Wydrian" };
 export default async function NewsPage() {
   const session = await requireUser().catch(()=>null);
   if (!session) redirect("/");
-  if (session.role!=='admin') redirect('/pokemon');
+  if (session.role!=='admin') redirect(homeForRole(session.role));
   await refreshFeeds();
   const news = articles(), unread = news.filter(article=>!article.is_read).length;
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="news" unread={unread} openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content news-page">

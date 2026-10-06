@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/auth';
 import { isOpenCodeOwner } from '@/lib/opencode-access';
+import {homeForRole} from '@/lib/users';
 import DashboardSidebar from '../dashboard-sidebar';
 import OpenCodeFrame from './opencode-frame';
 import './opencode.css';
@@ -10,7 +11,7 @@ export const metadata:Metadata={title:'OpenCode · Wydrian',robots:{index:false,
 export default async function OpenCodePage() {
   const session=await requireUser().catch(()=>null);
   if(!session)redirect('/');
-  if(session.role!=='admin')redirect('/pokemon');
+  if(session.role!=='admin')redirect(homeForRole(session.role));
   if(!isOpenCodeOwner(session.user?.email))redirect('/');
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="opencode" openCode/><main className="main-content opencode-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>

@@ -10,6 +10,8 @@ import ts from 'typescript';
 import { initializeDatabase } from '../lib/db-schema.ts';
 import { readPokemonSnapshot } from '../lib/pokemon/snapshot.ts';
 import { SHOP_IDS } from '../lib/pokemon/types.ts';
+import type {LatestInfoFinance} from '../lib/important-info/store.ts';
+import {formatMoney} from '../lib/finance/types.ts';
 
 const require = createRequire(import.meta.url);
 const source = (path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -24,6 +26,7 @@ function component(path:string) {
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
     };
     if(name==='@/lib/personal-types')return require('../lib/personal-types.ts');
+    if(name==='@/lib/finance/types')return require('../lib/finance/types.ts');
     if(name==='@/lib/mobile/task-reminders')return require('../lib/mobile/task-reminders.ts');
     if(name==='@/lib/mobile/release')return require('../lib/mobile/release.ts');
     if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
@@ -32,6 +35,27 @@ function component(path:string) {
   },exports);
   return exports;
 }
+
+test('Important info hides missing balances and empty groups but retains saved zero/negative values and unchanged totals',()=>{
+  const View=component('app/important-info/finance.tsx').default;
+  const finance:NonNullable<LatestInfoFinance>={month:'2026-09',asOf:'2026-09-30',netMinor:7500,assetsMinor:10000,debtMinor:-2500,groups:[
+    {category:'Mixed',totalMinor:7500,items:[
+      {id:'asset',name:'Saved asset',category:'Mixed',kind:'asset',amountMinor:10000},
+      {id:'missing',name:'Missing mixed row',category:'Mixed',kind:'asset',amountMinor:null},
+      {id:'zero',name:'Saved zero',category:'Mixed',kind:'asset',amountMinor:0},
+      {id:'debt',name:'Saved debt',category:'Mixed',kind:'debt',amountMinor:-2500}]},
+    {category:'Only missing',totalMinor:0,items:[{id:'empty',name:'Missing-only row',category:'Only missing',kind:'asset',amountMinor:null}]},
+    {category:'Zero-only group',totalMinor:0,items:[{id:'zero-only',name:'Zero-only row',category:'Zero-only group',kind:'asset',amountMinor:0}]},
+    {category:'No items',totalMinor:0,items:[]}
+  ]};
+  const before=JSON.stringify(finance),page=load(renderToStaticMarkup(React.createElement(View,{finance})));
+  assert.equal(page('.info-table tbody tr').length,4);assert.deepEqual(page('.info-groups h3').map((_,el)=>page(el).text()).get(),['Mixed','Zero-only group']);
+  assert.doesNotMatch(page.text(),/Missing mixed row|Only missing|Missing-only row|No items|Nincs rögzített érték/);
+  assert.deepEqual(page('.info-table tbody td').map((_,el)=>page(el).text()).get(),[10000,0,-2500,0].map(formatMoney));
+  assert.deepEqual(page('.info-totals strong').map((_,el)=>page(el).text()).get(),[7500,10000,-2500].map(formatMoney));assert.equal(JSON.stringify(finance),before);
+  const allMissing=load(renderToStaticMarkup(React.createElement(View,{finance:{...finance,groups:[finance.groups[1]]}})));assert.equal(allMissing('.info-groups .info-card,.info-table tbody tr').length,0);assert.equal(allMissing('.info-totals strong').length,3);
+  const absent=load(renderToStaticMarkup(React.createElement(View,{finance:null})));assert.match(absent.text(),/Még nincs mentett pénzügyi hónap/);
+});
 
 test('overview quick links are read-only; add/edit/delete controls live in configuration',()=>{
   const {QuickLinks,QuickLinkSettings}=component('app/personal-sections.tsx');
@@ -58,7 +82,7 @@ test('sidebar news/config/notes destinations are separate pages with active-page
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));
-  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/config']);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/important-info','/config']);
   assert.equal(page('nav a').first().find('span').text(),'Dashboard');assert.equal(page('nav a').eq(1).find('span').text(),'Hírolvasó');
   assert.equal(page('nav a').first().attr('aria-current'),'page');
   assert.equal(page('nav a[href="/mobile"],nav a[href^="/#"]').length,0);
@@ -75,7 +99,7 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
   assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
-  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/opencode','/config']);
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/important-info','/opencode','/config']);
   const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
   assert.equal(reader('nav a[href="/opencode"]').length,0);
   assert.match(source('app/opencode/page.tsx'),/if\(!isOpenCodeOwner\(session.user\?\.email\)\)redirect\('\/'\)/);
@@ -129,6 +153,12 @@ test('reader navigation exposes only Pokemon; reader settings expose only their 
     assert.equal(page('a[href="/mobile"],a[href="/config#mobile"]').length,0);assert.doesNotMatch(page.text(),/Kézi vizsgálat/);
     assert.equal(page('.pokemon-products').length,SHOP_IDS.length);assert.equal(page('.pokemon-events').length,SHOP_IDS.length);
   }finally{db.close();}
+});
+test('info-reader navigation exposes only Important info with no Pokemon/config/finance destinations',()=>{
+  const Sidebar=component('app/dashboard-sidebar.tsx').default;
+  const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'important-info',role:'info-reader',openCode:true})));
+  assert.equal(page('nav a').length,1);assert.equal(page('nav a').attr('href'),'/important-info');assert.equal(page('nav a').attr('aria-current'),'page');assert.equal(page('a[href="/finance"],a[href="/pokemon"],a[href="/config"],a[href="/opencode"]').length,0);
+  assert.match(page.text(),/Fontos infók/);
 });
 
 test('admin-only API and server-action guards protect the hidden features; user notifications derive identity from the session',()=>{

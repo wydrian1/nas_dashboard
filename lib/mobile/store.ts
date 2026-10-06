@@ -70,11 +70,12 @@ export function deviceAuthorized(db:DatabaseSync,id:string,email:string,now=Date
 export function updateDevice(db:DatabaseSync,device:MobileDevice,token:unknown,enabled:unknown,now=Date.now()) {
   if(typeof enabled!=='boolean' || (token!==null && (typeof token!=='string' || token.length<20 || token.length>4096 || !/^[a-zA-Z0-9_:.-]+$/.test(token))))throw new MobileError('Érvénytelen push-adat.');
   if(enabled && !token)throw new MobileError('Hiányzó Firebase-azonosító.');
+  const infoReader=roleFor(db,device.email)==='info-reader',effectiveToken=infoReader ? null : token,effectiveEnabled=infoReader ? false : enabled;
   atomic(db,()=>{
     // Reinstall/re-pair can produce the same token: never notify it twice.
-    if(token)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE fcm_token=? AND id<>?').run(token,device.id);
-    db.prepare('UPDATE mobile_devices SET fcm_token=?,push_enabled=?,last_seen=?,token_updated_at=? WHERE id=? AND revoked=0').run(token,Number(enabled),now,now,device.id);
-    if(!enabled)db.prepare("UPDATE mobile_push_outbox SET state='cancelled' WHERE device_id=? AND state IN ('queued','retry')").run(device.id);
+    if(effectiveToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE fcm_token=? AND id<>?').run(effectiveToken,device.id);
+    db.prepare('UPDATE mobile_devices SET fcm_token=?,push_enabled=?,last_seen=?,token_updated_at=? WHERE id=? AND revoked=0').run(effectiveToken,Number(effectiveEnabled),now,now,device.id);
+    if(!effectiveEnabled)db.prepare("UPDATE mobile_push_outbox SET state='cancelled' WHERE device_id=? AND state IN ('queued','retry')").run(device.id);
   });
 }
 export function revokeDevice(db:DatabaseSync,id:string) {
@@ -97,6 +98,7 @@ export function cancelShopPush(db:DatabaseSync,shopId:string) {
   db.prepare(`UPDATE mobile_push_outbox SET state='cancelled' WHERE state IN ('queued','retry') AND event_id IN (SELECT id FROM pokemon_events WHERE shop_id=?)`).run(shopId);
 }
 export function queueTestPush(db:DatabaseSync,device:MobileDevice,now=Date.now()) {
+  if(roleFor(db,device.email)==='info-reader')throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
   if(!device.push_enabled || !device.fcm_token)throw new MobileError('Előbb engedélyezd az értesítéseket.');
   return atomic(db,()=>{
     const changed=db.prepare('UPDATE mobile_devices SET last_test=? WHERE id=? AND last_test<=? AND revoked=0').run(now,device.id,now-5*60_000);

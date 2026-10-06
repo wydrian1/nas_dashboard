@@ -8,7 +8,7 @@ import { addFeed, removeFeed, updateFeedLimit } from "../actions";
 import DashboardSidebar from "../dashboard-sidebar";
 import { QuickLinkSettings } from "../personal-sections";
 import UserSettings from '../user-settings';
-import { ownerEmail, type User } from '@/lib/users';
+import { ownerEmail, homeForRole, type User } from '@/lib/users';
 import { plainSqlRow } from '@/lib/sql-rows';
 import MobileSettings from '../mobile/settings';
 import { isOpenCodeOwner } from '@/lib/opencode-access';
@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Konfig · Wydrian" };
 export default async function ConfigPage() {
   const session = await requireUser().catch(()=>null);
   if (!session) redirect("/");
-  if (session.role!=='admin') redirect('/pokemon');
+  if (session.role!=='admin') redirect(homeForRole(session.role));
   const sources = feeds(), personal = personalData(session.user!.email!);
   const users=(db().prepare('SELECT * FROM dashboard_users ORDER BY email').all() as User[]).map(plainSqlRow);
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="config" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content config-page">
