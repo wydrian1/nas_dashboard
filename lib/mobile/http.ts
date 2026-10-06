@@ -1,6 +1,6 @@
 import { encode } from 'next-auth/jwt';
 import { MOBILE_ORIGIN, MobileError, type MobileDevice } from './store.ts';
-import type { Role } from '../users.ts';
+import {homeForRole,type Role} from '../users.ts';
 
 export const mobileHeaders={'Cache-Control':'no-store','Referrer-Policy':'no-referrer'};
 export function mobileError(error:unknown) {
@@ -20,5 +20,5 @@ export async function sessionResponse(device:MobileDevice,role:Role,body:Record<
   const secret=process.env.AUTH_SECRET;if(!secret)throw new Error('Auth secret missing.');
   const cookie='__Secure-authjs.session-token',maxAge=Math.min(12*60*60,Math.floor((device.expires_at-Date.now())/1000));
   const jwt=await encode({secret,salt:cookie,maxAge,token:{sub:device.id,email:device.email,name:device.label,mobileDeviceId:device.id}});
-  return Response.json({...body,role,home:role==='pokemon-reader' ? '/pokemon' : '/',expiresAt:device.expires_at},{headers:{...mobileHeaders,'Set-Cookie':`${cookie}=${jwt}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Lax`}});
+  return Response.json({...body,role,home:homeForRole(role),expiresAt:device.expires_at},{headers:{...mobileHeaders,'Set-Cookie':`${cookie}=${jwt}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Lax`}});
 }

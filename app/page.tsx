@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await requireUser().catch(()=>null);
   if(session?.role==='pokemon-reader')redirect('/pokemon');
+  if(session?.role==='info-reader')redirect('/important-info');
   const allowed = session?.role==='admin';
   const { error } = await searchParams;
   if (!allowed) return <main className="login-shell">

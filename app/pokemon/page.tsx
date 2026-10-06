@@ -12,6 +12,7 @@ export const metadata:Metadata={title:'Pokémon figyelő · Wydrian'};
 export default async function PokemonPage() {
   const session=await requireUser().catch(()=>null);
   if(!session)redirect('/');
+  if(session.role==='info-reader')redirect('/important-info');
   return <div className="dashboard-shell">
     <DashboardSidebar name={session.user?.name} active="pokemon" role={session.role!} openCode={isOpenCodeOwner(session.user?.email)}/>
     <main className="main-content pokemon-page">

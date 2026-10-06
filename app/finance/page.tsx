@@ -12,13 +12,14 @@ import { financeMarket } from '@/lib/finance/market';
 import { readLego } from '@/lib/finance/lego';
 import LegoInventory from './lego-inventory';
 import { isOpenCodeOwner } from '@/lib/opencode-access';
+import {homeForRole} from '@/lib/users';
 
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Pénzügy · Wydrian',robots:{index:false,follow:false}};
 export default async function FinancePage({searchParams}:{searchParams:Promise<{month?:string}>}) {
   const session=await requireUser().catch(()=>null);
   if(!session)redirect('/');
-  if(session.role!=='admin')redirect('/pokemon');
+  if(session.role!=='admin')redirect(homeForRole(session.role));
   const query=await searchParams;let month:string|undefined;
   try{month=query.month ? validMonth(query.month) : undefined;}catch{redirect('/finance');}
   const snapshot=readFinanceSnapshot(db(),month),latest=month ? readFinanceSnapshot(db()) : snapshot;

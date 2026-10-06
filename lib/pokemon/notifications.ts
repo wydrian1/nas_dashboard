@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { roleFor, requireAccess, type Role } from '../users.ts';
+import { roleFor, requireAccess, canAccess, type Role } from '../users.ts';
 import { isShopID } from './types.ts';
 
 export type NotificationSettings={enabled:number;notify_new:number;notify_restock:number;notify_preorder:number};
@@ -8,7 +8,7 @@ export function notificationSettings(db:DatabaseSync,email:string,shopID:string)
   return row ? {...row} as NotificationSettings : {enabled:1,notify_new:1,notify_restock:1,notify_preorder:1};
 }
 export function notificationAllowed(db:DatabaseSync,email:string,eventID:number):boolean {
-  const role=roleFor(db,email);if(!role)return false;
+   const role=roleFor(db,email);if(!canAccess(role,'pokemon'))return false;
   const event=db.prepare(`SELECT e.shop_id,e.kind,p.availability,s.enabled FROM pokemon_events e
     JOIN pokemon_shops s ON s.id=e.shop_id LEFT JOIN pokemon_products p ON p.shop_id=e.shop_id AND p.external_id=e.external_id WHERE e.id=?`).get(eventID) as {shop_id:string;kind:string;availability:string;enabled:number}|undefined;
   if(!event?.enabled)return false;

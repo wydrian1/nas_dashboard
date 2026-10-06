@@ -4,9 +4,10 @@ import { shop } from "./store.ts";
 import { SHOP_IDS } from "./types.ts";
 import type { PokemonSnapshot, StoredProduct, PokemonEvent, PokemonAggregateEvent } from "./types.ts";
 import { notificationSettings } from './notifications.ts';
-import type { Role } from '../users.ts';
+import {canAccess,AccessError,type Role} from '../users.ts';
 
 export function readPokemonSnapshot(database:DatabaseSync,_legacySmtpConfigured=false,now=Date.now(),viewer?:{email:string;role:Role}):PokemonSnapshot {
+  if(viewer&&!canAccess(viewer.role,'pokemon'))throw new AccessError();
   const recentSince=now-24*60*60_000;
   const worker=database.prepare('SELECT heartbeat FROM pokemon_worker WHERE id=1').get() as {heartbeat:number}|undefined;
   const shops=SHOP_IDS.map(shopID=>({
