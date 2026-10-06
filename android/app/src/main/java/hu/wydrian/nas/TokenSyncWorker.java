@@ -19,9 +19,8 @@ public class TokenSyncWorker extends Worker {
     public TokenSyncWorker(@NonNull Context context, @NonNull WorkerParameters parameters) { super(context, parameters); }
     static boolean allowed(Context context) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
-        var channel = manager.getNotificationChannel(NasMessagingService.CHANNEL);
         return (Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
-                && manager.areNotificationsEnabled() && (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE)
+                && manager.areNotificationsEnabled()
                 && context.getSharedPreferences("settings", Context.MODE_PRIVATE).getBoolean("pushWanted", true);
     }
     static void schedule(Context context) {

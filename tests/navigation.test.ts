@@ -24,6 +24,8 @@ function component(path:string) {
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
     };
     if(name==='@/lib/personal-types')return require('../lib/personal-types.ts');
+    if(name==='@/lib/mobile/task-reminders')return require('../lib/mobile/task-reminders.ts');
+    if(name==='@/lib/mobile/release')return require('../lib/mobile/release.ts');
     if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
     if(['./personal-actions','./pokemon-actions','./actions'].includes(name))return {};
     throw new Error('Unexpected component dependency: '+name);
@@ -82,7 +84,7 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
 
 test('notes page is private and keeps existing note/task editors, including completed tasks',()=>{
   const text=source('app/notes/page.tsx');
-  assert.ok(text.indexOf('await requireUser()')<text.indexOf('const personal = personalData()'));
+  assert.ok(text.indexOf('await requireUser()')<text.indexOf('const personal = personalData(session.user!.email!)'));
   assert.match(text,/if \(!session\) redirect\("\/"\)/);
   assert.match(text,/<NotesAndTasks notes=\{personal.notes\} todos=\{personal.todos\}/);
   assert.doesNotMatch(source('app/page.tsx'),/NotesAndTasks/);
@@ -105,6 +107,7 @@ test('all configured shop shortcuts precede the event feed and point to existing
     const page=load(renderToStaticMarkup(React.createElement(Panel,{initial:snapshot})));
     assert.equal(page('#pokemon').children().first().attr('aria-label'),'Ugrás a webshophoz');
     const links=page('[aria-label="Ugrás a webshophoz"] a');assert.equal(links.length,SHOP_IDS.length);
+    assert.equal(page('input[name="interval"][min="3"][max="60"][value="3"]').length,SHOP_IDS.length);
     snapshot.shops.forEach(({shop},index)=>{
       assert.equal(links.eq(index).text(),shop.name);assert.equal(links.eq(index).attr('href'),'#shop-'+shop.id);
       assert.equal(page('#shop-'+shop.id).length,1);

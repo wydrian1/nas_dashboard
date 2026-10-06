@@ -16,11 +16,13 @@ import java.util.Set;
 
 public class NasMessagingService extends FirebaseMessagingService {
     static final String CHANNEL = "pokemon-stock";
+    static final String TASKS="task-deadlines", UPDATES="app-updates";
     static void channel(Context context) {
         NotificationChannel channel = new NotificationChannel(CHANNEL, "Pokémon készlet", NotificationManager.IMPORTANCE_DEFAULT);
         channel.setDescription("Új termékek és visszakészletezések a saját webshopfigyelőből.");
         channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         context.getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        for(String id:new String[]{TASKS,UPDATES}){var extra=new NotificationChannel(id,id.equals(TASKS)?"Feladat-határidők":"App / élesítési frissítések",NotificationManager.IMPORTANCE_DEFAULT);extra.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);context.getSystemService(NotificationManager.class).createNotificationChannel(extra);}
     }
     @Override public void onNewToken(String token) {
         try { new SecureStore(this).put("fcmToken", token); TokenSyncWorker.schedule(this); } catch (Exception ignored) { /* Retry on next launch; no token logging. */ }
@@ -39,7 +41,8 @@ public class NasMessagingService extends FirebaseMessagingService {
         Intent intent = new Intent(this, MainActivity.class).putExtra("path", UrlPolicy.notificationPath(data.get("path")))
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(this, event.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification notification = new Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_notification)
+        String kind=data.get("kind"),notificationChannel="task".equals(kind)?TASKS:"release".equals(kind)?UPDATES:CHANNEL;
+        Notification notification = new Notification.Builder(this, notificationChannel).setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(limit(data.get("title"), 150)).setContentText(limit(data.get("body"), 300))
                 .setStyle(new Notification.BigTextStyle().bigText(limit(data.get("body"), 300)))
                 .setContentIntent(pending).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build();

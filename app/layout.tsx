@@ -6,6 +6,7 @@ import "./personal.css";
 import "./pokemon.css";
 import "./navigation.css";
 import "./brand.css";
+import './version.css';
 
 export const metadata: Metadata = {
   title: "Wydrian · Dashboard",

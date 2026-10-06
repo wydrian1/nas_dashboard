@@ -1,12 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
 import { GAMERUNNER_URL, MYTHGAMES_URL, POTTYOSZEBRA_URL, GRANDLINE_URL, KRODOMCARDS_URL, JATEKNET_URL, REFLEXSHOP_URL, GEEKEMPIRE_URL, TCGFUTAR_URL, SPORTKARTYABOLT_URL, RTCOLLECTORSCLUB_URL, CARDVERSE_URL, METAGAMES_URL } from "./types.ts";
+import { migratePokemonIntervals } from './interval-migration.ts';
 
 export function initializePokemon(database: DatabaseSync) {
   database.exec(`
     CREATE TABLE IF NOT EXISTS pokemon_shops (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
-      interval_minutes INTEGER NOT NULL DEFAULT 10 CHECK(interval_minutes BETWEEN 5 AND 60),
+      interval_minutes INTEGER NOT NULL DEFAULT 3 CHECK(interval_minutes BETWEEN 3 AND 60),
       notify_new INTEGER NOT NULL DEFAULT 1, notify_restock INTEGER NOT NULL DEFAULT 1,
       notify_preorder INTEGER NOT NULL DEFAULT 1,
       emails_enabled INTEGER NOT NULL DEFAULT 0,
@@ -58,6 +59,7 @@ export function initializePokemon(database: DatabaseSync) {
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('rtcollectorsclub','RT Collectors Club',?)").run(RTCOLLECTORSCLUB_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('cardverse','Cardverse',?)").run(CARDVERSE_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('metagames','Metagames',?)").run(METAGAMES_URL);
+  migratePokemonIntervals(database);
   // One-time, non-destructive retirement. Historical rows remain; no SMTP sender exists.
   if(!database.prepare("SELECT 1 FROM pokemon_migrations WHERE id='retire-email-v1'").get()){
     database.exec('BEGIN IMMEDIATE');

@@ -24,6 +24,6 @@ Adapter: `lib/pokemon/adapters/geekempire.ts`, verzió `1.0.0`, webshopkulcs `ge
 
 Jelenleg teljes **egyoldalas** kategória támogatott. Ha valódi lapozás jelenik meg, az adapter hibával megőrzi az előző állapotot; új pagination szerkezetet csak külön ellenőrzés után támogatunk. Kártyaszám-/ID-/kategóriaeltérés, ismeretlen gomb vagy idegen canonical szintén hibát ad.
 
-Önálló 10 perces alapütemezés (5–60 perc), saját csendes baseline, termékállapot, események/beállítások és levélsor. Az e-mail kikapcsolva; későbbi újdonságok a `/pokemon` közös felső listájában is megjelennek. Tesztek: `tests/geekempire.test.ts`; anonim minta: `tests/fixtures/pokemon/geekempire/catalog.html`.
+Önálló 3 perces alapütemezés (3–60 perc), saját csendes baseline, termékállapot, események/beállítások és levélsor. Az e-mail kikapcsolva; későbbi újdonságok a `/pokemon` közös felső listájában is megjelennek. Tesztek: `tests/geekempire.test.ts`; anonim minta: `tests/fixtures/pokemon/geekempire/catalog.html`.
 
 Telepítés: 83/83 teszt, typecheck és build sikeres; UAC után kilépési kód 0. Mindhárom szolgáltatás Running, worker LocalService; mind a nyolc webshop rendben, összesen 191 termék. Régi baseline-ok/beállítások megmaradtak; az új baseline friss HTTP-scanből, nem diagnosztikai importból készült. 0 esemény/levélmunka, SMTP nincs konfigurálva, e-mail kikapcsolva. Anonim oldal/API 307/401 helyben és publikus HTTPS-en; Google-munkamenet hiányában nincs bejelentkezett vizuális ellenőrzés vagy auth-bypass.

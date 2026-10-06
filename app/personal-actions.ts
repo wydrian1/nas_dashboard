@@ -3,10 +3,11 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/auth";
 import { db } from "@/lib/db";
 import { InputError, inputId, inputText, inputLocation, quickLinkUrl, PERSONAL_LIMITS, type ActionResult } from "@/lib/personal-types";
+import {saveTask,changeTask} from '@/lib/mobile/task-reminders';
 
-async function mutate(operation: () => void, success: string): Promise<ActionResult> {
-  try { await requireAdmin(); } catch { return { error: "A módosításhoz admin jogosultság szükséges." }; }
-  try { operation(); revalidatePath("/"); revalidatePath("/config"); revalidatePath("/notes"); return { success }; }
+async function mutate(operation: (email:string) => void, success: string): Promise<ActionResult> {
+  let email:string;try { email=(await requireAdmin()).user!.email!; } catch { return { error: "A módosításhoz admin jogosultság szükséges." }; }
+  try { operation(email); revalidatePath("/"); revalidatePath("/config"); revalidatePath("/notes"); return { success }; }
   catch (error) { return { error: error instanceof InputError ? error.message : "A módosítás nem sikerült. Próbáld újra." }; }
 }
 function capacity(table: "quick_links" | "notes" | "todos", limit: number) {
@@ -47,21 +48,13 @@ export async function deleteNote(_previous: ActionResult, data: FormData): Promi
   return mutate(() => { exists(db().prepare("DELETE FROM notes WHERE id=?").run(inputId(data.get("id"))).changes); }, "Jegyzet törölve.");
 }
 export async function saveTodo(_previous: ActionResult, data: FormData): Promise<ActionResult> {
-  return mutate(() => {
-    const text = inputText(data.get("text"), "Feladat", 200);
-    if (data.get("id")) {
-      exists(db().prepare("UPDATE todos SET text=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").run(text,inputId(data.get("id"))).changes);
-    } else {
-      capacity("todos", PERSONAL_LIMITS.todos);
-      db().prepare("INSERT INTO todos(text) VALUES(?)").run(text);
-    }
-  }, "Feladat elmentve.");
+  return mutate(email=>saveTask(db(),email,data.get('text'),data.get('due_date'),data.get('id')?inputId(data.get('id')):undefined),'Feladat elmentve.');
 }
 export async function toggleTodo(_previous: ActionResult, data: FormData): Promise<ActionResult> {
-  return mutate(() => { exists(db().prepare("UPDATE todos SET done=1-done,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").run(inputId(data.get("id"))).changes); }, "");
+  return mutate(email=>changeTask(db(),email,inputId(data.get('id'))),'');
 }
 export async function deleteTodo(_previous: ActionResult, data: FormData): Promise<ActionResult> {
-  return mutate(() => { exists(db().prepare("DELETE FROM todos WHERE id=?").run(inputId(data.get("id"))).changes); }, "Feladat törölve.");
+  return mutate(email=>changeTask(db(),email,inputId(data.get('id')),true),'Feladat törölve.');
 }
 export async function setWeatherLocation(_previous: ActionResult, data: FormData): Promise<ActionResult> {
   return mutate(() => {

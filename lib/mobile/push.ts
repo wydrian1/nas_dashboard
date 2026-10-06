@@ -4,10 +4,11 @@ import type { DatabaseSync } from 'node:sqlite';
 import { MOBILE_PROJECT } from './store.ts';
 import { roleFor } from '../users.ts';
 import { notificationAllowed } from '../pokemon/notifications.ts';
+import {taskPushAllowed} from './task-reminders.ts';
 
 type Credential={type:string;project_id:string;client_email:string;private_key:string;token_uri:string};
 type PushJob={id:string;device_id:string;event_id:number|null;payload:string;attempts:number;expires_at:number};
-type Delivery={state:'sent'|'retry'|'failed'|'uncertain';error?:string;invalidToken?:boolean;retryAfterMs?:number};
+type Delivery={state:'sent'|'retry'|'failed'|'uncertain'|'cancelled';error?:string;invalidToken?:boolean;retryAfterMs?:number};
 export function pushConfigured(env:Record<string,string|undefined>=process.env):boolean {
   return env.POKEMON_PUSH_ENABLED==='true' && !!env.POKEMON_FCM_CREDENTIALS && existsSync(env.POKEMON_FCM_CREDENTIALS);
 }
@@ -33,10 +34,12 @@ async function accessToken():Promise<string> {
 }
 // Returns no token or private-key material. Used once during installation diagnostics.
 export async function checkPushAuthorization():Promise<boolean> {await accessToken();return true;}
-export async function deliverFcm(token:string,payload:Record<string,string>,ttlSeconds=900):Promise<Delivery> {
+export async function deliverFcm(token:string,payload:Record<string,string>,ttlSeconds=900,authorized:()=>boolean=()=>true):Promise<Delivery> {
   let bearer:string;
   try{bearer=await accessToken();}catch{return {state:'retry',error:'FCM-hitelesítés sikertelen; üzenet még nem került beküldésre.'};}
   try {
+    // OAuth can take seconds: recheck current device/task/role immediately before FCM dispatch.
+    if(!authorized())return {state:'cancelled'};
     const response=await fetch('https://fcm.googleapis.com/v1/projects/'+MOBILE_PROJECT+'/messages:send',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20_000),headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:payload,android:{priority:'HIGH',ttl:Math.max(1,Math.min(900,ttlSeconds))+'s'}}})});
     const text=await response.text();
     if(text.length>64_000)return {state:'uncertain',error:'Nem értelmezhető FCM-válasz; nincs automatikus újraküldés.'};
@@ -66,7 +69,15 @@ export async function sendNextPush(db:DatabaseSync,options:{configured?:boolean;
   const now=options.now ?? Date.now(),job=claimPush(db,now);if(!job)return;
   const device=db.prepare('SELECT fcm_token,email FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,now) as {fcm_token:string;email:string}|undefined;
   if(!device?.fcm_token || !roleFor(db,device.email) || (job.event_id!==null && !notificationAllowed(db,device.email,job.event_id))){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
-  const result=await (options.deliver || deliverFcm)(device.fcm_token,JSON.parse(job.payload),Math.ceil((job.expires_at-now)/1000));
+  const payload=JSON.parse(job.payload);
+  if((payload.kind==='task'&&!taskPushAllowed(db,job.id,device.email,now))||(payload.kind==='release'&&roleFor(db,device.email)!=='admin')){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
+  const authorized=()=>{
+    const current=options.now ?? Date.now(),active=db.prepare('SELECT fcm_token,email FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,current);
+    return current<job.expires_at&&active?.fcm_token===device.fcm_token&&active.email===device.email&&!!roleFor(db,device.email)
+      &&(job.event_id===null||notificationAllowed(db,device.email,job.event_id))
+      &&(payload.kind!=='task'||taskPushAllowed(db,job.id,device.email,current))&&(payload.kind!=='release'||roleFor(db,device.email)==='admin');
+  };
+  const result=await (options.deliver || deliverFcm)(device.fcm_token,payload,Math.ceil((job.expires_at-now)/1000),authorized);
   const state=result.state==='retry' && job.attempts>=4 ? 'failed' : result.state;
   db.prepare('UPDATE mobile_push_outbox SET state=?,error=?,lease_until=0,next_attempt=?,sent_at=? WHERE id=?').run(state,result.error || null,now+Math.max(Math.min(5*60_000,60_000*2**job.attempts),result.retryAfterMs || 0),state==='sent' ? Date.now() : null,job.id);
   if(result.invalidToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE id=? AND fcm_token=?').run(job.device_id,device.fcm_token);

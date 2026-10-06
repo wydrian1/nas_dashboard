@@ -1,0 +1,1 @@
+.version-label{display:block;color:var(--muted,#99a3b5);font-size:12px;padding:12px 18px}.todo-deadline{display:block;font-size:12px;color:#a8efc9;margin-top:4px}.todo-deadline.overdue{color:#ffaaa2}.todo-add-form{flex-wrap:wrap}.todo-add-form input[type=date]{max-width:180px}.task-reminder-help{font-size:12px;line-height:1.5;color:#99a3b5;margin:12px 0}

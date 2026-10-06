@@ -78,18 +78,30 @@ export async function prepareStage(root:string,stage:string,now=new Date()):Prom
     await copy(join(root,entry),join(stage,entry),(path,name)=>name!=='.gradle' && !(relative(root,path).split(/[\\/]/)[0]==='android' && name==='build'));
   }
   await mkdir(join(stage,'data'),{recursive:true});await snapshotDatabase(join(root,'data/dashboard.sqlite'),join(stage,'data/dashboard.sqlite'));
-  for(const path of ['data/caddy','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway','.runtime/admin-helper-client']){
+  for(const path of ['data/caddy','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway','.runtime/admin-helper-client','.runtime/deployment-client']){
     try{await lstat(join(root,path));}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')continue;throw error;}
     await copy(join(root,path),join(stage,path));
   }
+  // Worker-only immutable releases are needed by restored service XML; never
+  // duplicate all web/APK rollback builds into the daily cloud archive.
+  const releases=join(root,'.runtime/deployment/releases');
+  try{
+    const releaseStat=await lstat(releases);if(!releaseStat.isDirectory() || releaseStat.isSymbolicLink())throw new Error('Unsafe deployment release directory');
+    for(const id of await readdir(releases))if(/^[a-f0-9]{32}$/.test(id)){
+      const entry=await lstat(join(releases,id));if(!entry.isDirectory() || entry.isSymbolicLink())throw new Error('Unsafe worker release path');
+      const worker=join(releases,id,'worker');let exists=false;try{await lstat(worker);exists=true;}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+      if(exists)await copy(worker,join(stage,'.runtime/deployment/releases',id,'worker'));
+    }
+  }catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
   // Approved protected Windows component; archive into the project recovery tree,
   // never restore directly into privileged Program Files or enable a Windows service.
   if(process.platform==='win32' && resolve(root)===resolve(process.cwd())){
-    const helper=join(process.env.ProgramFiles || process.env.PROGRAMFILES || 'C:\\Program Files','Wydrian NAS Admin Helper');
+    for(const [component,recovery] of [['Wydrian NAS Admin Helper','.runtime/admin-helper-recovery'],['Wydrian NAS Deployer','.runtime/deployer-recovery']]){
+    const helper=join(process.env.ProgramFiles || process.env.PROGRAMFILES || 'C:\\Program Files',component);
     let installed=false;try{await lstat(join(helper,'installation.json'));installed=true;}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
     if(installed){
-      const destination=join(stage,'.runtime/admin-helper-recovery');
-      await copy(helper,destination,(parent,name)=>!(parent===helper && name==='data'));
+      const destination=join(stage,recovery);
+      await copy(helper,destination,(parent,name)=>!(parent===helper && ['data','jdk','node.exe','aapt.exe','apksigner.jar'].includes(name)));
       const data=join(helper,'data'),target=join(destination,'data');await mkdir(target,{recursive:true});
       const dataStat=await lstat(data),stateStat=await lstat(join(data,'state.json'));
       if(!dataStat.isDirectory() || dataStat.isSymbolicLink() || !stateStat.isFile() || stateStat.isSymbolicLink())throw new Error('Unsafe helper state path');
@@ -97,11 +109,15 @@ export async function prepareStage(root:string,stage:string,now=new Date()):Prom
       // remains possible. Never CopyFile its live state/new/previous files.
       const state=await readFile(join(data,'state.json'),'utf8');if(!Array.isArray(JSON.parse(state)))throw new Error('Invalid helper backup state');
       await writeFile(join(target,'state.json'),state);
+      if(component==='Wydrian NAS Deployer'){
+        const value=await readFile(join(data,'worker-hash.txt'),'utf8');if(!/^[a-f0-9]{64}$/.test(value.trim()))throw new Error('Invalid worker configuration backup hash');await writeFile(join(target,'worker-hash.txt'),value);
+      }
       for(const name of await readdir(data))if(/^audit-\d{4}-\d{2}\.jsonl$/.test(name)){
         const path=join(data,name),stat=await lstat(path);if(!stat.isFile() || stat.isSymbolicLink())throw new Error('Unsafe helper audit path');
         const bytes=await readFile(path),end=bytes.lastIndexOf(10)+1;
         await writeFile(join(target,name),bytes.subarray(0,end)); // Only complete captured audit records.
       }
+    }
     }
   }
   const files:BackupManifest['files']=[];
