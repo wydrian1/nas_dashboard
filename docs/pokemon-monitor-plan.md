@@ -136,7 +136,7 @@ docs/pokemon-shops/<webshop>.md
 
 ## Lekérdezés és ütemezés
 
-- Alapérték: 10 perc/webshop, forrásonként állítható 5–60 perc között, a forrás korlátait tiszteletben tartva. Szükség esetén ennél ritkább ellenőrzés.
+- Alapérték: 3 perc/webshop, forrásonként állítható 3–60 perc között, a forrás korlátait tiszteletben tartva. Szükség esetén ennél ritkább ellenőrzés. Meglévő figyelők egyszeri átállítása és adatmegőrzés: [pokemon-intervals.md](pokemon-intervals.md).
 - Kis véletlen időeltolás; oldalanként legalább 1–2 másodperc szünet. Legfeljebb két webshop párhuzamosan; egy webshopon belül nincs párhuzamos teljes vizsgálat.
 - HTTP-időkorlát, maximális oldalméret, lapozási felső korlát és teljes vizsgálati időkorlát. A korlát elérése részleges eredmény, nem teljes baseline.
 - 429 esetén Retry-After, átmeneti hibáknál növekvő várakozás. A worker nem kísérli meg ugyanazt az oldalt más identitással vagy proxyval kikerülni.
@@ -213,7 +213,7 @@ Kötelező átvételi esetek: első vizsgálat nem küld termékriasztást; vál
 1. A webshopok pontos URL-jei, lehetőleg a figyelni kívánt Pokémon-kategória linkjével.
 2. Csak Pokémon TCG (booster, ETB, display stb.) vagy minden Pokémon-termék?
 3. Készletre visszatérésről is kérsz levelet? Előrendelhető termékekről is?
-4. A javasolt 10 perces alapgyakoriság megfelel-e az adott oldalak szabályainak és a kívánt figyelésnek?
+4. A tulajdonos által kért 3 perces alapgyakoriság mellett továbbra is érvényesülnek az adott oldalak szabályai, robots-késleltetése és hibavárakozása.
 5. Maradjon-e az értesítési címzett `wydrian@gmail.com`, és melyik levélküldési megoldást használjuk?
 
 Az első két adat alapján elindítható az első webshop elemzése. Nem kezdünk automatikus figyelést vagy e-mail-küldést pusztán a tervezés kérésére.
