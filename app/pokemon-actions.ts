@@ -5,7 +5,7 @@ import type { Session } from 'next-auth';
 import { db } from "@/lib/db";
 import { InputError, type ActionResult } from "@/lib/personal-types";
 import { transaction, shop } from "@/lib/pokemon/store";
-import { isShopID, type ShopID } from "@/lib/pokemon/types";
+import { isShopID, validScanInterval, type ShopID } from "@/lib/pokemon/types";
 import { cancelShopPush } from "@/lib/mobile/store";
 import { saveNotifications } from '@/lib/pokemon/notifications';
 
@@ -25,7 +25,7 @@ export async function savePokemonSettings(_previous:ActionResult,data:FormData):
   return mutate(()=>{
     const shopID=selectedShop(data);
     const interval=Number(data.get('interval'));
-    if(!Number.isInteger(interval) || interval<5 || interval>60)throw new InputError("Az ellenőrzés gyakorisága 5–60 perc lehet.");
+    if(!validScanInterval(interval))throw new InputError("Az ellenőrzés gyakorisága 3–60 perc lehet.");
     const current=shop(db(),shopID),enabled=data.get('enabled')==='on';
     // Never bypass a server-imposed Retry-After or an active scan.
     const next=current.failure_count || current.lease_owner ? current.next_scan : Date.now()+interval*60_000;

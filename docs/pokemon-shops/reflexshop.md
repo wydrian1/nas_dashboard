@@ -22,6 +22,6 @@ Adapter: `lib/pokemon/adapters/reflexshop.ts`, verzió `1.0.0`, webshopkulcs `re
 
 A jelenleg igazolt, teljes **egyoldalas** nézet támogatott. A számlálóval egyező teljes kártyaszám és egyedi SKU-k kötelezők. Ha lapozás/részleges lista jelenik meg, hibát jelzünk és megőrizzük a korábbi állapotot; nem írunk át készletet az első oldal alapján és nem találunk ki lapozóparamétert. Hibás keresés/szűrés/gomb/azonosító szintén nem ad teljes eredményt.
 
-Önálló 10 perces alapütemezés (5–60 perc), saját baseline/beállítások/események és e-mail-sor. Csendes első baseline, e-mail alapból kikapcsolva, közös felső eseménylista a `/pokemon` oldalon. Tesztek: `tests/jateknet-reflexshop.test.ts`; anonim minta: `tests/fixtures/pokemon/reflexshop/search.html`.
+Önálló 3 perces alapütemezés (3–60 perc), saját baseline/beállítások/események és e-mail-sor. Csendes első baseline, e-mail alapból kikapcsolva, közös felső eseménylista a `/pokemon` oldalon. Tesztek: `tests/jateknet-reflexshop.test.ts`; anonim minta: `tests/fixtures/pokemon/reflexshop/search.html`.
 
 Telepítés: 83/83 teszt, typecheck és build sikeres; UAC után kilépési kód 0. Nyolc webshop rendben, 191 elérhető termék; régi baseline-ok/beállítások megmaradtak. Minden szolgáltatás Running, worker LocalService. 0 baseline-esemény/levélmunka, SMTP konfigurálatlan, e-mail kikapcsolva. A privát oldal/API anoniman 307/401 választ ad helyben és publikus HTTPS-en. Friss Google-belépés hiányában bejelentkezett vizuális ellenőrzést nem állítunk.

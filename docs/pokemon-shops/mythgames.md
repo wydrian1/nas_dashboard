@@ -37,7 +37,7 @@ Korlátok: 600 termék, 50 kategóriaoldal, a közös letöltőben 20 másodperc
 
 ## Motor és üzemeltetés
 
-Webshopazonosító: `mythgames`. Saját baseline, termékállapot, események, scan-lease, ütemezés és beállítások; GameRunner-adatok nem cserélődnek le. Az első teljes vizsgálat csendes baseline, tízperces alapgyakorisággal, 5–60 percre állíthatóan. Eltűnés két teljes sikeres vizsgálat után; 50%-nál nagyobb listacsökkenés újabb azonos eredményre vár. Az e-mail alapból kikapcsolva marad.
+Webshopazonosító: `mythgames`. Saját baseline, termékállapot, események, scan-lease, ütemezés és beállítások; GameRunner-adatok nem cserélődnek le. Az első teljes vizsgálat csendes baseline, háromperces alapgyakorisággal, 3–60 percre állíthatóan. Eltűnés két teljes sikeres vizsgálat után; 50%-nál nagyobb listacsökkenés újabb azonos eredményre vár. Az e-mail alapból kikapcsolva marad.
 
 A közös worker egymás után kezeli az esedékes webshopokat, webshoponkénti hibakezeléssel. A dashboard minden webshophoz külön kártyát és hitelesített beállítási/kézi ütemezési műveleteket ad. A beállításmentés csak az érintett webshop még várakozó termékleveleit törli, nem más webshop leveleit és nem folyamatban lévő küldést. Az outbox a levél payloadjában tárolt webshop beállításait ellenőrzi; a levél tárgya/szövege is a megfelelő webshop nevét kapja.
 

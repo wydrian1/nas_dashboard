@@ -23,4 +23,4 @@ HUF-ár: akciós `.product__price-sale`, különben `.product__price-base`, nem 
 
 Csak robots és a pontos kategória GET-je (`infinite_page=1..50`) kérhető le; nincs AJAX-, termékoldal-, cart- vagy bejelentkezési kérés. Max. 600 kártya/50 nézet, közös 20 s/kérés, 3 MiB/HTML, 3 perc/workerscan. Eltérő teljes darabszám, nem növekvő/ismételt kumulatív lista, duplikált SKU, hibás gomb vagy szűrő: a korábbi állapot megmarad.
 
-Önálló 10 perces ütemezés (5–60 perc), csendes első baseline és saját beállítások/események/levélsor. E-mail kikapcsolva. Közös `/pokemon` felső eseménylista. Tesztek: `tests/pokemon-new-shops.test.ts`, anonim minta: `tests/fixtures/pokemon/tcgfutar/catalog.html`.
+Önálló 3 perces ütemezés (3–60 perc), csendes első baseline és saját beállítások/események/levélsor. E-mail kikapcsolva. Közös `/pokemon` felső eseménylista. Tesztek: `tests/pokemon-new-shops.test.ts`, anonim minta: `tests/fixtures/pokemon/tcgfutar/catalog.html`.

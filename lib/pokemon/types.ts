@@ -27,6 +27,10 @@ export const SHOP_IDS = ["gamerunner","mythgames","pottyoszebra","grandline","kr
 export type ShopID = typeof SHOP_IDS[number];
 export const SHOP_NAMES:Record<ShopID,string> = {gamerunner:'GameRunner',mythgames:'MythGames',pottyoszebra:'Pöttyös Zebra',grandline:'GrandLine',krodomcards:'Krodom Cards',jateknet:'JátékNet',reflexshop:'Reflexshop',geekempire:'GeekEmpire',tcgfutar:'TCG Futár',sportkartyabolt:'Sport Kártya Bolt',rtcollectorsclub:'RT Collectors Club',cardverse:'Cardverse',metagames:'Metagames'};
 export function isShopID(value:unknown):value is ShopID {return typeof value==='string' && SHOP_IDS.some(id=>id===value);}
+export const DEFAULT_SCAN_INTERVAL_MINUTES=3;
+export const MIN_SCAN_INTERVAL_MINUTES=3;
+export const MAX_SCAN_INTERVAL_MINUTES=60;
+export function validScanInterval(value:number):boolean {return Number.isInteger(value) && value>=MIN_SCAN_INTERVAL_MINUTES && value<=MAX_SCAN_INTERVAL_MINUTES;}
 export type PokemonProduct = { externalID: string; sku: string; title: string; url: string; image: string | null; priceHuf: number | null; availability: "in_stock" | "preorder" | "available" };
 export type ShopScan = { products: PokemonProduct[]; pages: number; total: number; scannedAt: number };
 export type PokemonShop = {

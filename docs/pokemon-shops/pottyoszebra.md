@@ -31,7 +31,7 @@ A webshop saját lapozólinkjei **nem tartalmazzák a `stockfilter=1` paraméter
 
 Teljes kategóriaszám, folytonos start/end tartományok, tényleges kártyaszám és egyedi termék-ID-k kötelezőek. Változó teljes szám, rossz oldal/filter, hiányos/duplikált kártyák vagy elfogyó korlát esetén nincs állapotfrissítés. Legfeljebb 50 kategóriaoldal, 600 termék, 20 s/lekérés, 3 MiB/HTML, 3 perc/teljes workerscan. Letöltés: rögzített domain/útvonal/szűrő és nyilvános DNS-cím, címrögzítéssel; átirányítás csak azonos originre. Termékoldalak, kosár- és checkout-végpontok nem szerepelnek a lekérési engedélylistán.
 
-Önálló ütemezés, baseline és események; tízperces alapgyakoriság (5–60 percre állítható). Az első teljes scan értesítés nélküli alapállapot. A GameRunner/MythGames adatait nem módosítja. E-mail alapból kikapcsolva; közös eltűnés-/listacsökkenés-védelem és tartós outbox.
+Önálló ütemezés, baseline és események; háromperces alapgyakoriság (3–60 percre állítható). Az első teljes scan értesítés nélküli alapállapot. A GameRunner/MythGames adatait nem módosítja. E-mail alapból kikapcsolva; közös eltűnés-/listacsökkenés-védelem és tartós outbox.
 
 Tesztek: `tests/pottyoszebra.test.ts`, anonim szerkezeti minta: `tests/fixtures/pokemon/pottyoszebra/available.html`. Külön ellenőrzik a szűrő megőrzését lapozáskor, a lapozott kanonikus linket, az aktív kosárgomb elsőbbségét és az önálló baseline/levélkezelést.
 
