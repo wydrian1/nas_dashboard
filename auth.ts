@@ -4,8 +4,16 @@ import { verifiedProfileEmail } from "@/lib/access";
 import { roleFor, AccessError } from "@/lib/users";
 import { db } from "@/lib/db";
 import { deviceAuthorized } from "@/lib/mobile/store";
+import {headers} from 'next/headers';
+import {NextRequest} from 'next/server';
+import {dashboardRequestOrigin} from '@/lib/dashboard-origin';
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth=NextAuth(async request=>{
+  if(process.env.AUTH_MULTI_DOMAIN==='true'){
+    if(process.env.AUTH_URL||process.env.NEXTAUTH_URL)throw new Error('Multi-domain auth must not pin an AUTH_URL');
+    dashboardRequestOrigin(request?.headers || await headers());
+  }
+  return {
   providers: [Google],
   trustHost: true,
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 },
@@ -21,7 +29,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     }
   }
+  };
 });
+export const {auth,signIn,signOut}=nextAuth;
+function authRequest(request:NextRequest):NextRequest {
+  if(process.env.AUTH_MULTI_DOMAIN!=='true')return request;
+  const origin=dashboardRequestOrigin(request.headers);
+  return new NextRequest(origin+request.nextUrl.pathname+request.nextUrl.search,request);
+}
+export const handlers={
+  GET:(request:NextRequest)=>nextAuth.handlers.GET(authRequest(request)),
+  POST:(request:NextRequest)=>nextAuth.handlers.POST(authRequest(request))
+};
 
 export async function requireUser() {
   const session = await auth();

@@ -6,6 +6,8 @@ import {homeForRole} from '@/lib/users';
 import DashboardSidebar from '../dashboard-sidebar';
 import OpenCodeFrame from './opencode-frame';
 import './opencode.css';
+import {headers} from 'next/headers';
+import {dashboardRequestOrigin} from '@/lib/dashboard-origin';
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'OpenCode · Wydrian',robots:{index:false,follow:false}};
 export default async function OpenCodePage() {
@@ -13,6 +15,8 @@ export default async function OpenCodePage() {
   if(!session)redirect('/');
   if(session.role!=='admin')redirect(homeForRole(session.role));
   if(!isOpenCodeOwner(session.user?.email))redirect('/');
+  // Keep the original tool lease scoped to nas.wydrian.hu; never share dashboard cookies across hosts.
+  if(process.env.AUTH_MULTI_DOMAIN==='true'&&dashboardRequestOrigin(await headers())==='https://wydrian.hu')redirect('https://nas.wydrian.hu/opencode');
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="opencode" openCode/><main className="main-content opencode-page">
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">PRIVÁT FEJLESZTŐI MUNKATERÜLET</span><h1>OpenCode</h1><p>Az eredeti OpenCode-felület. Kizárólag a tulajdonosnak, a dashboard belépése mögött.</p></div></section>
