@@ -17,7 +17,8 @@ export function deadlineDays(due:string,day:string){return Math.round((Date.pars
 export function initializeTaskReminders(db:DatabaseSync){
   db.exec('BEGIN IMMEDIATE');try{
     const columns=new Set(db.prepare('PRAGMA table_info(todos)').all().map(row=>row.name));
-    if(!columns.has('owner_email')){db.exec("ALTER TABLE todos ADD COLUMN owner_email TEXT NOT NULL DEFAULT ''");db.prepare('UPDATE todos SET owner_email=?').run(ownerEmail());}
+    // Legacy web rollback still inserts just text: preserve owner visibility for those new rows too.
+    if(!columns.has('owner_email')){const owner=normalizeEmail(ownerEmail());db.exec("ALTER TABLE todos ADD COLUMN owner_email TEXT NOT NULL DEFAULT '"+owner.replace(/'/g,"''")+"'");}
     if(!columns.has('due_date'))db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT');
     db.exec(`CREATE TABLE IF NOT EXISTS task_reminder_runs(day TEXT PRIMARY KEY,checked_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS task_reminder_deliveries(outbox_id TEXT PRIMARY KEY REFERENCES mobile_push_outbox(id) ON DELETE CASCADE,task_id INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,due_date TEXT NOT NULL,day TEXT NOT NULL);

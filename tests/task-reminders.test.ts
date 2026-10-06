@@ -20,6 +20,9 @@ test('migration preserves legacy task fields/ids/completion, assigns owner once,
 test('task creator is immutable, only owns CRUD, reader cannot create, per-user capacity',()=>{
   const db=fixture();try{saveTask(db,ownerEmail(),'Owner task','2026-10-08');const id=Number(db.prepare('SELECT id FROM todos').get()!.id);assert.throws(()=>saveTask(db,'second@example.com','Stolen','2026-10-09',id));assert.throws(()=>changeTask(db,'second@example.com',id));assert.throws(()=>changeTask(db,'reader@example.com',id,true));assert.throws(()=>saveTask(db,'reader@example.com','Reader task',null));saveTask(db,'second@example.com','Own task',null);saveTask(db,ownerEmail(),'Edited','2026-10-09',id);assert.equal(db.prepare('SELECT owner_email FROM todos WHERE id=?').get(id)!.owner_email,ownerEmail());}finally{db.close();}
 });
+test('old web inserts after additive migration or rollback still belong to the owner without resetting existing creators',()=>{
+  const db=fixture();try{db.prepare("INSERT INTO todos(text) VALUES('Legacy writer after migration')").run();const row=db.prepare('SELECT * FROM todos').get()!;assert.equal(row.owner_email,ownerEmail());assert.equal(row.due_date,null);saveTask(db,'second@example.com','Second creator',null);initializeTaskReminders(db);assert.equal(db.prepare('SELECT owner_email FROM todos WHERE id=2').get()!.owner_email,'second@example.com');}finally{db.close();}
+});
 test('daily 10:00 runs send -2/-1 and each overdue day, not due-day, complete or no-date tasks; once per day/device',()=>{
   const db=fixture();try{saveTask(db,ownerEmail(),'Due','2026-10-08');saveTask(db,'second@example.com','Second','2026-10-08');saveTask(db,ownerEmail(),'No date',null);saveTask(db,ownerEmail(),'Done','2026-10-08');changeTask(db,ownerEmail(),4);
     assert.equal(checkTaskDeadlines(db,at('2026-10-06','07:59')),0);assert.equal(db.prepare('SELECT count(*) AS n FROM task_reminder_runs').get()!.n,0);
