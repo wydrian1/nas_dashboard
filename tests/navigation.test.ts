@@ -10,6 +10,8 @@ import ts from 'typescript';
 import { initializeDatabase } from '../lib/db-schema.ts';
 import { readPokemonSnapshot } from '../lib/pokemon/snapshot.ts';
 import { SHOP_IDS } from '../lib/pokemon/types.ts';
+import type {LatestInfoFinance} from '../lib/important-info/store.ts';
+import {formatMoney} from '../lib/finance/types.ts';
 
 const require = createRequire(import.meta.url);
 const source = (path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -24,6 +26,7 @@ function component(path:string) {
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
     };
     if(name==='@/lib/personal-types')return require('../lib/personal-types.ts');
+    if(name==='@/lib/finance/types')return require('../lib/finance/types.ts');
     if(name==='@/lib/mobile/task-reminders')return require('../lib/mobile/task-reminders.ts');
     if(name==='@/lib/mobile/release')return require('../lib/mobile/release.ts');
     if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
@@ -32,6 +35,27 @@ function component(path:string) {
   },exports);
   return exports;
 }
+
+test('Important info hides missing balances and empty groups but retains saved zero/negative values and unchanged totals',()=>{
+  const View=component('app/important-info/finance.tsx').default;
+  const finance:NonNullable<LatestInfoFinance>={month:'2026-09',asOf:'2026-09-30',netMinor:7500,assetsMinor:10000,debtMinor:-2500,groups:[
+    {category:'Mixed',totalMinor:7500,items:[
+      {id:'asset',name:'Saved asset',category:'Mixed',kind:'asset',amountMinor:10000},
+      {id:'missing',name:'Missing mixed row',category:'Mixed',kind:'asset',amountMinor:null},
+      {id:'zero',name:'Saved zero',category:'Mixed',kind:'asset',amountMinor:0},
+      {id:'debt',name:'Saved debt',category:'Mixed',kind:'debt',amountMinor:-2500}]},
+    {category:'Only missing',totalMinor:0,items:[{id:'empty',name:'Missing-only row',category:'Only missing',kind:'asset',amountMinor:null}]},
+    {category:'Zero-only group',totalMinor:0,items:[{id:'zero-only',name:'Zero-only row',category:'Zero-only group',kind:'asset',amountMinor:0}]},
+    {category:'No items',totalMinor:0,items:[]}
+  ]};
+  const before=JSON.stringify(finance),page=load(renderToStaticMarkup(React.createElement(View,{finance})));
+  assert.equal(page('.info-table tbody tr').length,4);assert.deepEqual(page('.info-groups h3').map((_,el)=>page(el).text()).get(),['Mixed','Zero-only group']);
+  assert.doesNotMatch(page.text(),/Missing mixed row|Only missing|Missing-only row|No items|Nincs rögzített érték/);
+  assert.deepEqual(page('.info-table tbody td').map((_,el)=>page(el).text()).get(),[10000,0,-2500,0].map(formatMoney));
+  assert.deepEqual(page('.info-totals strong').map((_,el)=>page(el).text()).get(),[7500,10000,-2500].map(formatMoney));assert.equal(JSON.stringify(finance),before);
+  const allMissing=load(renderToStaticMarkup(React.createElement(View,{finance:{...finance,groups:[finance.groups[1]]}})));assert.equal(allMissing('.info-groups .info-card,.info-table tbody tr').length,0);assert.equal(allMissing('.info-totals strong').length,3);
+  const absent=load(renderToStaticMarkup(React.createElement(View,{finance:null})));assert.match(absent.text(),/Még nincs mentett pénzügyi hónap/);
+});
 
 test('overview quick links are read-only; add/edit/delete controls live in configuration',()=>{
   const {QuickLinks,QuickLinkSettings}=component('app/personal-sections.tsx');
