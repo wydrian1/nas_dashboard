@@ -19,7 +19,6 @@ export default async function FilesPage({searchParams}:{searchParams:Promise<{fo
   let initial;try{initial=listing(db(),folder);}catch(error){if(folder)redirect('/files');throw error;}
   const links=initial.links.map(link=>({...link,url:link.revoked_at===null&&process.env.AUTH_SECRET?'/s/'+signHostingLink(link.id,process.env.AUTH_SECRET):null}));
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="files" role={session.role} openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content files-page">
-    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">PRIVÁT TÁROLÓ · NYILVÁNOS MEGOSZTÁS</span><h1>Fájlok</h1><p>Admin feltöltés és mappakezelés · fájlonként legfeljebb 1 GB.</p></div></section>
     <FileManager initial={{...initial,links}}/>
     <footer className="main-footer">Wydrian Dashboard</footer>

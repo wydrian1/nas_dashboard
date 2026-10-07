@@ -20,8 +20,7 @@ export default async function NewsPage() {
   await refreshFeeds();
   const news = articles(), unread = news.filter(article=>!article.is_read).length;
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="news" unread={unread} openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content news-page">
-    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
-    <section className="page-heading"><div><h1>Hírolvasó</h1></div><a className="secondary-button" href="/config#sources">RSS-források · Konfig</a></section>
+    <section className="page-heading"><div><span className="eyebrow">RSS-HÍREK</span><h1>Hírolvasó</h1></div><a className="secondary-button" href="/config#sources">RSS-források · Konfig</a></section>
     <LocalSections page="news"><LocalSection sectionId="news" label="Hírek"><section className="news-section" id="news"><div className="section-heading"><h2>Legfrissebb hírek <span>{unread} új</span></h2><form action={refreshNews}><button className="secondary-button">↻ Frissítés</button></form></div>
       <div className="news-panel">{news.length === 0 ? <div className="empty-state"><div className="empty-icon">☷</div><h3>Még nincs megjeleníthető hír.</h3><p>Adj hozzá egy RSS-forrást a Konfig oldalon, és itt megjelennek a legfrissebb cikkek.</p><a href="/config#sources" className="text-link">Első forrás hozzáadása →</a></div> : news.map(article => <article className={`news-item ${article.is_read ? "read" : ""}`} key={article.id}>
         {article.image_url && <NewsImage key={article.image_url} src={article.image_url} href={article.url} title={article.title}/>}

@@ -8,6 +8,9 @@
 .local-section{display:flex;align-items:flex-start;gap:8px;min-width:0}
 .local-section-content{flex:1;min-width:0}
 .section-order-controls{display:flex;flex-direction:column;gap:4px;flex:0 0 24px}
+.section-order-controls[hidden]{display:none}
 .section-order-controls button{width:24px;height:24px;padding:0;border:1px solid var(--border,#303744);border-radius:5px;background:transparent;color:inherit;font-size:12px;line-height:1;cursor:pointer}
 .local-section .section-order-controls button:disabled{opacity:.25;cursor:default}
 .section-order-controls button:focus-visible{outline:2px solid #8eb5ff;outline-offset:2px}
+.section-order-toggle{display:flex;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px}
+.section-order-toggle button{min-height:44px;max-width:100%;white-space:normal}

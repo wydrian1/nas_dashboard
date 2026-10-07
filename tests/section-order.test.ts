@@ -10,7 +10,7 @@ test('browser section preferences reject corrupt payloads, keep stable IDs and a
   const order=['a','b','c'];assert.deepEqual(moveSection(order,'b',-1),['b','a','c']);assert.deepEqual(moveSection(order,'b',1),['a','c','b']);assert.deepEqual(order,['a','b','c']);assert.equal(moveSection(order,'a',-1),order);assert.equal(moveSection(order,'c',1),order);assert.equal(moveSection(order,'missing',1),order);
 });
 test('section controls are local-only, small, labelled and do not submit underlying forms',()=>{
-  const code=readFileSync(new URL('../app/local-sections.tsx',import.meta.url),'utf8');assert.match(code,/localStorage\.setItem/);assert.doesNotMatch(code,/fetch\(|document\.cookie|server|\/api\//);assert.equal((code.match(/type="button"/g)||[]).length,2);assert.match(code,/aria-label/);assert.match(code,/key=\{id\}/);
+  const code=readFileSync(new URL('../app/local-sections.tsx',import.meta.url),'utf8');assert.match(code,/localStorage\.setItem/);assert.doesNotMatch(code,/fetch\(|document\.cookie|server|\/api\//);assert.equal((code.match(/type="button"/g)||[]).length,3);assert.match(code,/aria-label/);assert.match(code,/key=\{id\}/);
 });
 test('compact controls occupy a separate right-side rail rather than an absolute row above the content',()=>{
   const code=readFileSync(new URL('../app/local-sections.tsx',import.meta.url),'utf8'),css=readFileSync(new URL('../app/globals.css',import.meta.url),'utf8');

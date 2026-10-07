@@ -19,6 +19,7 @@ function component(path:string,reactModule?:unknown,extra=''):any {
     if(name==='react')return reactModule || require(name);
     if(name==='react/jsx-runtime')return require(name);
     if(name==='@/lib/section-order')return require('../lib/section-order.ts');
+    if(name==='@/lib/section-controls')return require('../lib/section-controls.ts');
     if(name==='../local-sections')return component('app/local-sections.tsx');
     if(name==='./finance-view')return component('app/finance/finance-view.tsx');
     if(name==='@/lib/finance/types')return require('../lib/finance/types.ts');

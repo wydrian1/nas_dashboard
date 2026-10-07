@@ -31,8 +31,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const [services, system] = await Promise.all([serviceStatuses(), systemSnapshot()]);
   const unread = articles().filter(article => !article.is_read).length;
   const personal = personalData(session.user!.email!);
-  return <div className="dashboard-shell"><DashboardSidebar name={session?.user?.name} unread={unread} openCode={isOpenCodeOwner(session?.user?.email)}/><main className="main-content" id="overview"><header className="topbar"><span className="domain"><i />nas.wydrian.hu</span></header>
-    <section className="page-heading"><div><h1>Dashboard</h1></div><span className="date">{new Intl.DateTimeFormat("hu-HU", { month: "long", day: "numeric", weekday: "long", timeZone: "Europe/Budapest" }).format(new Date())}</span></section>
+  return <div className="dashboard-shell"><DashboardSidebar name={session?.user?.name} unread={unread} openCode={isOpenCodeOwner(session?.user?.email)}/><main className="main-content" id="overview">
+    <section className="page-heading"><div><span className="eyebrow">ÁTTEKINTÉS</span><h1>Dashboard</h1></div><span className="date">{new Intl.DateTimeFormat("hu-HU", { month: "long", day: "numeric", weekday: "long", timeZone: "Europe/Budapest" }).format(new Date())}</span></section>
     <LocalSections page="dashboard">
       <LocalSection sectionId="services" label="Szolgáltatások"><section><div className="section-heading"><h2>Szolgáltatások <span>03</span></h2><span className="subtle">Élő állapot</span></div><ServiceCards initial={services} /></section></LocalSection>
       {!!personal.links.length&&<LocalSection sectionId="quicklinks" label="Gyorslinkek"><QuickLinks links={personal.links}/></LocalSection>}

@@ -17,8 +17,7 @@ export default async function ImportantInfoPage(){
   if(!canAccess(session.role,'important-info'))redirect(homeForRole(session.role));
   const document=readImportantInfo(db(),session.user!.email!),finance=readLatestInfoFinance(db(),session.user!.email!);
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="important-info" role={session.role!} openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content important-info-page">
-    <header className="topbar">{session.role==='admin'?<a href="/">← Vissza a dashboardra</a>:<span>Fontos infók · csak olvasás</span>}<span className="domain"><i/>nas.wydrian.hu</span></header>
-    <section className="page-heading"><div><span className="eyebrow">FONTOS TUDNIVALÓK</span><h1>Fontos infók</h1><p>Hasznos információk és a legutóbbi mentett havi pénzügyi állapot.</p></div></section>
+    <section className="page-heading"><div><span className="eyebrow">FONTOS TUDNIVALÓK</span><h1>Fontos infók</h1><p>{session.role!=='admin'&&<><strong>Csak olvasás.</strong> </>}Hasznos információk és a legutóbbi mentett havi pénzügyi állapot.</p></div></section>
     <LocalSections page="important-info"><LocalSection sectionId="document" label="Tudnivalók"><section className="info-card info-document"><div className="section-heading"><h2>Tudnivalók</h2>{document.updated_at&&<small>Mentve: {new Intl.DateTimeFormat('hu-HU',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Budapest'}).format(new Date(document.updated_at))}</small>}</div>
       {session.role==='admin'?<ImportantInfoEditor document={document}/>:document.html?<div className="info-rich-text" dangerouslySetInnerHTML={{__html:document.html}}/>:<p>Még nincs rögzített fontos információ.</p>}
     </section></LocalSection><LocalSection sectionId="finance" label="Pénzügyi állapot"><ImportantInfoFinance finance={finance}/></LocalSection></LocalSections>

@@ -16,8 +16,7 @@ export default async function PokemonPage() {
   return <div className="dashboard-shell">
     <DashboardSidebar name={session.user?.name} active="pokemon" role={session.role!} openCode={isOpenCodeOwner(session.user?.email)}/>
     <main className="main-content pokemon-page">
-      <header className="topbar">{session.role==='admin' ? <a href="/">← Vissza a dashboardra</a> : <span>Pokémon olvasói hozzáférés</span>}<span className="domain"><i/>nas.wydrian.hu</span></header>
-      <section className="page-heading"><div><span className="eyebrow">POKÉMON TCG</span><h1>Pokémon figyelő</h1><p>Új elérhetőségek egy helyen. Webshoponként külön figyelés és beállítások.</p></div></section>
+      <section className="page-heading"><div><span className="eyebrow">POKÉMON TCG</span><h1>Pokémon figyelő</h1><p>{session.role!=='admin'&&<><strong>Pokémon olvasói hozzáférés.</strong> </>}Új elérhetőségek egy helyen. Webshoponként külön figyelés és beállítások.</p></div></section>
       <PokemonPanel initial={pokemonSnapshot(session.user!.email!,session.role!)}/>
       <p><a className="secondary-button" href="/mobile/download">Android APK letöltése</a></p>
       <footer className="main-footer">Wydrian Dashboard</footer>
