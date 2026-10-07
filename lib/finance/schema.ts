@@ -43,5 +43,18 @@ export function initializeFinance(db:DatabaseSync) {
     CREATE TABLE IF NOT EXISTS finance_lego_imports (
       checksum TEXT PRIMARY KEY, imported_at TEXT NOT NULL, item_count INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS finance_pokemon_items (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL,
+      quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 9999),
+      unit_price_minor INTEGER NOT NULL CHECK(unit_price_minor >= 0), acquired_on TEXT,
+      revision INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, deleted_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS finance_pokemon_audit (
+      id INTEGER PRIMARY KEY, item_id TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL,
+      before_json TEXT, after_json TEXT NOT NULL, occurred_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS finance_pokemon_imports (
+      checksum TEXT PRIMARY KEY, imported_at TEXT NOT NULL, item_count INTEGER NOT NULL
+    );
   `);
 }

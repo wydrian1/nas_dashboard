@@ -72,7 +72,7 @@ test('overview quick links are read-only; add/edit/delete controls live in confi
 
 test('sidebar news/config/notes destinations are separate pages with active-page markers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
-  for(const active of ['news','config','notes','finance']){
+  for(const active of ['news','config','notes','finance','collections']){
     const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active,unread:3})));
     assert.equal(page(`a[href="/${active}"]`).attr('aria-current'),'page');
     assert.equal(page('a[aria-current="page"]').length,1);
@@ -82,7 +82,7 @@ test('sidebar news/config/notes destinations are separate pages with active-page
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));
-  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/important-info','/config']);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/notes','/pokemon','/important-info','/config']);
   assert.equal(page('nav a').first().find('span').text(),'Dashboard');assert.equal(page('nav a').eq(1).find('span').text(),'Hírolvasó');
   assert.equal(page('nav a').first().attr('aria-current'),'page');
   assert.equal(page('nav a[href="/mobile"],nav a[href^="/#"]').length,0);
@@ -99,7 +99,7 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
   assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
-  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/notes','/pokemon','/important-info','/opencode','/config']);
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/notes','/pokemon','/important-info','/opencode','/config']);
   const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
   assert.equal(reader('nav a[href="/opencode"]').length,0);
   assert.match(source('app/opencode/page.tsx'),/if\(!isOpenCodeOwner\(session.user\?\.email\)\)redirect\('\/'\)/);
@@ -165,13 +165,16 @@ test('admin-only API and server-action guards protect the hidden features; user 
   for(const path of ['app/api/weather/route.ts','app/api/weather/locations/route.ts','app/api/system/route.ts','app/api/status/route.ts','app/api/finance/route.ts','app/api/finance/market/route.ts']){
     assert.match(source(path),/await requireAdmin\(\)/);
   }
-  for(const path of ['app/config/page.tsx','app/news/page.tsx','app/notes/page.tsx','app/mobile/page.tsx','app/finance/page.tsx']){
+   for(const path of ['app/config/page.tsx','app/news/page.tsx','app/notes/page.tsx','app/mobile/page.tsx','app/finance/page.tsx','app/collections/page.tsx']){
     assert.match(source(path),/session.role!==['"]admin['"]/);
   }
   assert.match(source('app/actions.ts'),/await requireAdmin\(\)/);
   assert.match(source('app/personal-actions.ts'),/await requireAdmin\(\)/);
   assert.match(source('app/mobile/actions.ts'),/await requireAdmin\(\)/);
-  assert.equal((source('app/finance/lego-actions.ts').match(/await requireAdmin\(\)/g)||[]).length,2);
+  assert.equal((source('app/collections/lego-actions.ts').match(/await requireAdmin\(\)/g)||[]).length,2);
+  assert.equal((source('app/collections/pokemon-actions.ts').match(/await requireAdmin\(\)/g)||[]).length,2);
+  assert.match(source('app/api/collections/route.ts'),/await requireAdmin\(\)/);
+  assert.ok(source('app/collections/page.tsx').indexOf("if(session.role!=='admin')")<source('app/collections/page.tsx').indexOf('const database=db()'));
   assert.match(source('app/user-actions.ts'),/await requireAdmin\(\)/);
   assert.equal((source('app/finance-actions.ts').match(/await requireAdmin\(\)/g)||[]).length,2);
   const pokemon=source('app/pokemon-actions.ts');assert.match(pokemon,/admin \? requireAdmin\(\) : requireUser\(\)/);
@@ -202,6 +205,7 @@ test('Pokemon APK download follows all shop sections and precedes the page foote
   assert.ok(panel>=0 && download>panel && footer>download);
   assert.equal((page.match(/href="\/mobile\/download"/g)||[]).length,1);
 });
-test('LEGO inventory is below the monthly editor and above the finance footer',()=>{
-  const page=source('app/finance/page.tsx');assert.ok(page.indexOf('<LegoInventory')>page.indexOf('<FinanceEditor'));assert.ok(page.indexOf('<LegoInventory')<page.indexOf('<footer'));
+test('collection inventories move off finance; latest-month collection growth is below the monthly editor',()=>{
+  const page=source('app/finance/page.tsx');assert.doesNotMatch(page,/LegoInventory/);assert.ok(page.indexOf('<CollectionGrowthSection')>page.indexOf('<FinanceEditor'));assert.ok(page.indexOf('<CollectionGrowthSection')<page.indexOf('<footer'));
+  const collections=source('app/collections/page.tsx');assert.match(collections,/<LegoInventory/);assert.match(collections,/<PokemonInventory/);
 });

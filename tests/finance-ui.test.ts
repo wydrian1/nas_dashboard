@@ -22,12 +22,14 @@ function component(path:string):any {
     if(name==='@/lib/finance/editor-types')return require('../lib/finance/editor-types.ts');
     if(name==='@/lib/finance/input-types')return require('../lib/finance/input-types.ts');
     if(name==='@/lib/finance/chart-types')return require('../lib/finance/chart-types.ts');
-    if(name==='./integer-amount-input')return component('app/finance/integer-amount-input.tsx');
+    if(name==='@/lib/finance/collection-growth-types')return require('../lib/finance/collection-growth-types.ts');
+    if(name==='./integer-amount-input' || name==='../finance/integer-amount-input')return component('app/finance/integer-amount-input.tsx');
     if(name==='./finance-chart')return component('app/finance/finance-chart.tsx');
     if(name==='./real-growth')return component('app/finance/real-growth.tsx');
     if(name==='./composition')return component('app/finance/composition.tsx');
     if(name==='../finance-actions')return {};
     if(name==='./lego-actions')return {};
+    if(name==='./pokemon-actions')return {};
     if(name==='../action-form')return {ActionForm:({children}:any)=>React.createElement('form',{},children),ActionButton:({children}:any)=>React.createElement('button',{},children)};
     throw new Error('Unexpected import '+name);
   },exports);return exports;
@@ -89,10 +91,24 @@ test('only the four Lili/Bali DEBT fields carry forward; bank, other liabilities
   for(const id of ['bank','child','lili-asset'])assert.equal(page(`input[name="amount:${id}"]`).val(),'');
 });
 test('LEGO inventory exposes add/edit/confirmed delete forms and missing dates without adding a second asset total',()=>{
-  const Inventory=component('app/finance/lego-inventory.tsx').default;
+  const Inventory=component('app/collections/lego-inventory.tsx').default;
   const item={id:'fixture',set_number:'12345',name:'Kastély',quantity:2,unit_price_minor:123400,acquired_on:null,revision:1,updated_at:'2026-10-02',deleted_at:null};
   const page=load(renderToStaticMarkup(React.createElement(Inventory,{snapshot:{items:[item],quantity:2,totalMinor:246800}})));
   assert.equal(page('#lego-inventory').length,1);assert.equal(page('form').length,3);assert.equal(page('input[name="confirmed"][required]').length,1);assert.match(page.text(),/Ismeretlen/);assert.match(page.text(),/nem adódnak hozzá másodszor/);
+});
+test('Pokemon purchase inventory exposes integer-price audited CRUD forms, separate repeated purchases and unknown dates',()=>{
+  const Inventory=component('app/collections/pokemon-inventory.tsx').default;
+  const item={id:'fixture',name:'Demo box',quantity:2,unit_price_minor:123400,acquired_on:'2026-01-02',revision:1,updated_at:'2026-10-02',deleted_at:null};
+  const page=load(renderToStaticMarkup(React.createElement(Inventory,{snapshot:{items:[item,{...item,id:'second',acquired_on:null}],quantity:4,totalMinor:493600}})));
+  assert.equal(page('#pokemon-inventory').length,1);assert.equal(page('form').length,5);assert.equal(page('input[name="confirmed"][required]').length,2);assert.equal(page('input[name="unit_price"][pattern="[0-9]+"]').length,3);assert.match(page.text(),/Ismeretlen|Collectr/);assert.equal(page('.finance-table tbody tr').length,2);
+});
+test('collection growth renders separate saved-value/cost/nominal/real cards without editing or duplicating wealth',()=>{
+  const Growth=component('app/finance/collection-growth.tsx').default,data=snapshot();data.selected!.as_of='2026-09-30';
+  data.balances.push({account_id:'cashflow-row-45',amount_minor:20000,turnover:0,source_cell:null},{account_id:'cashflow-row-46',amount_minor:15000,turnover:0,source_cell:null});
+  const item={id:'purchase',name:'Demo',quantity:1,unit_price_minor:10000,acquired_on:'2026-09-03',revision:1,updated_at:'2026-09-03',deleted_at:null};
+  const page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:{items:[{...item,set_number:'12345'}],quantity:1,totalMinor:10000},pokemon:{items:[item],quantity:1,totalMinor:10000}})));
+  assert.equal(page('#collection-growth').length,1);assert.equal(page('.collection-growth-card').length,2);assert.equal(page('form,input').length,0);assert.match(page.text(),/Nominális gyarapodás|Reálgyarapodás/);assert.match(page.text(),/\+100\s*Ft/);assert.match(page.text(),/\+100%/);assert.equal(page('a[href="/collections"]').attr('target'),'_blank');
+  const finance=readFileSync(new URL('../app/finance/page.tsx',import.meta.url),'utf8');assert.match(finance,/CollectionGrowthSection snapshot=\{latest\}/);assert.doesNotMatch(finance,/LegoInventory/);
 });
 test('finance monthly editor contains complete account fields, explicit confirmation and no automatic interest credit',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default,page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances})));

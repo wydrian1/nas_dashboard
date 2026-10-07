@@ -31,9 +31,9 @@ Kivételek az előző havi előkitöltéshez: **Ledger** új hónapnál üres US
 
 A vagyonösszetétel kategóriánkénti kördiagram, Ft-értékkel és százalékkal; a negatív tartozások külön jelennek meg. Az **Adatforrás és ellenőrzés**, eredeti Excel-összeg és képletjavítási magyarázat nincs a UI-ban; az eredeti forrásarchívum nem törlődik.
 
-### LEGO-lista
+### Gyűjtemények
 
-A pénzügy legalján külön, admin-only aktuális nyilvántartás: készletszám, megnevezés, darabszám, Ft-egységár, beszerzési dátum; hozzáadás, szerkesztés és megerősített törlés. A megadott 19 tétel egyszeri, checksum-védett importból indul; a 3 `?` dátum ismeretlen (`NULL`) marad. Összeg = darabszám × egységár, egész századforintban. Ez beszerzési érték, nem piaci becslés.
+A LEGO-kezelés a külön **admin-only `/collections` (Gyűjtemények)** oldalra költözött, a meglévő adatokat/azonosítókat és auditot megtartva. Itt található a hasonló Pokémon-bekerülési nyilvántartás is. A pénzügy legalján **Gyűjtemény gyarapodás** mutatja külön a két gyűjtemény legutóbbi mentett havi Ft-értékének nominális és KSH havi inflációval korrigált eltérését a bekerüléstől, Ft-ban és százalékosan. Ez nem új piaci lekérés vagy második vagyonösszeg; a hiányzó dátum/index korlátja látható. Részletes módszer és privát kezdőfeltöltés: [collections.md](collections.md).
 
 **Minden új hónap LEGO-mezője a lista aktuális összegéből indul**, nem az előző havi értékből. A nulla összeg is előtöltődik, ha a lista kiürül. A már kézzel szerkesztett mezőt egy listafrissítés nem írja felül. Meglévő hónap szerkesztése a korábban mentett Ft-értéket tartja meg. A lista nem számolódik másodszor a vagyonhoz; módosítása önmagában nem változtat havi állapotot. A lista mindig aktuális, történelmi hónap megtekintésekor is ezt a jelölést kapja. Tranzakciós, verzióvédett mentés, soft-delete és külön `finance_lego_audit` biztosítja az előzményt. `scripts/Import-Lego.ts --input ...` írás nélkül ellenőriz; élesítéskor explicit adatbázis + `--commit` és előzetes SQLite-backup szükséges. Ismételt import nem írja felül a szerkesztéseket és nem hozza vissza a törölt sorokat.
 
