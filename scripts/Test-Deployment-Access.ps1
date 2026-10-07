@@ -5,7 +5,8 @@ $ErrorActionPreference='Stop'
 $identity=[Security.Principal.NTAccount]::new('NT SERVICE\WydrianDashboard').Translate([Security.Principal.SecurityIdentifier])
 $required=[Security.AccessControl.FileSystemRights]::ReadAndExecute
 $deniedIdentities=@($identity.Value,'S-1-1-0','S-1-5-11','S-1-5-6','S-1-2-0')
-$paths=@('next.config.ts','tsconfig.json','next-env.d.ts','package.json','.env.local','.runtime\services\WydrianDashboard.xml','.runtime\services\WydrianDashboard.exe')
+# Next loads this shared policy from source at startup, even for a sealed build.
+$paths=@('next.config.ts','lib\opencode-preview-policy.ts','tsconfig.json','next-env.d.ts','package.json','.env.local','.runtime\services\WydrianDashboard.xml','.runtime\services\WydrianDashboard.exe')
 foreach($relative in $paths){
   $path=Join-Path $ProjectPath $relative
   $item=Get-Item -LiteralPath $path -Force
