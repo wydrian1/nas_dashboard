@@ -71,7 +71,7 @@ try{
   foreach($path in @((Join-Path $project '.runtime'),(Join-Path $project '.runtime\services'))){Grant $path $brokerSid ([Security.AccessControl.FileSystemRights]'ReadAttributes,Traverse,Synchronize,ReadPermissions')}
   foreach($path in @($project,(Join-Path $project '.runtime'),(Join-Path $project '.runtime\services'),(Join-Path $project 'data'))){Grant $path $dashboardSid ReadAndExecute}
   foreach($path in @((Join-Path $project 'node_modules'),(Join-Path $project 'public'),$node.FullName,(Join-Path $project '.next'))){Grant $path $dashboardSid ReadAndExecute $true}
-  foreach($path in @('.env.local','package.json','next.config.ts','tsconfig.json','next-env.d.ts','.runtime\services\WydrianDashboard.xml','.runtime\services\WydrianDashboard.exe')){Grant (Join-Path $project $path) $dashboardSid ReadAndExecute}
+  foreach($path in @('.env.local','package.json','next.config.ts','lib\opencode-preview-policy.ts','tsconfig.json','next-env.d.ts','.runtime\services\WydrianDashboard.xml','.runtime\services\WydrianDashboard.exe')){Grant (Join-Path $project $path) $dashboardSid ReadAndExecute}
   Grant (Join-Path $project 'data') $dashboardSid ([Security.AccessControl.FileSystemRights]'CreateFiles,ReadAttributes,Traverse,Synchronize,ReadPermissions')
   foreach($file in (Get-ChildItem (Join-Path $project 'data') -File | Where-Object {$_.Name -match '^dashboard\.sqlite(?:-wal|-shm|-journal)?$'})){Grant $file.FullName $dashboardSid Modify;Grant $file.FullName $brokerSid Read}
   # Newly created SQLite WAL/SHM files inherit writes, but subdirectories (Caddy TLS/archives) do not.
