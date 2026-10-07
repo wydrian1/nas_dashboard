@@ -1,5 +1,5 @@
 "use client";
-import {useState,useRef,useEffect} from 'react';
+import {useState,useRef,useEffect,useId} from 'react';
 import type {HostingListing,HostedLink,HostedEntry} from '@/lib/file-hosting/types';
 import {MAX_FILE_BYTES,formatFileSize} from '@/lib/file-hosting/types';
 import LocalSections,{LocalSection} from '../local-sections';
@@ -10,6 +10,7 @@ async function responseJson(response:Response) {const data=await response.json()
 export default function FileManager({initial}:{initial:Listing}) {
   const [data,setData]=useState(initial),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState(''),[progress,setProgress]=useState<number|null>(null),[origin,setOrigin]=useState('');
   const [folderName,setFolderName]=useState(''),[selected,setSelected]=useState<HostedEntry|null>(null),[expiry,setExpiry]=useState('24'),[customDate,setCustomDate]=useState('');
+  const [fileNames,setFileNames]=useState<string[]>([]),selectionId=useId();
   const xhr=useRef<XMLHttpRequest|null>(null),fileInput=useRef<HTMLInputElement|null>(null),parent=data.folder?.id??null;
   useEffect(()=>()=>xhr.current?.abort(),[]);
   useEffect(()=>setOrigin(window.location.origin),[]);
@@ -25,7 +26,7 @@ export default function FileManager({initial}:{initial:Listing}) {
         request.onload=()=>{xhr.current=null;try{const body=JSON.parse(request.responseText);if(request.status>=200&&request.status<300)resolve();else reject(new Error(body.error||'Feltöltési hiba.'));}catch{reject(new Error('A feltöltés válasza nem értelmezhető.'));}};
         request.onerror=()=>{xhr.current=null;reject(new Error('Hálózati hiba; a félkész feltöltés nem osztható meg.'));};request.onabort=()=>{xhr.current=null;reject(new Error('Feltöltés megszakítva.'));};request.ontimeout=()=>{xhr.current=null;reject(new Error('A feltöltés túllépte az egyórás időkorlátot.'));};request.send(file);
       });completed++;}
-      if(fileInput.current)fileInput.current.value='';setMessage(`${completed} fájl feltöltve.`);
+      if(fileInput.current)fileInput.current.value='';setFileNames([]);setMessage(`${completed} fájl feltöltve.`);
     }finally{await refresh();}
   });}
   async function share(event:React.FormEvent) {event.preventDefault();if(!selected)return;await operation(async()=>{
@@ -38,10 +39,10 @@ export default function FileManager({initial}:{initial:Listing}) {
   async function copy(value:string) {try{await navigator.clipboard.writeText(new URL(value,window.location.origin).href);setMessage('Link a vágólapon.');setError('');}catch{setError('A vágólap nem érhető el; jelöld ki és másold a linket a mezőből.');}}
   const active=(link:Link)=>link.revoked_at===null&&(link.expires_at===null||link.expires_at>Date.now());
   return <LocalSections page="files"><LocalSection sectionId="upload" label="Feltöltés">
-    <section className="files-panel"><nav className="files-breadcrumbs" aria-label="Fájlmappa"><a href="/files" onClick={e=>{if(busy)e.preventDefault();}}>Tároló</a>{data.breadcrumbs.map(folder=><span key={folder.id}> / <a href={'/files?folder='+folder.id} onClick={e=>{if(busy)e.preventDefault();}}>{folder.name}</a></span>)}</nav>
+    <section className="files-panel"><nav className="files-breadcrumbs" aria-label="Fájlmappa"><ol><li><a href="/files" aria-current={!data.folder?'page':undefined} onClick={e=>{if(busy)e.preventDefault();}}>Tároló</a></li>{data.breadcrumbs.map(folder=><li key={folder.id}><span aria-hidden="true">/</span><a href={'/files?folder='+folder.id} aria-current={folder.id===data.folder?.id?'page':undefined} onClick={e=>{if(busy)e.preventDefault();}}>{folder.name}</a></li>)}</ol></nav>
       <p className="files-note">Dedikált NAS-tároló; a meglévő szerverfájlok nem kerülnek ide automatikusan. Az azonos nevű fájlt nem írjuk felül. A megosztási linket bárki használhatja, aki megkapja — kezeld bizalmasan.</p>
       <div className="files-tools"><form onSubmit={makeFolder}><label>Új mappa<input value={folderName} onChange={e=>setFolderName(e.target.value)} maxLength={180} required disabled={busy}/></label><button disabled={busy}>Mappa létrehozása</button></form>
-      <form onSubmit={upload}><label>Fájlok feltöltése<input type="file" multiple ref={fileInput} required disabled={busy}/></label><button disabled={busy}>Feltöltés</button></form></div>
+      <form onSubmit={upload}><label>Fájlok feltöltése<span className="files-file-picker" title={fileNames.join(', ')}><input type="file" multiple ref={fileInput} required disabled={busy} aria-label="Fájlok kiválasztása" aria-describedby={selectionId} onChange={e=>setFileNames(Array.from(e.target.files||[]).map(file=>file.name))}/><span className="files-file-picker-button" aria-hidden="true">Fájlok kiválasztása</span><span className="files-file-selection" id={selectionId} aria-live="polite">{fileNames.length===0?'Nincs kiválasztott fájl':fileNames.length===1?fileNames[0]:`${fileNames.length} fájl kiválasztva`}</span></span></label><button disabled={busy}>Feltöltés</button></form></div>
       {progress!==null&&<div className="files-progress"><progress value={progress} max={100} aria-label="Feltöltési állapot"/><span>{progress}%{progress===100?' · szerveroldali mentés…':''}</span><button type="button" onClick={()=>xhr.current?.abort()}>Megszakítás</button></div>}
       <div aria-live="polite">{message&&<p className="files-success">{message}</p>}{error&&<p className="files-error" role="alert">{error}</p>}</div>
     </section></LocalSection>
