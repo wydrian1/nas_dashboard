@@ -6,6 +6,7 @@ Aktív projekt: `D:\!nas`. Napi **03:00**, Windows helyi idő (Budapest), **30 n
 
 - SQLite **online backup API** pillanatkép, WAL-ban már commitolt adatokkal. Pénzügy, LEGO, szerepkörök, párosítások, értesítések, notes/todos/linkek és monitoring-előzmények együtt. Indulás előtt és próba-visszaállításkor SQLite integrity + manifest SHA-256 ellenőrzés.
 - Alkalmazásforrások, package-lock és konfiguráció, `.env.local`, `data/caddy` TLS-tár, `.runtime/secrets` Firebase-kulcs, Android-aláírókulcsok és jelszó, kiadott APK-k, service-wrapper konfigurációk/binárisok.
+- Fájlhosting: a SQLite metaadat/aláírtlink-állapot mellett a teljes dedikált `data/file-hosting` könyvtár is bekerül a titkosított mentésbe. A kész fájlok az alkalmazásból nem írhatók felül/törölhetők; a később keletkezett, snapshotban nem szereplő objektum nem válik publikussá visszaállításkor. Nagy feltöltések növelik a napi és 30 napos mentések tárhelyigényét/futásidejét. A forrásfrissítés/élesítés előtt az új tároló még nem része a régi mentőkódnak.
 - Nem menti a `node_modules`, `.next*`, Android build/Gradle-cache, régi mentések, logok és SDK-k több gigabájtos, újra előállítható állományait. A visszaállított forrásból a webes build/függőségek újratelepítendők.
 - A Google OAuth-token/config és a **mentés visszafejtőkulcsa nem kerül az archívumba**. A Drive-kapcsolat Google-belépéssel újrakészíthető; a visszafejtőkulcs viszont pótolhatatlan.
 

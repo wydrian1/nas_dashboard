@@ -61,6 +61,7 @@ export function initializeDatabase(database: DatabaseSync) {
   initializeTaskReminders(database);
   initializeFinance(database);
   initializeOpenCode(database);
+  initializeFileHosting(database);
   const columns = (table: string) => (database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(column => column.name);
   const needsLimit = !columns("feeds").includes("article_limit");
   const needsImage = !columns("articles").includes("image_url");
@@ -77,6 +78,28 @@ export function initializeDatabase(database: DatabaseSync) {
       database.exec("UPDATE feeds SET checked_at=NULL; COMMIT");
     } catch (error) { database.exec("ROLLBACK"); throw error; }
   }
+}
+
+// Kept self-contained so immutable Pokemon worker snapshots gain no new imports.
+export function initializeFileHosting(database:DatabaseSync) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS hosted_entries (
+      id TEXT PRIMARY KEY, parent_id TEXT REFERENCES hosted_entries(id),
+      name TEXT NOT NULL, name_key TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('file','folder')),
+      state TEXT NOT NULL CHECK(state IN ('uploading','ready')), size INTEGER NOT NULL DEFAULT 0 CHECK(size>=0),
+      sha256 TEXT, actor TEXT NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS hosted_entry_names ON hosted_entries(COALESCE(parent_id,''),name_key);
+    CREATE TABLE IF NOT EXISTS hosted_links (
+      id TEXT PRIMARY KEY, file_id TEXT NOT NULL REFERENCES hosted_entries(id),
+      expires_at INTEGER, revoked_at INTEGER, actor TEXT NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS hosted_links_file ON hosted_links(file_id);
+    CREATE TABLE IF NOT EXISTS hosted_audit (
+      id INTEGER PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL,
+      entry_id TEXT NOT NULL, detail_json TEXT NOT NULL, occurred_at INTEGER NOT NULL
+    );
+  `);
 }
 
 export const ARTICLE_QUERY = `

@@ -72,7 +72,7 @@ test('overview quick links are read-only; add/edit/delete controls live in confi
 
 test('sidebar news/config/notes destinations are separate pages with active-page markers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
-  for(const active of ['news','config','notes','finance','collections']){
+  for(const active of ['news','config','notes','finance','collections','files']){
     const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active,unread:3})));
     assert.equal(page(`a[href="/${active}"]`).attr('aria-current'),'page');
     assert.equal(page('a[aria-current="page"]').length,1);
@@ -82,7 +82,7 @@ test('sidebar news/config/notes destinations are separate pages with active-page
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));
-  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/notes','/pokemon','/important-info','/config']);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/config']);
   assert.equal(page('nav a').first().find('span').text(),'Dashboard');assert.equal(page('nav a').eq(1).find('span').text(),'Hírolvasó');
   assert.equal(page('nav a').first().attr('aria-current'),'page');
   assert.equal(page('nav a[href="/mobile"],nav a[href^="/#"]').length,0);
@@ -99,7 +99,7 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
   assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
-  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/notes','/pokemon','/important-info','/opencode','/config']);
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/opencode','/config']);
   const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
   assert.equal(reader('nav a[href="/opencode"]').length,0);
   assert.match(source('app/opencode/page.tsx'),/if\(!isOpenCodeOwner\(session.user\?\.email\)\)redirect\('\/'\)/);
@@ -165,7 +165,7 @@ test('admin-only API and server-action guards protect the hidden features; user 
   for(const path of ['app/api/weather/route.ts','app/api/weather/locations/route.ts','app/api/system/route.ts','app/api/status/route.ts','app/api/finance/route.ts','app/api/finance/market/route.ts']){
     assert.match(source(path),/await requireAdmin\(\)/);
   }
-   for(const path of ['app/config/page.tsx','app/news/page.tsx','app/notes/page.tsx','app/mobile/page.tsx','app/finance/page.tsx','app/collections/page.tsx']){
+   for(const path of ['app/config/page.tsx','app/news/page.tsx','app/notes/page.tsx','app/mobile/page.tsx','app/finance/page.tsx','app/collections/page.tsx','app/files/page.tsx']){
     assert.match(source(path),/session.role!==['"]admin['"]/);
   }
   assert.match(source('app/actions.ts'),/await requireAdmin\(\)/);
