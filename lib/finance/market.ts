@@ -5,6 +5,7 @@ import type { CollectrValue, ExchangeRates, FinanceMarket } from './market-types
 import { loadInflation } from './inflation.ts';
 import { boundedText } from './download.ts';
 import { loadEtoroValue,EtoroError } from './etoro.ts';
+import { loadBrickEconomyValue } from './brickeconomy.ts';
 
 type Fetcher=typeof fetch;
 export function parseCollectrValue(html:string):number {
@@ -61,10 +62,12 @@ export async function loadCollectrValue(fetcher:Fetcher=fetch,now=Date.now()):Pr
 }
 export async function financeMarket():Promise<FinanceMarket> {
   const enabled=process.env.FINANCE_ETORO_ENABLED==='true';
-  const [rates,collectr,inflation,etoro]=await Promise.allSettled([loadExchangeRates(),loadCollectrValue(),loadInflation(),enabled ? loadEtoroValue() : Promise.resolve(null)]);
+  const [rates,collectr,inflation,etoro,brickeconomy]=await Promise.allSettled([loadExchangeRates(),loadCollectrValue(),loadInflation(),enabled ? loadEtoroValue() : Promise.resolve(null),loadBrickEconomyValue()]);
   return {rates:rates.status==='fulfilled' ? rates.value : null,collectr:collectr.status==='fulfilled' ? collectr.value : null,
     rateError:rates.status==='rejected' ? 'Az árfolyam most nem érhető el. USD-ben menteni ellenőrzött árfolyam nélkül nem lehet; Ft-bevitel használható.' : null,
     collectrError:collectr.status==='rejected' ? 'A Collectr értéke most nem érhető el. A Pokémon-mezőt kézzel töltsd ki; nem másoljuk az előző hónapot.' : null,
+    brickeconomy:brickeconomy.status==='fulfilled' ? brickeconomy.value : null,
+    brickeconomyError:brickeconomy.status==='rejected' ? 'A BrickEconomy Current value most nem érhető el. A LEGO-mezőt kézzel töltsd ki; nem helyettesítjük a bekerülési összeggel vagy az előző hónappal.' : null,
     etoro:etoro.status==='fulfilled' ? etoro.value : null,
     etoroError:etoro.status==='rejected' ? new EtoroError().message : null,
     inflation:inflation.status==='fulfilled' ? inflation.value : null,

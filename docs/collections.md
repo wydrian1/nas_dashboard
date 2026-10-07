@@ -8,7 +8,7 @@
 - Pokémon: megnevezés, darabszám, egész Ft-egységár és vásárlás dátuma. Összeg = db × egységár. Ismétlődő termék vagy akár azonos vásárlási sor külön rekord marad; eltérő árak/dátumok nem keverednek. Nem a Collectr piaci értékét tároljuk itt.
 - Mindkettőnél hozzáadás, szerkesztés és megerősített soft-delete, tranzakciós mentés, optimista verzióvédelem, sessionből származó szerző és előtte/utána audit. A havi pénzügyi egyenleg és kamatjelölés változatlan marad.
 - A kézi egységárból szóköz/vessző/pont elválasztóként törlődik, az adat egész Ft. A régi LEGO-import és tárolt adatok eredeti pontossága megmarad. Hiányzó dátum `NULL`, nem helyettesítjük mai vagy feltételezett dátummal.
-- Új hónapnál a havi LEGO-mező továbbra is a lista aktuális bekerülési összegéből indul; a havi Pokémon-mező továbbra is Collectr-előtöltés. Egyik lista sem növeli másodszor a vagyont és nem ment automatikusan pénzügyi állapotot.
+- Új hónapnál a havi LEGO-mező a publikus BrickEconomy-profil **Current value** piaci becsléséből indul Ft-ban; a havi Pokémon-mező továbbra is Collectr-előtöltés. Forráshibánál a LEGO-mező üres/kézzel megadható, nincs bekerülési összeggel való helyettesítés. Egyik lista sem növeli másodszor a vagyont és nem ment automatikusan pénzügyi állapotot. A helyi lista nem ír a BrickEconomy-gyűjteménybe; azt külön kell naprakészen tartani.
 
 ## Pénzügyi összefoglaló
 
