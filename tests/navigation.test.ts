@@ -25,6 +25,7 @@ function component(path:string) {
     if(name==='react' || name==='react/jsx-runtime')return require(name);
     if(name==='./local-sections')return component('app/local-sections.tsx');
     if(name==='@/lib/section-order')return require('../lib/section-order.ts');
+    if(name==='@/lib/section-controls')return require('../lib/section-controls.ts');
     if(name==='./action-form')return {
       ActionForm:({children,className}:any)=>React.createElement('form',{className},children),
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
@@ -83,11 +84,23 @@ test('sidebar news/config/notes destinations are separate pages with active-page
     assert.equal(page('a[href="/#news"],a[href="/#sources"],a[href="/#notes"]').length,0);
   }
 });
+test('dashboard pages omit the redundant domain/back-link topbar while retaining sidebar navigation and reader notices',()=>{
+  for(const path of ['app/page.tsx',...['news','config','notes','finance','collections','files','pokemon','important-info','opencode'].map(page=>'app/'+page+'/page.tsx')]){
+    const code=source(path);assert.doesNotMatch(code,/className="topbar"|className="domain"|Vissza a dashboardra/);assert.match(code,/<DashboardSidebar/);assert.match(code,/className="page-heading"/);
+  }
+  assert.match(source('app/pokemon/page.tsx'),/session\.role!=='admin'&&.*Pokémon olvasói hozzáférés/);assert.match(source('app/important-info/page.tsx'),/session\.role!=='admin'&&.*Csak olvasás/);
+});
 test('sidebar retains scrollable navigation with a thin dark track and no native white end buttons',()=>{
   const css=source('app/navigation.css');assert.match(css,/\.sidebar nav\{scrollbar-width:thin;scrollbar-color:#56657b transparent;scrollbar-gutter:stable\}/);
   assert.match(css,/\.sidebar nav::-webkit-scrollbar\{width:6px;height:6px\}/);assert.match(css,/\.sidebar nav::-webkit-scrollbar-track\{background:transparent\}/);
   assert.match(css,/\.sidebar nav::-webkit-scrollbar-thumb\{background:#56657b;border-radius:999px\}/);assert.match(css,/\.sidebar nav::-webkit-scrollbar-button\{display:none;width:0;height:0\}/);
   assert.match(source('app/personal.css'),/\.sidebar nav\{overflow-y:auto;min-height:0\}/);assert.doesNotMatch(css,/scrollbar-width:none|\.sidebar nav\{[^}]*overflow:hidden/);
+});
+test('dashboard, news and notes use the shared accent eyebrow and responsive title typography',()=>{
+  for(const [path,label] of [['app/page.tsx','ÁTTEKINTÉS'],['app/news/page.tsx','RSS-HÍREK'],['app/notes/page.tsx','FELJEGYZÉSEK ÉS FELADATOK']]){
+    const code=source(path);assert.ok(code.includes('<section className="page-heading"><div><span className="eyebrow">'+label+'</span><h1>'));assert.doesNotMatch(code,/<h1[^>]*style=/);
+  }
+  const css=source('app/globals.css');assert.match(css,/h1,h2,h3\{font-family:'Manrope',system-ui,sans-serif\}/);assert.match(css,/h1\{font-size:42px;letter-spacing:-1\.8px;margin:12px 0\}/);assert.match(css,/\.page-heading h1\{font-size:30px\}/);assert.match(css,/\.eyebrow\{display:block;color:var\(--accent\);font-size:10px/);
 });
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;

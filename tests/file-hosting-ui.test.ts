@@ -7,7 +7,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import ts from 'typescript';
 import {load} from 'cheerio';
 const require=createRequire(import.meta.url),source=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-function component(path:string):any{const output=ts.transpileModule(source(path),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,exports:Record<string,unknown>={};new Function('require','exports',output)((name:string)=>name==='@/lib/file-hosting/types'?require('../lib/file-hosting/types.ts'):name==='@/lib/section-order'?require('../lib/section-order.ts'):name==='../local-sections'?component('app/local-sections.tsx'):require(name),exports);return exports;}
+function component(path:string):any{const output=ts.transpileModule(source(path),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,exports:Record<string,unknown>={};new Function('require','exports',output)((name:string)=>name==='@/lib/file-hosting/types'?require('../lib/file-hosting/types.ts'):name==='@/lib/section-order'?require('../lib/section-order.ts'):name==='@/lib/section-controls'?require('../lib/section-controls.ts'):name==='../local-sections'?component('app/local-sections.tsx'):require(name),exports);return exports;}
 const manager=()=>component('app/files/file-manager.tsx').default;
 test('hosting manager exposes folder/upload forms, immutable file handling, progress/cancel code and limited signed-link controls',()=>{
   const Manager=manager(),file={id:'a'.repeat(32),parent_id:null,name:'Photo.png',kind:'file',state:'ready',size:100,sha256:'b'.repeat(64),created_at:Date.now()},folder={...file,id:'c'.repeat(32),name:'Docs',kind:'folder',size:0};

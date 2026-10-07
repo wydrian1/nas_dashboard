@@ -16,8 +16,7 @@ export default async function NotesPage() {
   if (session.role!=='admin') redirect(homeForRole(session.role));
   const personal = personalData(session.user!.email!);
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="notes" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content notes-page">
-    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
-    <section className="page-heading"><div><h1>Jegyzetek és teendők</h1></div></section>
+    <section className="page-heading"><div><span className="eyebrow">FELJEGYZÉSEK ÉS FELADATOK</span><h1>Jegyzetek és teendők</h1></div></section>
     <NotesAndTasks notes={personal.notes} todos={personal.todos}/>
     <footer className="main-footer">Wydrian Dashboard</footer>
   </main></div>;

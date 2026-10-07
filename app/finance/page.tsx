@@ -24,7 +24,6 @@ export default async function FinancePage({searchParams}:{searchParams:Promise<{
   const snapshot=readFinanceSnapshot(db(),month),latest=month ? readFinanceSnapshot(db()) : snapshot;
   const market=await financeMarket(),lego=readLego(db()),pokemon=readPokemonCollection(db());
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="finance" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content finance-page">
-    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">VAGYON ÉS GYARAPODÁS</span><h1>Pénzügy</h1><p>Havi állapotok, követhető változások, éves kamatfordulók. Privát, csak adminoknak.</p></div></section>
     <FinanceWorkspace snapshot={snapshot} latest={latest} lego={lego} pokemon={pokemon} market={market}/>
     <footer className="main-footer">Wydrian Dashboard</footer>

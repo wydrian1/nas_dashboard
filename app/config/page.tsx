@@ -26,7 +26,6 @@ export default async function ConfigPage() {
   const sources = feeds(), personal = personalData(session.user!.email!);
   const users=(db().prepare('SELECT * FROM dashboard_users ORDER BY email').all() as User[]).map(plainSqlRow);
   return <div className="dashboard-shell"><DashboardSidebar name={session.user?.name} active="config" openCode={isOpenCodeOwner(session.user?.email)}/><main className="main-content config-page">
-    <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">SAJÁT BEÁLLÍTÁSOK</span><h1>Konfig</h1><p>Gyorslinkek, RSS-források, felhasználók és telefonos push kezelése.</p></div></section>
     <div className="page-shortcuts" role="navigation" aria-label="Konfig szekciók"><a href="#quicklinks">Gyorslinkek</a><a href="#sources">RSS-források</a><a href="#users">Felhasználók</a><a href="#mobile">Telefonok / push</a>{isOpenCodeOwner(session.user?.email) && <a href="#admin-helper">Admin-segéd</a>}</div>
     <LocalSections page="config"><LocalSection sectionId="quicklinks" label="Gyorslinkek"><QuickLinkSettings links={personal.links}/></LocalSection><LocalSection sectionId="sources" label="RSS-források">
