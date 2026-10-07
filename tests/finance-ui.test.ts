@@ -57,6 +57,13 @@ test('finance UI exposes default latest period, full-history selector, corrected
   assert.equal(page('.finance-pie').length,1);assert.equal(page('#real-growth-title').length,1);
   assert.doesNotMatch(page.text(),/Adatforrás és ellenőrzés|Eredeti Excel-összesítés|Excel-különbség/);
 });
+test('composition and largest changes share one sortable two-column section without changing their content',()=>{
+  const View=component('app/finance/finance-view.tsx').default,page=load(renderToStaticMarkup(React.createElement(View,{snapshot:snapshot()}))),group=page('[data-section="composition"]');
+  assert.equal(group.length,1);assert.equal(page('[data-section="movers"]').length,0);assert.equal(group.find('.finance-two-columns > .finance-card').length,2);
+  assert.match(group.find('.finance-two-columns > .finance-card').eq(0).text(),/Vagyon összetétele/);assert.match(group.find('.finance-two-columns > .finance-card').eq(1).text(),/Mi változott leginkább/);
+  assert.equal(group.find('.section-order-controls').length,1);assert.equal(group.find('.finance-pie').length,1);assert.ok(group.find('.finance-movers > div').length>0);
+  assert.equal(group.children().first().attr('class'),'local-section-content');assert.equal(group.children().last().attr('class'),'section-order-controls');
+});
 test('finance editor month text moves forward with latest state; Collectr prefills USD and other USD inputs never copy old Ft',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
   data.selected!.month='2026-10';data.selected!.as_of='2026-10-02';

@@ -3,6 +3,12 @@
 .page-shortcuts a:hover{background:#a8efc911;border-color:#a8efc966}
 .news-page .news-section{margin-top:0}
 .notes-page .personal-section{margin-top:0}
+.sidebar nav{scrollbar-width:thin;scrollbar-color:#56657b transparent;scrollbar-gutter:stable}
+.sidebar nav::-webkit-scrollbar{width:6px;height:6px}
+.sidebar nav::-webkit-scrollbar-track{background:transparent}
+.sidebar nav::-webkit-scrollbar-thumb{background:#56657b;border-radius:999px}
+.sidebar nav::-webkit-scrollbar-thumb:hover{background:#8a95a9}
+.sidebar nav::-webkit-scrollbar-button{display:none;width:0;height:0}
 .config-page #sources{scroll-margin-top:24px}
 .personal-form select{font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:10px;margin-top:8px;display:block;width:100%}
 .personal-form select:focus-visible{outline:2px solid var(--accent);outline-offset:4px}

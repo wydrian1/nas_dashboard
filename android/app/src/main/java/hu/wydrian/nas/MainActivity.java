@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
         brand.setContentDescription("Wydrian"); brand.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         toolbar.addView(brand, new LinearLayout.LayoutParams(dp(38), dp(38)));
         LinearLayout heading = new LinearLayout(this); heading.setOrientation(LinearLayout.VERTICAL); heading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = new TextView(this); title.setText("wydrian"); title.setTextSize(17); title.setTextColor(getColor(R.color.nas_text));
+        TextView title = new TextView(this); title.setText("Wydrian"); title.setTextSize(17); title.setTextColor(getColor(R.color.nas_text));
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); heading.addView(title);
         TextView subtitle = new TextView(this); subtitle.setText("NAS DASHBOARD · v" + BuildConfig.VERSION_NAME); subtitle.setTextSize(9); subtitle.setLetterSpacing(.12f);
         subtitle.setTextColor(getColor(R.color.nas_muted)); heading.addView(subtitle);

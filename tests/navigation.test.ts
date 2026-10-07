@@ -83,6 +83,12 @@ test('sidebar news/config/notes destinations are separate pages with active-page
     assert.equal(page('a[href="/#news"],a[href="/#sources"],a[href="/#notes"]').length,0);
   }
 });
+test('sidebar retains scrollable navigation with a thin dark track and no native white end buttons',()=>{
+  const css=source('app/navigation.css');assert.match(css,/\.sidebar nav\{scrollbar-width:thin;scrollbar-color:#56657b transparent;scrollbar-gutter:stable\}/);
+  assert.match(css,/\.sidebar nav::-webkit-scrollbar\{width:6px;height:6px\}/);assert.match(css,/\.sidebar nav::-webkit-scrollbar-track\{background:transparent\}/);
+  assert.match(css,/\.sidebar nav::-webkit-scrollbar-thumb\{background:#56657b;border-radius:999px\}/);assert.match(css,/\.sidebar nav::-webkit-scrollbar-button\{display:none;width:0;height:0\}/);
+  assert.match(source('app/personal.css'),/\.sidebar nav\{overflow-y:auto;min-height:0\}/);assert.doesNotMatch(css,/scrollbar-width:none|\.sidebar nav\{[^}]*overflow:hidden/);
+});
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));

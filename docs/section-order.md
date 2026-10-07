@@ -1,6 +1,6 @@
 # Szekciósorrend
 
-Minden tartalmi blokk jobb felső sarkában fel/le gomb. Egy kattintás egy helyet
+Minden tartalmi blokk mellett, a tartalomtól jobbra kisebb fel/le gomb. Egy kattintás egy helyet
 mozgat. A fejléc, navigáció és lábléc nem rendezhető tartalmi szekció.
 Egyetlen blokk esetén mindkét gomb tiltott.
 
@@ -16,6 +16,11 @@ A DOM tényleges sorrendje változik, nem csak a CSS. A stabil kulcsok miatt az
 A szekciólinkek és jogosultságok nem változnak.
 
 Alkalmazási oldalak: Dashboard, Hírolvasó, Konfig, Jegyzetek, Pénzügy (külön
-összefoglaló/grafikon/reálgyarapodás/összetétel/változások/fordulók/tételek/gyűjtemények/bevitel),
+összefoglaló/grafikon/reálgyarapodás/összetétel és változások/fordulók/tételek/gyűjtemények/bevitel),
 Gyűjtemények, Fájlok, Pokémon (friss események és minden webshop), Fontos infók,
 OpenCode. A nyilvános timeline kronológiai bemutató, nem személyes dashboard-elrendezés.
+
+A pénzügyi vagyonösszetétel és legnagyobb változások együtt rendezhető, kétoszlopos
+blokk. Keskeny képernyőn egymás alá törnek. A közös blokk megtartja a `composition`
+azonosítót és annak korábban mentett helyét; a régi külön `movers` azonosító nem
+hoz létre újabb blokkot. A többi szekció és oldal helyi sorrendje változatlan.
