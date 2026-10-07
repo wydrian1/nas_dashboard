@@ -9,7 +9,7 @@ import type { FinanceMarket } from '@/lib/finance/market-types';
 import { newMonthAmount,marketRefreshAmount } from '@/lib/finance/editor-types';
 import { integerMoneyInput, normalizeIntegerInput } from '@/lib/finance/input-types';
 
-export default function FinanceEditor({accounts,selected,balances,latest,latestBalances,previous,previousBalances=[],market:initialMarket}:{accounts:FinanceAccount[];selected:FinancePoint;balances:FinanceBalance[];latest:FinancePoint;latestBalances:FinanceBalance[];previous?:FinancePoint|null;previousBalances?:FinanceBalance[];market?:FinanceMarket}) {
+export default function FinanceEditor({accounts,selected,balances,latest,latestBalances,previous,previousBalances=[],market:initialMarket,onMarketRefresh}:{accounts:FinanceAccount[];selected:FinancePoint;balances:FinanceBalance[];latest:FinancePoint;latestBalances:FinanceBalance[];previous?:FinancePoint|null;previousBalances?:FinanceBalance[];market?:FinanceMarket;onMarketRefresh?:(market:FinanceMarket)=>void}) {
   const [mode,setMode]=useState<'new'|'edit'>('new');
   const [market,setMarket]=useState(initialMarket),[refreshing,setRefreshing]=useState(false),[refreshVersion,setRefreshVersion]=useState(0),[refreshError,setRefreshError]=useState('');
   const base=mode==='new' ? latest : selected,seed=mode==='new' ? latestBalances : balances;
@@ -17,7 +17,7 @@ export default function FinanceEditor({accounts,selected,balances,latest,latestB
   const today=new Date().toISOString().slice(0,10),asOf=mode==='edit' ? selected.as_of : today.startsWith(month) ? today : month+'-01';
   const amounts=new Map(seed.map(balance=>[balance.account_id,balance]));
   const priorMonth=mode==='new' ? latest.month : previous?.month,priorAmounts=new Map((mode==='new' ? latestBalances : previousBalances).map(balance=>[balance.account_id,balance.amount_minor]));
-  async function refreshMarket(){setRefreshing(true);setRefreshError('');try{const response=await fetch('/api/finance/market',{cache:'no-store',signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error();setMarket(await response.json());setRefreshVersion(value=>value+1);}catch{setRefreshError('A frissítés nem sikerült. A beírt értékeket megőriztem.');}finally{setRefreshing(false);}}
+  async function refreshMarket(){setRefreshing(true);setRefreshError('');try{const response=await fetch('/api/finance/market',{cache:'no-store',signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error();const updated:FinanceMarket=await response.json();setMarket(updated);onMarketRefresh?.(updated);setRefreshVersion(value=>value+1);}catch{setRefreshError('A frissítés nem sikerült. A beírt értékeket megőriztem.');}finally{setRefreshing(false);}}
   const fields=(account:FinanceAccount)=><FinanceAmount key={`${mode}-${base.month}-${base.revision}-${account.id}`} account={account} stored={amounts.get(account.id)} previousAmount={priorAmounts.get(account.id)} previousMonth={priorMonth} newMonth={mode==='new'} market={market} refreshVersion={refreshVersion}/>;
   return <section className="finance-card" id="monthly-entry"><div className="finance-section-head"><div><span className="eyebrow">KÉZI ADATBEVITEL</span><h2>Havi állapot rögzítése</h2></div></div>
     <div className="finance-ranges"><button type="button" aria-pressed={mode==='new'} onClick={()=>setMode('new')}>Új hónap</button><button type="button" aria-pressed={mode==='edit'} onClick={()=>setMode('edit')}>{formatMonth(selected.month)} módosítása</button></div>

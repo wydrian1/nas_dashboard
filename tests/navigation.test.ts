@@ -205,7 +205,8 @@ test('Pokemon APK download follows all shop sections and precedes the page foote
   assert.ok(panel>=0 && download>panel && footer>download);
   assert.equal((page.match(/href="\/mobile\/download"/g)||[]).length,1);
 });
-test('collection inventories move off finance; latest-month collection growth is below the monthly editor',()=>{
-  const page=source('app/finance/page.tsx');assert.doesNotMatch(page,/LegoInventory/);assert.ok(page.indexOf('<CollectionGrowthSection')>page.indexOf('<FinanceEditor'));assert.ok(page.indexOf('<CollectionGrowthSection')<page.indexOf('<footer'));
+test('collection inventories stay off finance; saved/current collection growth precedes the monthly editor',()=>{
+  const page=source('app/finance/page.tsx');assert.doesNotMatch(page,/LegoInventory/);assert.ok(page.indexOf('<FinanceWorkspace')>page.indexOf('<FinanceView'));assert.ok(page.indexOf('<FinanceWorkspace')<page.indexOf('<footer'));
+  const workspace=source('app/finance/finance-workspace.tsx');assert.ok(workspace.indexOf('<CollectionGrowthSection')>=0);assert.ok(workspace.indexOf('<CollectionGrowthSection')<workspace.indexOf('<FinanceEditor'));assert.match(workspace,/CollectionGrowthSection snapshot=\{latest\}/);
   const collections=source('app/collections/page.tsx');assert.match(collections,/<LegoInventory/);assert.match(collections,/<PokemonInventory/);
 });
