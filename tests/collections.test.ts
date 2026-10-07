@@ -37,14 +37,54 @@ test('collection growth compounds purchase-specific monthly CPI, not annual/YoY;
   const growth=collectionGrowth(items,50000,'2026-03-31',inflation);assert.equal(growth.costMinor,30000);assert.equal(growth.adjustedCostMinor,38400);assert.equal(growth.nominalGainMinor,20000);assert.equal(growth.realGainMinor,11600);assert.equal(growth.quantity,3);assert.ok(Math.abs(growth.realRatio!-11600/38400)<1e-12);
   assert.equal(collectionGrowth(items,0,'2026-03-31',inflation).nominalGainMinor,-30000);assert.equal(collectionGrowth(items,null,'2026-03-31',inflation).nominalGainMinor,null);
 });
-test('collection growth excludes later purchases, reports unknown dates/missing CPI and never invents old collection value',()=>{
+test('collection growth excludes later purchases, reports unavailable CPI and never invents old collection value',()=>{
   const item={quantity:1,unit_price_minor:10000,acquired_on:'2026-01-12'};
   const future=collectionGrowth([item,{...item,acquired_on:'2026-04-01'}],20000,'2026-03-31',inflation);assert.equal(future.costMinor,10000);assert.equal(future.futureItems,1);
-  const unknown=collectionGrowth([item,{...item,acquired_on:null}],20000,'2026-03-31',inflation);assert.equal(unknown.nominalGainMinor,0);assert.equal(unknown.unknownDates,1);assert.equal(unknown.realGainMinor,null);assert.match(unknown.realUnavailable!,/dátum/);
+  const unknown=collectionGrowth([item,{...item,acquired_on:null}],20000,'2026-03-31',inflation);assert.equal(unknown.nominalGainMinor,0);assert.equal(unknown.unknownDates,1);assert.equal(unknown.assumedAcquiredOn,'2025-03-31');assert.equal(unknown.realGainMinor,null);assert.match(unknown.realUnavailable!,/Hiányos KSH/);
   for(const series of [undefined,{...inflation,monthly:inflation.monthly.slice(1)},{...inflation,monthly:[{...inflation.monthly[0],mom:null},inflation.monthly[1]]},{...inflation,monthly:[{...inflation.monthly[0],mom:NaN},inflation.monthly[1]]}]){const missing=collectionGrowth([item],20000,'2026-03-31',series);assert.equal(missing.realGainMinor,null);assert.match(missing.realUnavailable!,/Hiányos KSH/);}
   const empty=collectionGrowth([],10000,'2026-03-31',inflation);assert.equal(empty.nominalGainMinor,null);assert.equal(empty.realGainMinor,null);
   const same=collectionGrowth([item],20000,'2026-01-12');assert.equal(same.realGainMinor,10000);
   const free=collectionGrowth([{...item,unit_price_minor:0}],10000,'2026-03-31');assert.equal(free.nominalRatio,null);assert.equal(free.realRatio,null);
+});
+test('unpublished inflation tail uses the latest available month without repeating rates, including unsorted/future rows',()=>{
+  const item={quantity:1,unit_price_minor:10000,acquired_on:'2026-01-12'};
+  const series={...inflation,monthly:[inflation.monthly[1],{month:'2026-05',yoy:0,mom:.5},inflation.monthly[0],{month:'2026-04',yoy:0,mom:null}]};
+  const growth=collectionGrowth([item],20000,'2026-04-07',series);
+  assert.equal(growth.inflationThrough,'2026-03');assert.equal(growth.adjustedCostMinor,13200);assert.equal(growth.realGainMinor,6800);assert.equal(growth.realUnavailable,null);
+  assert.equal(collectionGrowth([item],20000,'2026-07-07',inflation).adjustedCostMinor,13200);
+  assert.equal(collectionGrowth([{...item,acquired_on:'2026-04-01'}],20000,'2026-04-07',series).adjustedCostMinor,10000);
+});
+test('unknown purchase dates use one year before the saved valuation, not now, without mutating inventory or monthly data',()=>{
+  const db=fixture();try{
+    const inventory=readLego(db),before=JSON.stringify(inventory),rows=db.prepare('SELECT * FROM finance_balances').all();
+    const series={...inflation,monthly:Array.from({length:12},(_,i)=>({month:`2025-${String(i+1).padStart(2,'0')}`,yoy:0,mom:i===0 ? .1 : 0}))};
+    const growth=collectionGrowth(inventory.items,10000,'2025-12-31',series);
+    assert.equal(growth.assumedAcquiredOn,'2024-12-31');assert.equal(growth.adjustedCostMinor,5528);assert.equal(growth.realGainMinor,4472);assert.equal(growth.unknownDates,1);
+    assert.equal(growth.costMinor,5025);assert.equal(growth.nominalGainMinor,4975);assert.equal(growth.realUnavailable,null);
+    assert.equal(JSON.stringify(readLego(db)),before);assert.deepEqual(db.prepare('SELECT * FROM finance_balances').all(),rows);
+  }finally{db.close();}
+});
+test('assumed purchase anniversary clamps leap day and can combine with an unpublished tail',()=>{
+  const item={quantity:2,unit_price_minor:10000,acquired_on:null};
+  const series={...inflation,monthly:Array.from({length:11},(_,i)=>{const d=new Date(Date.UTC(2023,2+i,1));return {month:d.toISOString().slice(0,7),yoy:0,mom:i===0?.1:0};})};
+  const growth=collectionGrowth([item],30000,'2024-02-29',series);
+  assert.equal(growth.assumedAcquiredOn,'2023-02-28');assert.equal(growth.inflationThrough,'2024-01');assert.equal(growth.adjustedCostMinor,22000);assert.equal(growth.realGainMinor,8000);
+});
+test('fallback never hides interior CPI holes or malformed values, and missing value stays distinct from zero',()=>{
+  const item={quantity:1,unit_price_minor:10000,acquired_on:'2026-01-12'};
+  for(const monthly of [[{month:'2026-03',yoy:0,mom:.2}],[{month:'2026-02',yoy:0,mom:.1},{month:'2026-03',yoy:0,mom:NaN}],[{month:'2026-02',yoy:0,mom:-1},{month:'2026-03',yoy:0,mom:.2}]]){
+    assert.equal(collectionGrowth([item],20000,'2026-04-07',{...inflation,monthly}).realGainMinor,null);
+  }
+  assert.equal(collectionGrowth([item],null,'2026-04-07',inflation).realGainMinor,null);
+  assert.equal(collectionGrowth([item],0,'2026-04-07',inflation).realGainMinor,-13200);
+});
+test('October valuation uses September CPI and an October anniversary for missing purchases',()=>{
+  const series={...inflation,monthly:Array.from({length:11},(_,i)=>({month:new Date(Date.UTC(2025,10+i,1)).toISOString().slice(0,7),yoy:0,mom:i===0?.1:0}))};
+  const items=[{quantity:1,unit_price_minor:10000,acquired_on:null},{quantity:1,unit_price_minor:10000,acquired_on:'2026-10-01'}];
+  const before=JSON.stringify(items),growth=collectionGrowth(items,30000,'2026-10-07',series);
+  assert.equal(growth.inflationThrough,'2026-09');assert.equal(growth.assumedAcquiredOn,'2025-10-07');
+  assert.equal(growth.adjustedCostMinor,21000);assert.equal(growth.realGainMinor,9000);assert.equal(growth.realUnavailable,null);
+  assert.equal(JSON.stringify(items),before);
 });
 test('collection real gain handles deflation, zero denominators and duplicate index ambiguity safely',()=>{
   const item={quantity:1,unit_price_minor:10000,acquired_on:'2026-01-01'};

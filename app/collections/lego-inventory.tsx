@@ -10,7 +10,7 @@ function Fields({item}:{item?:LegoItem}) {
     <label className="finance-lego-name">Megnevezés<input name="name" defaultValue={item?.name} maxLength={200} required/></label>
     <label>Darabszám<input name="quantity" type="number" min={1} max={9999} defaultValue={item?.quantity || 1} required/></label>
     <label>Egységár · Ft<IntegerAmountInput name="unit_price" minor={item?.unit_price_minor} required/></label>
-    <label>Beszerzés dátuma<input name="acquired_on" type="date" defaultValue={item?.acquired_on || ''}/><small>Üres = ismeretlen</small></label></>;
+    <label>Beszerzés dátuma<input name="acquired_on" type="date" defaultValue={item?.acquired_on || ''}/><small>Üres = ismeretlen; a gyarapodás számítása egy évvel korábbi vásárlást feltételez</small></label></>;
 }
 export default function LegoInventory({snapshot}:{snapshot:LegoSnapshot}) {
   return <section className="finance-card finance-lego" id="lego-inventory" aria-labelledby="lego-title"><div className="finance-section-head"><div><span className="eyebrow">GYŰJTEMÉNY NYILVÁNTARTÁSA</span><h2 id="lego-title">LEGO-lista</h2></div><strong>{formatMoney(snapshot.totalMinor)}</strong></div>

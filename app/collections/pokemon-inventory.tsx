@@ -9,7 +9,7 @@ function Fields({item}:{item?:PokemonCollectionItem}) {
     <label className="finance-lego-name">Megnevezés<input name="name" defaultValue={item?.name} maxLength={200} required/></label>
     <label>Darabszám<input name="quantity" type="number" min={1} max={9999} step={1} defaultValue={item?.quantity || 1} required/></label>
     <label>Egységár · Ft<IntegerAmountInput name="unit_price" minor={item?.unit_price_minor} required/></label>
-    <label>Vásárlás dátuma<input name="acquired_on" type="date" defaultValue={item?.acquired_on || ''}/><small>Üres = ismeretlen; reálgyarapodáshoz szükséges</small></label></>;
+    <label>Vásárlás dátuma<input name="acquired_on" type="date" defaultValue={item?.acquired_on || ''}/><small>Üres = ismeretlen; a gyarapodás számítása egy évvel korábbi vásárlást feltételez</small></label></>;
 }
 export default function PokemonInventory({snapshot}:{snapshot:PokemonCollectionSnapshot}) {
   return <section className="finance-card finance-lego" id="pokemon-inventory" aria-labelledby="pokemon-inventory-title"><div className="finance-section-head"><div><span className="eyebrow">GYŰJTEMÉNY NYILVÁNTARTÁSA</span><h2 id="pokemon-inventory-title">Pokémon-gyűjtemény</h2></div><strong>{formatMoney(snapshot.totalMinor)}</strong></div>

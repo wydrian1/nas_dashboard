@@ -2,10 +2,11 @@ import type { InflationSeries } from './inflation-types.ts';
 import { nextMonth, validDate } from './types.ts';
 
 export type CollectionCostItem={quantity:number;unit_price_minor:number;acquired_on:string|null};
-export type CollectionGrowth={valueMinor:number|null;costMinor:number;adjustedCostMinor:number|null;nominalGainMinor:number|null;nominalRatio:number|null;realGainMinor:number|null;realRatio:number|null;quantity:number;unknownDates:number;futureItems:number;realUnavailable:string|null};
+export type CollectionGrowth={valueMinor:number|null;costMinor:number;adjustedCostMinor:number|null;nominalGainMinor:number|null;nominalRatio:number|null;realGainMinor:number|null;realRatio:number|null;quantity:number;unknownDates:number;futureItems:number;realUnavailable:string|null;inflationThrough:string|null;assumedAcquiredOn:string|null};
 
 // Purchasing-month CPI is the price level at acquisition. Compound subsequent
 // published monthly MoM indices only, never annual averages/YoY or invented gaps.
+// An unpublished tail ends at the latest available month; internal gaps still fail.
 function inflationFactor(from:string,to:string,inflation:InflationSeries|undefined):number|null {
   if(from===to)return 1;
   const indices=new Map<string,number|null>();
@@ -23,19 +24,23 @@ function inflationFactor(from:string,to:string,inflation:InflationSeries|undefin
 export function collectionGrowth(items:CollectionCostItem[],valueMinor:number|null,asOf:string,inflation?:InflationSeries):CollectionGrowth {
   validDate(asOf);
   const eligible=items.filter(item=>!item.acquired_on || item.acquired_on<=asOf),unknownDates=eligible.filter(item=>!item.acquired_on).length;
+  const asOfMonth=asOf.slice(0,7),inflationThrough=(inflation?.monthly || []).filter(point=>point.month<=asOfMonth && point.mom!==null).map(point=>point.month).sort().at(-1)??null;
+  // A calculation-only anniversary, clamped for Feb 29; never persisted to inventory.
+  const year=Number(asOf.slice(0,4))-1,month=Number(asOf.slice(5,7)),day=Math.min(Number(asOf.slice(8,10)),new Date(Date.UTC(year,month,0)).getUTCDate());
+  const assumedAcquiredOn=unknownDates ? `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}` : null;
   const costMinor=eligible.reduce((sum,item)=>sum+item.quantity*item.unit_price_minor,0),quantity=eligible.reduce((sum,item)=>sum+item.quantity,0);
   const nominalGainMinor=valueMinor===null || !eligible.length ? null : valueMinor-costMinor;
   let adjustedCostMinor:number|null=0,realUnavailable:string|null=null;
   if(!eligible.length){adjustedCostMinor=null;realUnavailable='Nincs bekerülési nyilvántartás ehhez az állapothoz.';}
-  else if(eligible.some(item=>!item.acquired_on && item.unit_price_minor>0)){adjustedCostMinor=null;realUnavailable='Hiányzó vásárlási dátum miatt a teljes reálgyarapodás nem számolható.';}
   else for(const item of eligible){
     if(!item.unit_price_minor)continue;
-    const factor=inflationFactor(item.acquired_on!.slice(0,7),asOf.slice(0,7),inflation);
+    const purchaseMonth=(item.acquired_on??assumedAcquiredOn!).slice(0,7);
+    const factor=purchaseMonth===asOfMonth ? 1 : inflationThrough===null ? null : purchaseMonth>=inflationThrough ? 1 : inflationFactor(purchaseMonth,inflationThrough,inflation);
     if(factor===null){adjustedCostMinor=null;realUnavailable='Hiányos KSH havi inflációs idősor: nem becsülünk hiányzó hónapot.';break;}
     const amount=Math.round(item.quantity*item.unit_price_minor*factor);
     if(!Number.isSafeInteger(amount) || !Number.isSafeInteger(adjustedCostMinor!+amount)){adjustedCostMinor=null;realUnavailable='Az inflációval korrigált bekerülési összeg túl nagy.';break;}
     adjustedCostMinor!+=amount;
   }
   const realGainMinor=valueMinor===null || adjustedCostMinor===null ? null : valueMinor-adjustedCostMinor;
-  return {valueMinor,costMinor,adjustedCostMinor,nominalGainMinor,nominalRatio:nominalGainMinor===null || costMinor<=0 ? null : nominalGainMinor/costMinor,realGainMinor,realRatio:realGainMinor===null || !adjustedCostMinor || adjustedCostMinor<0 ? null : realGainMinor/adjustedCostMinor,quantity,unknownDates,futureItems:items.length-eligible.length,realUnavailable};
+  return {valueMinor,costMinor,adjustedCostMinor,nominalGainMinor,nominalRatio:nominalGainMinor===null || costMinor<=0 ? null : nominalGainMinor/costMinor,realGainMinor,realRatio:realGainMinor===null || !adjustedCostMinor || adjustedCostMinor<0 ? null : realGainMinor/adjustedCostMinor,quantity,unknownDates,futureItems:items.length-eligible.length,realUnavailable,inflationThrough,assumedAcquiredOn};
 }
