@@ -13,7 +13,11 @@ const config: NextConfig = {
       { key: "Referrer-Policy", value: "no-referrer" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       { key: "Content-Security-Policy", value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" }
-    ] }];
+    ] }, ...['/s/:token','/api/files/:id/download'].map(source=>({source,headers:[
+      // Next's global response rules override route headers; retain the stricter
+      // download policy here too so uploaded active content is never executable.
+      {key:'Content-Security-Policy',value:"sandbox; default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'"}
+    ]}))];
   }
 };
 export default config;

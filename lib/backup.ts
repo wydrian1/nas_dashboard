@@ -78,7 +78,10 @@ export async function prepareStage(root:string,stage:string,now=new Date()):Prom
     await copy(join(root,entry),join(stage,entry),(path,name)=>name!=='.gradle' && !(relative(root,path).split(/[\\/]/)[0]==='android' && name==='build'));
   }
   await mkdir(join(stage,'data'),{recursive:true});await snapshotDatabase(join(root,'data/dashboard.sqlite'),join(stage,'data/dashboard.sqlite'));
-  for(const path of ['data/caddy','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway','.runtime/admin-helper-client','.runtime/deployment-client']){
+  // Hosting objects are immutable after ready; capture their bytes together with
+  // the preceding metadata snapshot. Later uploads are harmless unregistered
+  // extras on restore; interrupted uploads still cannot be shared.
+  for(const path of ['data/caddy','data/file-hosting','.runtime/secrets','.runtime/android-signing','.runtime/artifacts','.runtime/services','.runtime/opencode-gateway','.runtime/admin-helper-client','.runtime/deployment-client']){
     try{await lstat(join(root,path));}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')continue;throw error;}
     await copy(join(root,path),join(stage,path));
   }
