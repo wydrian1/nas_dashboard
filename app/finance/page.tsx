@@ -6,11 +6,10 @@ import { readFinanceSnapshot } from '@/lib/finance/store';
 import { validMonth } from '@/lib/finance/types';
 import DashboardSidebar from '../dashboard-sidebar';
 import FinanceView from './finance-view';
-import FinanceEditor from './finance-editor';
+import FinanceWorkspace from './finance-workspace';
 import './finance.css';
 import { financeMarket } from '@/lib/finance/market';
 import { readLego } from '@/lib/finance/lego';
-import CollectionGrowthSection from './collection-growth';
 import { readPokemonCollection } from '@/lib/finance/pokemon-collection';
 import { isOpenCodeOwner } from '@/lib/opencode-access';
 import {homeForRole} from '@/lib/users';
@@ -30,8 +29,7 @@ export default async function FinancePage({searchParams}:{searchParams:Promise<{
     <div className="finance-fx-header">{market.rates ? <><strong>1 USD = {new Intl.NumberFormat('hu-HU',{maximumFractionDigits:2}).format(market.rates.usdHuf)} Ft</strong><strong>1 EUR = {new Intl.NumberFormat('hu-HU',{maximumFractionDigits:2}).format(market.rates.eurHuf)} Ft</strong><small>ECB / Frankfurter · {market.rates.date}</small></> : <span>Árfolyam jelenleg nem érhető el.</span>}</div>
     <section className="page-heading"><div><span className="eyebrow">VAGYON ÉS GYARAPODÁS</span><h1>Pénzügy</h1><p>Havi állapotok, követhető változások, éves kamatfordulók. Privát, csak adminoknak.</p></div></section>
     <FinanceView snapshot={snapshot} market={market}/>
-    {snapshot.selected && latest.selected && <FinanceEditor accounts={snapshot.accounts} selected={snapshot.selected} balances={snapshot.balances} latest={latest.selected} latestBalances={latest.balances} previous={snapshot.previous} previousBalances={snapshot.previousBalances} market={market}/>}
-    <CollectionGrowthSection snapshot={latest} lego={lego} pokemon={pokemon} inflation={market.inflation}/>
+    <FinanceWorkspace snapshot={snapshot} latest={latest} lego={lego} pokemon={pokemon} market={market}/>
     <footer className="main-footer">WYDRIAN DASHBOARD<span>Saját tér. Saját szabályok.</span></footer>
   </main></div>;
 }

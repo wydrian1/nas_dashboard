@@ -1,8 +1,30 @@
 import type { InflationSeries } from './inflation-types.ts';
 import { nextMonth, validDate } from './types.ts';
+import { usdToHuf, type FinanceMarket } from './market-types.ts';
 
 export type CollectionCostItem={quantity:number;unit_price_minor:number;acquired_on:string|null};
 export type CollectionGrowth={valueMinor:number|null;costMinor:number;adjustedCostMinor:number|null;nominalGainMinor:number|null;nominalRatio:number|null;realGainMinor:number|null;realRatio:number|null;quantity:number;unknownDates:number;futureItems:number;realUnavailable:string|null;inflationThrough:string|null;assumedAcquiredOn:string|null};
+export type CollectionMarketGrowth={growth:CollectionGrowth|null;asOf:string|null;fetchedAt:string|null;rateDate:string|null;usdHuf:number|null;unavailable:string|null};
+
+// Reuse the already retrieved market snapshot; no fetch, persistence or saved-value fallback.
+export function collectionMarketGrowth(items:CollectionCostItem[],kind:'pokemon'|'lego',market?:FinanceMarket):CollectionMarketGrowth {
+  const result:CollectionMarketGrowth={growth:null,asOf:null,fetchedAt:null,rateDate:null,usdHuf:null,unavailable:null};
+  const provider=kind==='pokemon' ? 'Collectr' : 'BrickEconomy',source=kind==='pokemon' ? market?.collectr : market?.brickeconomy;
+  if(!source)return {...result,unavailable:`Az aktuális ${provider}-érték nem érhető el; nem helyettesítjük mentett értékkel vagy bekerüléssel.`};
+  try{
+    if(!/^\d{4}-\d{2}-\d{2}T/.test(source.fetchedAt) || !Number.isFinite(Date.parse(source.fetchedAt)))throw new Error();
+    validDate(source.fetchedAt.slice(0,10));result.fetchedAt=new Date(source.fetchedAt).toISOString();result.asOf=validDate(result.fetchedAt.slice(0,10));
+    let value:number;
+    if(kind==='pokemon'){
+      if(!market?.rates)return {...result,unavailable:'A Collectr USD-értékének Ft-összehasonlításához nincs elérhető árfolyam; nem használunk mentett havi árfolyamot vagy értéket.'};
+      value=usdToHuf(market.collectr!.usdMinor,market.rates.usdHuf);
+      result.rateDate=validDate(market.rates.date);result.usdHuf=market.rates.usdHuf;
+    }else value=market!.brickeconomy!.hufMinor;
+    if(!Number.isSafeInteger(value) || value<0 || value>100_000_000_000_000)throw new Error();
+    result.growth=collectionGrowth(items,value,result.asOf,market?.inflation??undefined);
+    return result;
+  }catch{return {...result,growth:null,unavailable:`Az aktuális ${provider}-érték vagy az átváltás nem érvényes; az összehasonlítás nem számolható.`};}
+}
 
 // Purchasing-month CPI is the price level at acquisition. Compound subsequent
 // published monthly MoM indices only, never annual averages/YoY or invented gaps.

@@ -28,6 +28,8 @@ function component(path:string,reactModule?:unknown,extra=''):any {
     if(name==='./finance-chart')return component('app/finance/finance-chart.tsx');
     if(name==='./real-growth')return component('app/finance/real-growth.tsx');
     if(name==='./composition')return component('app/finance/composition.tsx');
+    if(name==='./collection-growth')return component('app/finance/collection-growth.tsx');
+    if(name==='./finance-editor')return component('app/finance/finance-editor.tsx');
     if(name==='../finance-actions')return {};
     if(name==='./lego-actions')return {};
     if(name==='./pokemon-actions')return {};
@@ -134,7 +136,52 @@ test('collection growth renders separate saved-value/cost/nominal/real cards wit
   const item={id:'purchase',name:'Demo',quantity:1,unit_price_minor:10000,acquired_on:'2026-09-03',revision:1,updated_at:'2026-09-03',deleted_at:null};
   const page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:{items:[{...item,set_number:'12345'}],quantity:1,totalMinor:10000},pokemon:{items:[item],quantity:1,totalMinor:10000}})));
   assert.equal(page('#collection-growth').length,1);assert.equal(page('.collection-growth-card').length,2);assert.equal(page('form,input').length,0);assert.match(page.text(),/Nominális gyarapodás|Reálgyarapodás/);assert.match(page.text(),/\+100\s*Ft/);assert.match(page.text(),/\+100%/);assert.equal(page('a[href="/collections"]').attr('target'),'_blank');
-  const finance=readFileSync(new URL('../app/finance/page.tsx',import.meta.url),'utf8');assert.match(finance,/CollectionGrowthSection snapshot=\{latest\}/);assert.doesNotMatch(finance,/LegoInventory/);
+   const finance=readFileSync(new URL('../app/finance/page.tsx',import.meta.url),'utf8');assert.match(finance,/FinanceWorkspace snapshot=\{snapshot\} latest=\{latest\}/);assert.doesNotMatch(finance,/LegoInventory/);
+});
+test('collection cards retain saved values and add independent current HUF valuations, growth, source time and FX provenance',()=>{
+  const Growth=component('app/finance/collection-growth.tsx').default,data=snapshot();data.selected!.as_of='2026-09-30';
+  data.balances.push({account_id:'cashflow-row-45',amount_minor:20000,turnover:0,source_cell:null},{account_id:'cashflow-row-46',amount_minor:15000,turnover:0,source_cell:null});
+  const item={quantity:1,unit_price_minor:10000,acquired_on:'2026-09-03'},inventory={items:[item],quantity:1,totalMinor:10000};
+  const market={rates:{date:'2026-10-06',usdHuf:300,eurHuf:350,fetchedAt:'2026-10-07T10:00:00Z'},collectr:{usdMinor:100,fetchedAt:'2026-10-07T10:30:00Z'},brickeconomy:{hufMinor:40000,fetchedAt:'2026-10-07T11:30:00Z'},inflation:{annual:[],monthly:[{month:'2026-10',mom:.1,yoy:.1}],fetchedAt:'2026-10-07T10:00:00Z'},rateError:null,collectrError:null,inflationError:null};
+  const before=JSON.stringify(data),page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:inventory,pokemon:inventory,market}))),cards=page('.collection-growth-card');
+  assert.equal(cards.length,2);assert.equal(page('[data-valuation="saved"]').length,2);assert.equal(page('[data-valuation="market"]').length,2);
+  assert.match(cards.eq(0).find('[data-valuation="saved"]').text(),/200\s*Ft/);assert.match(cards.eq(0).find('[data-valuation="market"]').text(),/300\s*Ft/);
+  assert.match(cards.eq(0).find('[data-valuation="market"]').text(),/\+190\s*Ft/);assert.match(cards.eq(0).find('.collection-growth-delta').text(),/\+100\s*Ft/);
+  assert.match(cards.eq(1).find('[data-valuation="market"]').text(),/400\s*Ft/);assert.match(cards.eq(1).find('.collection-growth-delta').text(),/\+250\s*Ft/);
+  assert.match(cards.eq(0).text(),/300 Ft\/USD.*2026-10-06/);assert.match(cards.eq(0).text(),/2026-10-07 10:30 UTC/);assert.match(cards.eq(1).text(),/2026-10-07 11:30 UTC/);
+  assert.equal(page('a[href="https://app.getcollectr.com/showcase/profile/@wydrian"]').attr('rel'),'noopener noreferrer');assert.equal(page('a[href="https://www.brickeconomy.com/member/wydrian"]').attr('target'),'_blank');
+  assert.equal(page('form,input').length,0);assert.equal(JSON.stringify(data),before);assert.match(page.text(),/automatikus havi mentés vagy második vagyonösszeg nélkül/);
+});
+test('collection market failures do not replace saved growth; valid zero current value displays a loss',()=>{
+  const Growth=component('app/finance/collection-growth.tsx').default,data=snapshot();data.selected!.as_of='2026-10-07';data.balances.push({account_id:'cashflow-row-46',amount_minor:20000,turnover:0,source_cell:null});
+  const inventory={items:[{quantity:1,unit_price_minor:10000,acquired_on:'2026-10-01'}]},market={rates:null,collectr:{usdMinor:100,fetchedAt:'2026-10-07T10:00:00Z'},brickeconomy:{hufMinor:0,fetchedAt:'2026-10-07T10:00:00Z'},inflation:null};
+  const page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:inventory,pokemon:inventory,market}))),cards=page('.collection-growth-card');
+  assert.match(cards.eq(0).find('[role="status"]').text(),/árfolyam/);assert.match(cards.eq(1).find('[data-valuation="saved"]').text(),/\+100\s*Ft/);
+  assert.match(cards.eq(1).find('[data-valuation="market"]').text(),/-100\s*Ft/);assert.match(cards.eq(1).find('.collection-growth-delta').text(),/-200\s*Ft/);
+  const absent=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:inventory,pokemon:inventory})));assert.equal(absent('[data-valuation="market"] [role="status"]').length,2);assert.match(absent('[data-valuation="saved"]').text(),/\+100\s*Ft/);
+});
+test('finance workspace places comparisons above monthly entry and uses latest saved snapshot while viewing history',()=>{
+  const Workspace=component('app/finance/finance-workspace.tsx').default,latest=snapshot(),historical=snapshot();historical.selected=historical.previous;
+  const inventory={items:[],quantity:0,totalMinor:0},market={rates:null,collectr:null,brickeconomy:null,inflation:null};
+  const page=load(renderToStaticMarkup(React.createElement(Workspace,{snapshot:historical,latest,lego:inventory,pokemon:inventory,market})));
+  assert.ok(page.html()!.indexOf('id="collection-growth"')<page.html()!.indexOf('id="monthly-entry"'));assert.match(page('#collection-growth .finance-section-head p').text(),/2026\. szeptember/);assert.equal(page('input[name="month"]').val(),'2026-10');
+  const noSaved=load(renderToStaticMarkup(React.createElement(Workspace,{snapshot:{...historical,selected:null},latest:{...latest,selected:null},lego:inventory,pokemon:inventory,market})));assert.equal(noSaved('#collection-growth').length,1);assert.equal(noSaved('#monthly-entry').length,0);assert.match(noSaved.text(),/Még nincs mentett havi tény/);
+});
+test('workspace refresh callback updates current comparison props, not latest saved history',()=>{
+  const states:any[]=[];let cursor=0;const hooks={useState(initial:unknown){const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],(value:unknown)=>{states[i]=value;}];}};
+  const Workspace=component('app/finance/finance-workspace.tsx',hooks).default,data=snapshot(),before=JSON.stringify(data),inventory={items:[]},market={rates:null,collectr:null,brickeconomy:null,inflation:null};
+  const props={snapshot:data,latest:data,lego:inventory,pokemon:inventory,market};cursor=0;const initial=Workspace(props),editor=initial.props.children[1];
+  const updated={...market,brickeconomy:{hufMinor:456700,fetchedAt:'2026-10-07T10:00:00Z'}};editor.props.onMarketRefresh(updated);cursor=0;const refreshed=Workspace(props);
+  assert.equal(refreshed.props.children[0].props.market,updated);assert.equal(refreshed.props.children[0].props.snapshot,data);assert.equal(JSON.stringify(data),before);
+});
+test('actual editor fetch propagates a successful market refresh but never calls comparison update on HTTP failure',async()=>{
+  const states:any[]=[];let cursor=0;const hooks={useState(initial:unknown){const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],(value:any)=>{states[i]=typeof value==='function'?value(states[i]):value;}];}};
+  const Editor=component('app/finance/finance-editor.tsx',hooks).default,data=snapshot(),updates:any[]=[],updated={rates:null,collectr:null,brickeconomy:{hufMinor:123400,fetchedAt:'2026-10-07T10:00:00Z'},inflation:null};
+  const props={accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,onMarketRefresh:(value:unknown)=>updates.push(value)};
+  function find(tree:any):any{if(!tree || typeof tree!=='object')return;for(const child of Array.isArray(tree)?tree:[tree]){if(child?.type==='button' && child.props.onClick?.name==='refreshMarket')return child;const found=find(child?.props?.children);if(found)return found;}}
+  const original=globalThis.fetch;try{globalThis.fetch=async(input,options)=>{assert.equal(input,'/api/finance/market');assert.equal(options?.cache,'no-store');return Response.json(updated);};cursor=0;await find(Editor(props)).props.onClick();assert.deepEqual(updates,[updated]);
+    globalThis.fetch=async()=>new Response('',{status:500});cursor=0;await find(Editor(props)).props.onClick();assert.equal(updates.length,1);
+  }finally{globalThis.fetch=original;}
 });
 test('finance monthly editor contains complete account fields, explicit confirmation and no automatic interest credit',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default,page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances})));
