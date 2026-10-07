@@ -48,10 +48,10 @@ test('eToro new-month prefill affects exactly stock row; preserves manual/HUF/hi
   for(const id of ['cashflow-row-19','cashflow-row-17','lightyear','revolut','bank'])assert.equal(newMonthAmount(account(id),old,market,undefined),undefined);
   assert.equal(newMonthAmount(etoro,old,{...market,etoro:null},undefined),undefined);
   assert.equal(newMonthAmount(etoro,old,{...market,etoro:{usdMinor:0,fetchedAt:market.etoro!.fetchedAt}},undefined),0);
-  assert.equal(marketRefreshAmount(etoro,true,false,'USD',market),'123.45');
-  for(const [newMonth,dirty,currency]of [[false,false,'USD'],[true,true,'USD'],[true,false,'HUF']] as const)assert.equal(marketRefreshAmount(etoro,newMonth,dirty,currency,market),null);
-  assert.equal(marketRefreshAmount(account('cashflow-row-19'),true,false,'USD',market),null);
-  assert.equal(marketRefreshAmount(etoro,true,false,'USD',{...market,etoro:null}),'');
+  assert.equal(marketRefreshAmount(etoro,true,'USD',market),'123');
+  assert.equal(marketRefreshAmount(etoro,false,'USD',market),null);
+  assert.equal(marketRefreshAmount(account('cashflow-row-19'),true,'USD',market),null);
+  assert.equal(marketRefreshAmount(etoro,true,'USD',{...market,etoro:null}),null);
 });
 test('read-only eToro fetch does not write monthly history, audit or source archive',async()=>{
   const db=new DatabaseSync(':memory:');initializeFinance(db);db.exec("INSERT INTO finance_accounts VALUES('cashflow-row-35','eToro (stock)','Stock','asset',35,NULL);INSERT INTO finance_months(month,as_of,source,updated_at) VALUES('2026-09','2026-09-01','excel','2026-09-01');INSERT INTO finance_balances VALUES('2026-09','cashflow-row-35',9999900,0,NULL);");

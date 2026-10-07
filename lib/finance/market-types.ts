@@ -1,6 +1,7 @@
-import { FinanceInputError, parseMoney, validDate } from './types.ts';
+import { FinanceInputError, validDate } from './types.ts';
 import type { FinanceAccount, FinanceSnapshot } from './types.ts';
 import type { InflationSeries } from './inflation-types.ts';
+import { parseIntegerMoney, integerMoneyInput } from './input-types.ts';
 
 export const USD_ACCOUNT_IDS=['cashflow-row-17','cashflow-row-35','cashflow-row-45'] as const;
 export const COLLECTR_ACCOUNT_ID='cashflow-row-45';
@@ -29,8 +30,9 @@ export function hufFinanceForm(data:FormData,accounts:FinanceAccount[],rates:Exc
     const currencies=data.getAll('currency:'+account.id),currency=currencies.length ? currencies[0] : 'HUF';
     if(currencies.length>1 || !['HUF','USD'].includes(String(currency)) || (currency==='USD' && !usdAccount(account.id)))throw new FinanceInputError('Érvénytelen beviteli deviza.');
     if(data.getAll('amount:'+account.id).length!==1)throw new FinanceInputError('Hiányos vagy ismétlődő összegmező.');
+    const amount=parseIntegerMoney(data.get('amount:'+account.id));
+    normalized.set('amount:'+account.id,integerMoneyInput(amount));
     if(currency==='USD'){
-      const amount=parseMoney(data.get('amount:'+account.id));
       if(amount===null)throw new FinanceInputError(`${account.name}: adj meg USD-összeget, lezárt tételnél 0-t. Nem másoljuk az előző havi Ft-értéket.`);
       if(!rates)throw new FinanceInputError('USD-mentéshez ellenőrzött árfolyam szükséges. Frissítsd az árfolyamot, vagy válassz Ft-bevitelt.');
       normalized.set('amount:'+account.id,(usdToHuf(amount,rates.usdHuf)/100).toFixed(2));

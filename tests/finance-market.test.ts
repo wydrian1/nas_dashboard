@@ -32,11 +32,11 @@ test('USD form conversion is server-priced, stores only Ft balances/audit and ne
   const db=new DatabaseSync(':memory:');initializeFinance(db);db.exec("INSERT INTO finance_accounts VALUES('cashflow-row-17','Ledger','Crypto','asset',17,NULL),('cashflow-row-35','eToro','Stock','asset',35,NULL),('cashflow-row-45','PokeMon','Collection','asset',45,NULL);");
   try{
     const accounts=readFinanceSnapshot(db).accounts,data=new FormData();data.set('month','2026-10');data.set('as_of','2026-10-02');data.set('revision','0');data.set('note','');data.set('confirmed','on');data.set('fx_date','2026-10-02');
-    for(const account of accounts){data.set('amount:'+account.id,'12.34');data.set('currency:'+account.id,'USD');}
+    for(const account of accounts){data.set('amount:'+account.id,'12');data.set('currency:'+account.id,'USD');}
     data.set('currency:cashflow-row-35','HUF');data.set('amount:cashflow-row-35','999');data.set('usdHuf','1');
     const normalized=hufFinanceForm(data,accounts,rates);assert.equal(normalized.has('fx_date'),false);assert.equal(normalized.has('currency:cashflow-row-17'),false);
     saveFinanceMonth(db,normalized,'admin',rates.fetchedAt,{date:rates.date,usdHuf:rates.usdHuf});
-    const balances=readFinanceSnapshot(db).balances;assert.equal(balances.find(b=>b.account_id==='cashflow-row-17')!.amount_minor,370352);assert.equal(balances.find(b=>b.account_id==='cashflow-row-35')!.amount_minor,99900);
+    const balances=readFinanceSnapshot(db).balances;assert.equal(balances.find(b=>b.account_id==='cashflow-row-17')!.amount_minor,360148);assert.equal(balances.find(b=>b.account_id==='cashflow-row-35')!.amount_minor,99900);
     const audit=JSON.parse(String(db.prepare('SELECT after_json FROM finance_audit').get()!.after_json));assert.equal(audit.conversion.usdHuf,300.123);assert.ok(audit.balances.every((b:any)=>Object.keys(b).every(key=>!key.toLowerCase().includes('usd'))));
     assert.throws(()=>hufFinanceForm(data,accounts,null));data.set('amount:cashflow-row-17','');assert.throws(()=>hufFinanceForm(data,accounts,rates));
   }finally{db.close();}

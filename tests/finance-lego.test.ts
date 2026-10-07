@@ -4,11 +4,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { initializeFinance } from '../lib/finance/schema.ts';
 import { readLego, saveLego, removeLego, importLego } from '../lib/finance/lego.ts';
 const row={set_number:'12345',name:'Kastély',quantity:'2',unit_price:'12 345,67',acquired_on:''};
-function data(overrides:Record<string,string>={}){const form=new FormData();for(const [key,value] of Object.entries({id:'',revision:'0',...row,...overrides}))form.set(key,value);return form;}
+function data(overrides:Record<string,string>={}){const form=new FormData();for(const [key,value] of Object.entries({id:'',revision:'0',...row,unit_price:'12 345',...overrides}))form.set(key,value);return form;}
 function fixture(){const db=new DatabaseSync(':memory:');initializeFinance(db);db.exec("INSERT INTO finance_accounts VALUES('lego','LEGO','Gyűjtemény','asset',1,NULL); INSERT INTO finance_months(month,as_of,source,updated_at) VALUES('2026-09','2026-09-01','manual','2026-09-01'); INSERT INTO finance_balances VALUES('2026-09','lego',12300,0,NULL);");return db;}
 test('LEGO quantity x unit price is integer Ft; unknown date is absent and history stays untouched',()=>{
-  const db=fixture();try{const id=saveLego(db,data(),'admin'),snapshot=readLego(db);assert.equal(snapshot.totalMinor,2469134);assert.equal(snapshot.quantity,2);assert.equal(snapshot.items[0].acquired_on,null);assert.equal(Object.getPrototypeOf(snapshot.items[0]),Object.prototype);
-    const edit=data({id,revision:'1',quantity:'3',acquired_on:'2026-01-02'});saveLego(db,edit,'admin');assert.equal(readLego(db).totalMinor,3703701);assert.throws(()=>saveLego(db,edit,'admin'),/közben/);
+  const db=fixture();try{const id=saveLego(db,data(),'admin'),snapshot=readLego(db);assert.equal(snapshot.totalMinor,2469000);assert.equal(snapshot.quantity,2);assert.equal(snapshot.items[0].acquired_on,null);assert.equal(Object.getPrototypeOf(snapshot.items[0]),Object.prototype);
+    const edit=data({id,revision:'1',quantity:'3',acquired_on:'2026-01-02'});saveLego(db,edit,'admin');assert.equal(readLego(db).totalMinor,3703500);assert.throws(()=>saveLego(db,edit,'admin'),/közben/);
     assert.equal(db.prepare('SELECT amount_minor FROM finance_balances').get()!.amount_minor,12300);assert.equal(db.prepare('SELECT count(*) AS n FROM finance_audit').get()!.n,0);
     assert.equal(db.prepare('SELECT count(*) AS n FROM finance_lego_audit').get()!.n,2);
   }finally{db.close();}

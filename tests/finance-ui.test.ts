@@ -20,6 +20,9 @@ function component(path:string):any {
     if(name==='@/lib/finance/inflation-types')return require('../lib/finance/inflation-types.ts');
     if(name==='@/lib/finance/lego-types')return require('../lib/finance/lego-types.ts');
     if(name==='@/lib/finance/editor-types')return require('../lib/finance/editor-types.ts');
+    if(name==='@/lib/finance/input-types')return require('../lib/finance/input-types.ts');
+    if(name==='@/lib/finance/chart-types')return require('../lib/finance/chart-types.ts');
+    if(name==='./integer-amount-input')return component('app/finance/integer-amount-input.tsx');
     if(name==='./finance-chart')return component('app/finance/finance-chart.tsx');
     if(name==='./real-growth')return component('app/finance/real-growth.tsx');
     if(name==='./composition')return component('app/finance/composition.tsx');
@@ -53,7 +56,7 @@ test('finance editor month text moves forward with latest state; Collectr prefil
   const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market})));
   assert.match(page.text(),/2026\. október értékeiből indul/);assert.equal(page('input[name="month"]').val(),'2026-11');
   assert.equal(page('input[name="amount:cashflow-row-17"]').val(),'');assert.equal(page('input[name="amount:cashflow-row-35"]').val(),'');
-  assert.equal(page('input[name="amount:cashflow-row-45"]').val(),'1234.56');assert.equal(page('select[name="currency:cashflow-row-45"]').val(),'USD');
+  assert.equal(page('input[name="amount:cashflow-row-45"]').val(),'1234');assert.equal(page('select[name="currency:cashflow-row-45"]').val(),'USD');
   assert.equal(page('input[name="fx_date"]').val(),'2026-10-02');assert.match(page.text(),/mentés Ft-ban/);
 });
 test('composition pie excludes debt even if an asset and liability share the same category',()=>{
@@ -66,7 +69,7 @@ test('eToro editor displays Total Balance prefill with fetch time, explicit save
   for(const [id,name]of [['cashflow-row-35','eToro (stock)'],['cashflow-row-19','crypto (etoro)']] as const)data.accounts.push({id,name,category:'Test',kind:'asset',sort_order:35,turnover_month:null});
   const market={rates:{date:'2026-10-02',usdHuf:300,eurHuf:350,fetchedAt:'2026-10-02T00:00:00Z'},collectr:null,inflation:null,rateError:null,collectrError:null,inflationError:null,etoro:{usdMinor:98765,fetchedAt:'2026-10-03T09:30:00Z'}};
   const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market})));
-  assert.equal(page('input[name="amount:cashflow-row-35"]').val(),'987.65');assert.equal(page('select[name="currency:cashflow-row-35"]').val(),'USD');
+  assert.equal(page('input[name="amount:cashflow-row-35"]').val(),'987');assert.equal(page('select[name="currency:cashflow-row-35"]').val(),'USD');
   assert.equal(page('input[name="amount:cashflow-row-19"]').val(),'');assert.match(page.text(),/Total Balance/);assert.match(page.text(),/készpénzzel és kriptóval együtt/);assert.match(page.text(),/2026-10-03 09:30 UTC/);
   assert.equal(page('input[name="confirmed"][required]').length,1);assert.match(page.text(),/mentés Ft-ban/);
   const unavailable=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market:{...market,etoro:null,etoroError:'eToro nem érhető el'}})));
@@ -96,6 +99,17 @@ test('finance monthly editor contains complete account fields, explicit confirma
   assert.equal(page('input[name="month"]').val(),'2026-10');assert.equal(page('input[name="revision"]').val(),'0');
   assert.equal(page('input[name^="amount:"]').length,2);assert.equal(page('input[name="confirmed"][required]').length,1);
    assert.equal(page('input[name="turnover:child"][checked]').length,0);assert.match(page.text(),/nem visszamenőleges havi adatok/);
+});
+test('every monthly amount has an accessible previous-value hint below its textbox, including missing and zero balances',()=>{
+  const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
+  data.accounts.push({id:'empty',name:'Empty',category:'Test',kind:'asset',sort_order:99,turnover_month:null});
+  data.balances[0].amount_minor=0;
+  const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,previous:data.previous,previousBalances:data.previousBalances})));
+  assert.equal(page('.finance-previous').length,data.accounts.length);
+  for(const account of data.accounts){const input=page(`input[name="amount:${account.id}"]`),hint=page('#previous-'+account.id);assert.equal(input.attr('aria-describedby'),'previous-'+account.id);assert.equal(input.parent().find('.finance-previous').length,1);assert.equal(input.attr('pattern'),'-?[0-9]+');assert.match(hint.text(),/2026\. szeptember/);}
+  assert.match(page('#previous-bank').text(),/0\s*Ft/);assert.match(page('#previous-empty').text(),/nincs rögzítve/);
+  const source=readFileSync(new URL('../app/finance/finance-editor.tsx',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/key=\{[^\n]*accounts\.length/);assert.match(source,/previousBalances/);
 });
 test('finance guards precede database reads; worker installer includes the new schema dependency',()=>{
   const source=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');

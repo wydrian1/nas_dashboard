@@ -3,12 +3,13 @@ import type { DatabaseSync } from 'node:sqlite';
 import { plainSqlRow } from '../sql-rows.ts';
 import { FinanceInputError, parseMoney, validDate } from './types.ts';
 import type { LegoItem, LegoSnapshot } from './lego-types.ts';
+import { parseIntegerMoney } from './input-types.ts';
 
 function field(data:FormData,name:string):string {
   const values=data.getAll(name);if(values.length!==1 || typeof values[0]!=='string')throw new FinanceInputError('Hiányos vagy ismétlődő LEGO-mező.');return values[0];
 }
-function details(data:FormData) {
-  const set_number=field(data,'set_number').trim(),name=field(data,'name').trim(),quantityText=field(data,'quantity'),price=parseMoney(field(data,'unit_price')),date=field(data,'acquired_on').trim();
+function details(data:FormData,imported=false) {
+  const set_number=field(data,'set_number').trim(),name=field(data,'name').trim(),quantityText=field(data,'quantity'),price=(imported ? parseMoney : parseIntegerMoney)(field(data,'unit_price')),date=field(data,'acquired_on').trim();
   if(!/^\d{3,10}(?:-\d{1,3})?$/.test(set_number) || !name || name.length>200)throw new FinanceInputError('Érvényes készletszámot és nevet adj meg.');
   if(!/^[1-9]\d{0,3}$/.test(quantityText))throw new FinanceInputError('A darabszám 1–9999 közötti egész szám legyen.');
   if(price===null || price<0 || price>100_000_000_000)throw new FinanceInputError('Nemnegatív Ft-egységár szükséges.');
@@ -53,7 +54,7 @@ export function importLego(db:DatabaseSync,input:unknown,actor:string,now=new Da
   if(!Array.isArray(input) || !input.length || input.length>1000)throw new FinanceInputError('Érvénytelen LEGO-import.');
   const values=input.map(row=>{
     if(!row || typeof row!=='object')throw new FinanceInputError('Érvénytelen LEGO-importsor.');
-    const form=new FormData();for(const key of ['set_number','name','quantity','unit_price','acquired_on']){if(typeof row[key]!=='string')throw new FinanceInputError('A LEGO-importmezők szövegesek legyenek.');form.set(key,row[key]);}return details(form);
+    const form=new FormData();for(const key of ['set_number','name','quantity','unit_price','acquired_on']){if(typeof row[key]!=='string')throw new FinanceInputError('A LEGO-importmezők szövegesek legyenek.');form.set(key,row[key]);}return details(form,true);
   });
   const checksum=createHash('sha256').update(JSON.stringify(values)).digest('hex');
   db.exec('BEGIN IMMEDIATE');try{
