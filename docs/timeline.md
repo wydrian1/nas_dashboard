@@ -1,7 +1,7 @@
 # Nyilvános fejlesztéstörténeti bemutató
 
 Célcím: **https://wydrian.hu/timeline**, bejelentkezés nélkül.
-Önálló, magyar nyelvű, 12 diás statikus oldal. Nincs alkalmazásmenü, privát adat,
+Önálló, magyar nyelvű, 14 diás statikus oldal. Nincs alkalmazásmenü, privát adat,
 NAS API-hívás, analitika vagy külső kép/font. Nem GitHub Pages.
 
 ## Felépítés
@@ -33,6 +33,10 @@ A forrás a Git-történet és a projekt dokumentációja, 2026. október 7-ig.
 Az első Git-pillanatkép (`365b0a5`, október 3.) már működő alkalmazást tartalmazott;
 nem állítjuk, hogy azon a napon kezdődött a teljes fejlesztés.
 A commitok a fejlesztési mérföldköveket, nem feltétlenül az élesítés napját jelölik.
+Rövid, tényszerű szöveg. A frissítés tartalmazza a PR 18–23 éles kiadásait:
+1.4.0, nyilvános timeline, BrickEconomy, TCG Bolt mint 14. webshop,
+és 1.4.1 mentett/aktuális gyűjtemény-összehasonlítás. A most készülő feladat
+nem szerepel már élesített funkcióként. A privát importok eredményét nem publikáljuk.
 
 A képek ehhez a bemutatóhoz készített, eredeti SVG-illusztrációk, nem éles képernyőképek.
 A termékek, pénzügyi összegek, fájlok és telefonképernyők szintetikusak.

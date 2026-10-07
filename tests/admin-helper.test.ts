@@ -45,7 +45,7 @@ test('admin helper: server client signs requests, checks response authentication
 });
 test('admin helper: UI/API owner guards, credentials and CLI do not grant agent approval capability',()=>{
   const route=source('app/api/admin-helper/route.ts');assert.match(route,/requireOpenCodeIdentity/);assert.match(route,/getToken/);assert.match(route,/createHash\('sha256'\)\.update\(raw\)/);assert.match(route,/adminBody\(request\)/);
-  const page=source('app/config/page.tsx');assert.match(page,/isOpenCodeOwner\(session.user\?\.email\) && <AdminHelper/);
+  const page=source('app/config/page.tsx');assert.match(page,/isOpenCodeOwner\(session.user\?\.email\) && <LocalSection[^>]+><AdminHelper/);
   const ui=source('app/config/admin-helper.tsx');assert.match(ui,/phrase!==review.service/);assert.match(ui,/action:'review'/);assert.match(ui,/action:'confirm'/);assert.doesNotMatch(ui,/credentials\.json|requestKey|X-Nas-Signature/);
   const cli=source('scripts/Request-AdminRestart.mjs');assert.match(cli,/admin-helper-client\/request.json/);assert.match(cli,/'request'/);assert.doesNotMatch(cli,/\/v1\/confirm|\/v1\/review|credentials\.json/);
   assert.doesNotMatch(source('lib/admin-helper/policy.ts'),/node:|next-auth/);

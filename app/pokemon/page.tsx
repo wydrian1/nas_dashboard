@@ -20,7 +20,7 @@ export default async function PokemonPage() {
       <section className="page-heading"><div><span className="eyebrow">POKÉMON TCG</span><h1>Pokémon figyelő</h1><p>Új elérhetőségek egy helyen. Webshoponként külön figyelés és beállítások.</p></div></section>
       <PokemonPanel initial={pokemonSnapshot(session.user!.email!,session.role!)}/>
       <p><a className="secondary-button" href="/mobile/download">Android APK letöltése</a></p>
-      <footer className="main-footer">WYDRIAN DASHBOARD<span>Saját tér. Saját szabályok.</span></footer>
+      <footer className="main-footer">Wydrian Dashboard</footer>
     </main>
   </div>;
 }

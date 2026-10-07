@@ -3,11 +3,13 @@ import { saveQuickLink, deleteQuickLink, saveNote, deleteNote, saveTodo, toggleT
 import type { QuickLink, Note, Todo } from "@/lib/personal-types";
 import { PERSONAL_LIMITS } from "@/lib/personal-types";
 import {budapestClock} from '@/lib/mobile/task-reminders';
+import LocalSections,{LocalSection} from './local-sections';
 
 function LinkFields({ link }: { link?: QuickLink }) {
   return <><input type="hidden" name="id" value={link?.id || ""}/><label>Link neve<input name="title" required maxLength={80} defaultValue={link?.title} placeholder="Például: kedvenc oldalam"/></label><label>Webcím<input name="url" type="url" required maxLength={2048} defaultValue={link?.url} placeholder="https://…"/></label><label>Leírás <span className="subtle">opcionális</span><input name="description" maxLength={160} defaultValue={link?.description} placeholder="Rövid emlékeztető"/></label><ActionButton className="primary-button">{link ? "Mentés" : "+ Hozzáadás"}</ActionButton></>;
 }
 export function QuickLinks({ links }: { links: QuickLink[] }) {
+  if(!links.length)return null;
   return <section id="quicklinks" className="personal-section"><div className="section-heading"><h2>Gyorslinkek <span>{links.length}/{PERSONAL_LIMITS.quickLinks}</span></h2><a className="text-link" href="/config#quicklinks">Konfig →</a></div>
     <div className="quick-link-grid">{links.map(link=><article className="quick-link-card" key={link.id}><a className="quick-link-main" href={link.url} target="_blank" rel="noopener noreferrer"><span className="quick-link-icon">{link.title[0].toLocaleUpperCase("hu-HU")}</span><div><h3>{link.title} <span>↗</span></h3><p>{link.description || new URL(link.url).host}</p></div></a></article>)}</div>
     {!links.length && <p className="footnote">Még nincs gyorslink. A Konfig oldalon adhatsz hozzá új linket.</p>}
@@ -29,12 +31,12 @@ function TodoItem({ todo }: { todo: Todo }) {
 }
 export function NotesAndTasks({ notes, todos }: { notes: Note[]; todos: Todo[] }) {
   const pending=todos.filter(todo=>!todo.done), completed=todos.filter(todo=>todo.done);
-  return <section id="notes" className="personal-section"><div className="section-heading"><h2>Jegyzetek és teendők</h2><span className="subtle">{pending.length} nyitott feladat</span></div><div className="notes-tasks-grid">
-    <div className="notes-panel"><div className="panel-heading"><h3>Jegyzetek</h3><span>{notes.length}/{PERSONAL_LIMITS.notes}</span></div><details className="personal-editor add-editor" open={!notes.length}><summary>+ Új jegyzet</summary><ActionForm action={saveNote} className="personal-form"><NoteFields/></ActionForm></details>
+  return <section id="notes" className="personal-section"><LocalSections page="notes">
+    <LocalSection sectionId="notes" label="Jegyzetek"><div className="notes-panel"><div className="panel-heading"><h2>Jegyzetek</h2><span>{notes.length}/{PERSONAL_LIMITS.notes}</span></div><details className="personal-editor add-editor" open={!notes.length}><summary>+ Új jegyzet</summary><ActionForm action={saveNote} className="personal-form"><NoteFields/></ActionForm></details>
       {notes.map(note=><article className="note-card" key={note.id}><h3>{note.title}</h3><p className="note-content">{note.content}</p><details className="personal-editor"><summary>Szerkesztés</summary><ActionForm action={saveNote} className="personal-form" key={note.updated_at}><NoteFields note={note}/></ActionForm><ActionForm action={deleteNote} className="delete-form"><input type="hidden" name="id" value={note.id}/><ActionButton className="delete-button">Jegyzet törlése</ActionButton></ActionForm></details></article>)}
-    </div><div className="todos-panel"><div className="panel-heading"><h3>Saját teendők</h3><span>{todos.length}/{PERSONAL_LIMITS.todos}</span></div><p className="task-reminder-help">Ellenőrzés naponta 10:00-kor (Budapest). Push a rögzítő saját telefonjaira 2 és 1 nappal előtte, majd minden lejárt napon, lezárásig.</p><ActionForm action={saveTodo} className="todo-add-form"><label className="sr-only">Új feladat</label><input name="text" required maxLength={200} placeholder="Új feladat…" aria-label="Új feladat"/><input type="date" name="due_date" aria-label="Határidő (opcionális)" min="2000-01-01" max="2099-12-31"/><ActionButton className="primary-button">+</ActionButton></ActionForm>
+    </div></LocalSection><LocalSection sectionId="tasks" label="Teendők"><div className="todos-panel"><div className="panel-heading"><h2>Teendők</h2><span>{pending.length} nyitott · {todos.length}/{PERSONAL_LIMITS.todos}</span></div><p className="task-reminder-help">Ellenőrzés naponta 10:00-kor (Budapest). Push a rögzítő saját telefonjaira 2 és 1 nappal előtte, majd minden lejárt napon, lezárásig.</p><ActionForm action={saveTodo} className="todo-add-form"><label className="sr-only">Új feladat</label><input name="text" required maxLength={200} placeholder="Új feladat…" aria-label="Új feladat"/><input type="date" name="due_date" aria-label="Határidő (opcionális)" min="2000-01-01" max="2099-12-31"/><ActionButton className="primary-button">+</ActionButton></ActionForm>
       {!pending.length && <div className="tasks-empty"><span>✓</span><p>Nincs nyitott feladat.</p></div>}<ul className="todo-list">{pending.map(todo=><TodoItem key={todo.id} todo={todo}/>)}</ul>
       {!!completed.length && <details className="completed-tasks"><summary>Elvégzett feladatok ({completed.length})</summary><ul className="todo-list">{completed.map(todo=><TodoItem key={todo.id} todo={todo}/>)}</ul></details>}
-    </div></div>
+    </div></LocalSection></LocalSections>
   </section>;
 }

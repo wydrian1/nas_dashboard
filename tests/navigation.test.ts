@@ -15,12 +15,16 @@ import {formatMoney} from '../lib/finance/types.ts';
 
 const require = createRequire(import.meta.url);
 const source = (path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const components=new Map<string,any>();
 // Render the real TSX with server-action/form boundaries stubbed; no production data or authentication is changed.
 function component(path:string) {
+  if(components.has(path))return components.get(path);
   const output=ts.transpileModule(source(path),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const exports:Record<string,any>={};
   new Function('require','exports',output)((name:string)=>{
     if(name==='react' || name==='react/jsx-runtime')return require(name);
+    if(name==='./local-sections')return component('app/local-sections.tsx');
+    if(name==='@/lib/section-order')return require('../lib/section-order.ts');
     if(name==='./action-form')return {
       ActionForm:({children,className}:any)=>React.createElement('form',{className},children),
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)
@@ -33,7 +37,7 @@ function component(path:string) {
     if(['./personal-actions','./pokemon-actions','./actions'].includes(name))return {};
     throw new Error('Unexpected component dependency: '+name);
   },exports);
-  return exports;
+  components.set(path,exports);return exports;
 }
 
 test('Important info hides missing balances and empty groups but retains saved zero/negative values and unchanged totals',()=>{
@@ -206,7 +210,7 @@ test('Pokemon APK download follows all shop sections and precedes the page foote
   assert.equal((page.match(/href="\/mobile\/download"/g)||[]).length,1);
 });
 test('collection inventories stay off finance; saved/current collection growth precedes the monthly editor',()=>{
-  const page=source('app/finance/page.tsx');assert.doesNotMatch(page,/LegoInventory/);assert.ok(page.indexOf('<FinanceWorkspace')>page.indexOf('<FinanceView'));assert.ok(page.indexOf('<FinanceWorkspace')<page.indexOf('<footer'));
+  const page=source('app/finance/page.tsx');assert.doesNotMatch(page,/LegoInventory/);assert.ok(page.indexOf('<FinanceWorkspace')>=0);assert.ok(page.indexOf('<FinanceWorkspace')<page.indexOf('<footer'));assert.match(source('app/finance/finance-workspace.tsx'),/<FinanceView/);
   const workspace=source('app/finance/finance-workspace.tsx');assert.ok(workspace.indexOf('<CollectionGrowthSection')>=0);assert.ok(workspace.indexOf('<CollectionGrowthSection')<workspace.indexOf('<FinanceEditor'));assert.match(workspace,/CollectionGrowthSection snapshot=\{latest\}/);
   const collections=source('app/collections/page.tsx');assert.match(collections,/<LegoInventory/);assert.match(collections,/<PokemonInventory/);
 });

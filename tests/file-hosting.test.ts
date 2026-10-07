@@ -9,13 +9,32 @@ import {pipeline} from 'node:stream/promises';
 import {initializeDatabase} from '../lib/db-schema.ts';
 import {hostingName,hostingId,MAX_FILE_BYTES,HostingError} from '../lib/file-hosting/types.ts';
 import {listing,reserveEntry,finishEntry,folderChain,hostingEntry,createHostingLink,signHostingLink,resolveHostingLink,revokeHostingLink} from '../lib/file-hosting/store.ts';
-import {createHostingFolder,uploadHostedFile,entryPath,uploadLength,recoverInterruptedUploads,HostingUploadMeter} from '../lib/file-hosting/storage.ts';
+import {createHostingFolder,uploadHostedFile,entryPath,uploadLength,recoverInterruptedUploads,HostingUploadMeter,deleteHostedFile} from '../lib/file-hosting/storage.ts';
 import {hostingDownload,fileRange,fileDownloadHeaders} from '../lib/file-hosting/download.ts';
 import {prepareStage,verifyStage} from '../lib/backup.ts';
 
 const secret='synthetic-signing-key-'.repeat(3),actor='owner@example.com';
 async function fixture(){const parent=join(process.cwd(),'.runtime/research');await mkdir(parent,{recursive:true});const directory=await mkdtemp(join(parent,'hosting-test-')),root=join(directory,'storage'),db=new DatabaseSync(':memory:');initializeDatabase(db);return {db,root,directory,close:async()=>{db.close();await rm(directory,{recursive:true,force:true});}};}
 const uploadRequest=(body:string|ReadableStream<Uint8Array>,headers:Record<string,string>={},signal?:AbortSignal)=>new Request('https://nas.wydrian.hu/api/files/upload',{method:'POST',body,headers,signal,duplex:'half'} as RequestInit);
+test('file deletion removes bytes and every link, retains other files/folders and records audit',async()=>{
+  const f=await fixture();try{
+    const folder=await createHostingFolder(f.db,null,'Folder',actor,f.root),file=await uploadHostedFile(f.db,folder.id,'Delete.txt',actor,uploadRequest('delete'),f.root),other=await uploadHostedFile(f.db,folder.id,'Keep.txt',actor,uploadRequest('keep'),f.root);
+    const links=[createHostingLink(f.db,file.id,null,actor,secret,1000),createHostingLink(f.db,file.id,2000,actor,secret,1000),createHostingLink(f.db,file.id,null,actor,secret,1000)];revokeHostingLink(f.db,links[2].id,actor,1001);
+    const retained=createHostingLink(f.db,other.id,null,actor,secret),path=await entryPath(f.db,file,f.root);
+    await deleteHostedFile(f.db,file.id,actor,f.root);
+    await assert.rejects(readFile(path));assert.throws(()=>hostingEntry(f.db,file.id));for(const link of links)assert.throws(()=>resolveHostingLink(f.db,signHostingLink(link.id,secret),secret));
+    assert.equal(f.db.prepare('SELECT count(*) n FROM hosted_links WHERE file_id=?').get(file.id)!.n,0);assert.equal(resolveHostingLink(f.db,signHostingLink(retained.id,secret),secret).id,other.id);assert.equal(await readFile(await entryPath(f.db,other,f.root),'utf8'),'keep');assert.equal(hostingEntry(f.db,folder.id).kind,'folder');
+    assert.equal(f.db.prepare("SELECT count(*) n FROM hosted_audit WHERE action='delete'").get()!.n,1);assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);assert.deepEqual(await readdir(join(f.root,folder.id)),[other.id+'.blob']);await assert.rejects(()=>deleteHostedFile(f.db,file.id,actor,f.root));
+  }finally{await f.close();}
+});
+test('failed database deletion restores file and links; folders/uploads/traversal/hardlinks are not deleted',async()=>{
+  const f=await fixture();try{
+    const file=await uploadHostedFile(f.db,null,'safe.txt',actor,uploadRequest('safe'),f.root),path=await entryPath(f.db,file,f.root),shared=createHostingLink(f.db,file.id,null,actor,secret);
+    f.db.exec("CREATE TRIGGER reject_delete BEFORE DELETE ON hosted_entries BEGIN SELECT RAISE(ABORT,'synthetic failure'); END");await assert.rejects(()=>deleteHostedFile(f.db,file.id,actor,f.root),/synthetic failure/);assert.equal(await readFile(path,'utf8'),'safe');assert.equal(resolveHostingLink(f.db,signHostingLink(shared.id,secret),secret).id,file.id);f.db.exec('DROP TRIGGER reject_delete');
+    await link(path,join(f.directory,'external'));await assert.rejects(()=>deleteHostedFile(f.db,file.id,actor,f.root));assert.equal(await readFile(path,'utf8'),'safe');
+    await assert.rejects(()=>deleteHostedFile(f.db,'../external',actor,f.root));const folder=await createHostingFolder(f.db,null,'folder',actor,f.root);await assert.rejects(()=>deleteHostedFile(f.db,folder.id,actor,f.root));const upload=reserveEntry(f.db,null,'active','file',actor);await assert.rejects(()=>deleteHostedFile(f.db,upload.id,actor,f.root));
+  }finally{await f.close();}
+});
 test('hosting names reject traversal, ADS, Windows devices, controls, invalid Unicode and aliases; accept safe Unicode',()=>{
   for(const name of ['','..','.env.local','../file','folder/file','x\\file','C:foo','CON','nul.zip','LPT1.txt','COM¹.txt','x\u0000y','x\r\ny','a.',' a','a ','<script>','\ud800','a\u202eb','a'.repeat(181)])assert.throws(()=>hostingName(name),HostingError);
   assert.equal(hostingName('Árvíztűrő tükörfúrógép.csv'),'Árvíztűrő tükörfúrógép.csv');assert.throws(()=>hostingId('../secrets'));assert.equal(MAX_FILE_BYTES,1_000_000_000);

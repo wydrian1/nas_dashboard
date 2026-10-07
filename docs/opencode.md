@@ -7,6 +7,34 @@
 
 ## Védelem
 
+## Távoli előnézetek
+
+Az eredeti OpenCode V2 API aktuális OpenAPI-listájában nincs dokumentált
+böngésző-/Review-stream. A desktop saját böngészője nem tükrözhető pusztán az
+iframe átállításával; nem nyitunk távoli desktop/CDP portot és nem módosítjuk az
+eredeti OpenCode-telepítést. Hivatalos referencia: https://opencode.ai/v2/docs/api/.
+
+A dashboard külön **Előnézetek** panelje explicit publikált fájlpillanatképet mutat.
+PNG/JPEG/WebP, PDF, önálló HTML és szöveg támogatott. Példa, az aktív projektből:
+
+```powershell
+node --experimental-strip-types scripts/Publish-OpenCodePreview.mjs "D:\!nas\docs\demo.html" "Demo"
+```
+
+A szerver saját `data/opencode-previews` tárolójába kerül az ellenőrzött másolat.
+Legfeljebb 30 fájl, fájlonként 8 MB. A panel Frissítés gombja tölti be a listát.
+Csak a belépett admin tulajdonos fér hozzá; más admin, reader, anonim vagy
+visszavont telefon nem. Nincs publikus bearer-link vagy tetszőleges fájlútvonal.
+A fájlhash minden megnyitásnál ellenőrzött, a válasz nem cache-elhető.
+
+A HTML sandboxban fut, script/same-origin jog nélkül, hálózati lekérés/űrlap/top-navigation nélkül.
+Csak önálló HTML használható (inline stílus, beágyazott data-képek); külső
+assetek és a dashboard API nem elérhetők. A szöveg nem HTML-ként jelenik meg.
+Böngészős képernyőkép is publikálható, ha a desktop eszköz ténylegesen létrehozta;
+ez nem élő böngészővezérlés. A PDF-megjelenítés a távoli böngésző PDF-támogatásától függ.
+
+## Hozzáférési védelem
+
 A dashboard saját Google/Auth.js cookie-ja host-only marad. A külön aldomain csak egy 5 perces, titkosított, `Secure; HttpOnly; SameSite=Lax` hozzáférési cookie-t kap; annak lejárata nem lehet későbbi a dashboard-munkameneténél. A beágyazó oldal kétpercenként és előtérbe kerüléskor újítja meg. A külön megnyitott fülhöz a dashboard-oldalt is hagyd nyitva.
 
 A cookie-munkamenet szerveroldali, hash alapján tárolt családhoz kötött. Kijelentkezés visszavonja a család korábbi cookie-példányait is. A telefon visszavonását minden kérés ellenőrzi. SSE/WebSocket és hosszú válaszok jogosultságát az átjáró 15 másodpercenként újra ellenőrzi; az eredeti kérés cookie-jának lejártakor megszakítja őket, a kliens újra kapcsolódhat az új cookie-val. Így lejárt jogosultság nem tarthat fenn korlátlan kapcsolatot.

@@ -4,7 +4,7 @@ import {WEB_VERSION} from '@/lib/mobile/release';
 
 export default function DashboardSidebar({name,active='overview',unread,role='admin',openCode=false}:{name?:string|null;active?:'overview'|'pokemon'|'news'|'config'|'notes'|'finance'|'collections'|'files'|'opencode'|'important-info';unread?:number;role?:Role;openCode?:boolean}) {
   return <aside className="sidebar">
-    <a className="brand" href="/"><img className="brand-mark small" src="/brand-w-modules.svg" alt="" width="41" height="41"/><span>wydrian<span className="brand-sub">PERSONAL SPACE</span></span></a>
+    <a className="brand" href="/"><img className="brand-mark small" src="/brand-w-modules.svg" alt="" width="41" height="41"/><span>Wydrian<span className="brand-sub">DASHBOARD</span></span></a>
     <div className="nav-label">MUNKATERÜLET</div>
     <nav>
       {role==='admin' && <><a className={active==='overview' ? 'active' : undefined} aria-current={active==='overview' ? 'page' : undefined} href="/">▦ <span>Dashboard</span></a>

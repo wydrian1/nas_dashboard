@@ -51,6 +51,7 @@ function panel(initial:PokemonSnapshot){
       const runtime=require(name);return {...runtime,jsx:(type:any,props:any,key:any)=>{if(props.id==='pokemon-search')change=props.onChange;return runtime.jsx(type,props,key);}};
     }
     if(name==='./pokemon-search')return {filterPokemonTitles};
+    if(name==='./local-sections')return {default:({children}:any)=>React.createElement(React.Fragment,{},children),LocalSection:({children}:any)=>React.createElement(React.Fragment,{},children)};
     if(name==='./pokemon-actions')return {};
     if(name==='./action-form')return {ActionForm:({children}:any)=>React.createElement('form',{},children),ActionButton:({children}:any)=>React.createElement('button',{},children)};
     throw new Error('Unexpected import '+name);

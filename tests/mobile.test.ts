@@ -73,6 +73,7 @@ test('Push: silent baseline + no retroactive notifications; new/restock jobs ind
     const run=(products:typeof product[],now:number)=>{db.prepare("UPDATE pokemon_shops SET next_scan=0 WHERE id='gamerunner'").run();const owner=claimScan(db,now,'gamerunner')!;return finishScan(db,owner,{products,total:products.length,pages:1,scannedAt:now},now+1);};
     assert.equal(run([product],3000).baseline,true);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,0);
     run([product,{...product,externalID:'B'}],700000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
+    const payload=JSON.parse(String(db.prepare('SELECT payload FROM mobile_push_outbox').get()!.payload));assert.equal(payload.kind,'product');assert.equal(payload.shopId,'gamerunner');assert.equal(payload.productUrl,product.url);assert.equal(payload.path,'/pokemon#shop-gamerunner');
     assert.equal(db.prepare('SELECT count(*) AS n FROM pokemon_mail_outbox').get()!.n,0);
     run([product,{...product,externalID:'B'}],800000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
     saveNotifications(db,email,'gamerunner',true,{notify_new:0,notify_restock:1,notify_preorder:1});run([product,{...product,externalID:'B'},{...product,externalID:'C'}],900000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
