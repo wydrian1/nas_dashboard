@@ -44,10 +44,10 @@ test('eToro loader uses only GET on fixed official all-balances URL, UUID, no re
 });
 test('eToro new-month prefill affects exactly stock row; preserves manual/HUF/historical fields and never falls back to old HUF',()=>{
   const etoro=account(ETORO_ACCOUNT_ID),old={account_id:etoro.id,amount_minor:9999900,turnover:0,source_cell:null};
-  assert.equal(newMonthAmount(etoro,old,market,undefined),12345);
-  for(const id of ['cashflow-row-19','cashflow-row-17','lightyear','revolut','bank'])assert.equal(newMonthAmount(account(id),old,market,undefined),undefined);
-  assert.equal(newMonthAmount(etoro,old,{...market,etoro:null},undefined),undefined);
-  assert.equal(newMonthAmount(etoro,old,{...market,etoro:{usdMinor:0,fetchedAt:market.etoro!.fetchedAt}},undefined),0);
+  assert.equal(newMonthAmount(etoro,old,market),12345);
+  for(const id of ['cashflow-row-19','cashflow-row-17','lightyear','revolut','bank'])assert.equal(newMonthAmount(account(id),old,market),undefined);
+  assert.equal(newMonthAmount(etoro,old,{...market,etoro:null}),undefined);
+  assert.equal(newMonthAmount(etoro,old,{...market,etoro:{usdMinor:0,fetchedAt:market.etoro!.fetchedAt}}),0);
   assert.equal(marketRefreshAmount(etoro,true,'USD',market),'123');
   assert.equal(marketRefreshAmount(etoro,false,'USD',market),null);
   assert.equal(marketRefreshAmount(account('cashflow-row-19'),true,'USD',market),null);

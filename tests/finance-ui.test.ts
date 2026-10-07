@@ -10,11 +10,12 @@ import ts from 'typescript';
 import { initializeFinance } from '../lib/finance/schema.ts';
 import { readFinanceSnapshot } from '../lib/finance/store.ts';
 const require=createRequire(import.meta.url);
-function component(path:string):any {
-  const src=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+function component(path:string,reactModule?:unknown,extra=''):any {
+  const src=readFileSync(new URL('../'+path,import.meta.url),'utf8')+extra;
   const output=ts.transpileModule(src,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const exports:Record<string,any>={};new Function('require','exports',output)((name:string)=>{
-    if(name==='react' || name==='react/jsx-runtime')return require(name);
+    if(name==='react')return reactModule || require(name);
+    if(name==='react/jsx-runtime')return require(name);
     if(name==='@/lib/finance/types')return require('../lib/finance/types.ts');
     if(name==='@/lib/finance/market-types')return require('../lib/finance/market-types.ts');
     if(name==='@/lib/finance/inflation-types')return require('../lib/finance/inflation-types.ts');
@@ -77,10 +78,35 @@ test('eToro editor displays Total Balance prefill with fetch time, explicit save
   const unavailable=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market:{...market,etoro:null,etoroError:'eToro nem érhető el'}})));
   assert.equal(unavailable('input[name="amount:cashflow-row-35"]').val(),'');assert.match(unavailable('[role="alert"]').text(),/eToro nem érhető el/);
 });
-test('new-month LEGO prefill uses live inventory total rather than last month, including a zero total',()=>{
+test('new-month LEGO prefill uses BrickEconomy HUF rather than old balance or inventory cost; zero is distinct from unavailable',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
   data.accounts.push({id:'cashflow-row-46',name:'LEGO',category:'Collectibles',kind:'asset',sort_order:46,turnover_month:null});data.balances.push({account_id:'cashflow-row-46',amount_minor:10000,turnover:0,source_cell:null});
-  for(const legoTotal of [50079300,0]){const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,legoTotal})));assert.equal(page('input[name="amount:cashflow-row-46"]').val(),String(legoTotal/100));}
+  for(const hufMinor of [123499,0]){const market={rates:null,collectr:null,rateError:null,collectrError:null,inflation:null,inflationError:null,brickeconomy:{hufMinor,fetchedAt:'2026-10-07T10:30:00Z'}};
+    const page=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market})));
+    assert.equal(page('input[name="amount:cashflow-row-46"]').val(),String(Math.floor(hufMinor/100)));assert.equal(page('input[name="currency:cashflow-row-46"]').val(),'HUF');
+    assert.equal(page('a[href="https://www.brickeconomy.com/member/wydrian"]').attr('rel'),'noopener noreferrer');assert.match(page.text(),/BrickEconomy.*Current value/);assert.match(page.text(),/2026-10-07 10:30 UTC/);assert.match(page.text(),/nem a bekerülési lista/);assert.equal(page('input[name="confirmed"][required]').length,1);
+  }
+  const market={rates:null,collectr:null,rateError:null,collectrError:null,inflation:null,inflationError:null,brickeconomy:null,brickeconomyError:'BrickEconomy nem érhető el'};
+  const unavailable=load(renderToStaticMarkup(React.createElement(Editor,{accounts:data.accounts,selected:data.selected,balances:data.balances,latest:data.selected,latestBalances:data.balances,market})));
+  assert.equal(unavailable('input[name="amount:cashflow-row-46"]').val(),'');assert.match(unavailable('[role="alert"]').text(),/BrickEconomy nem érhető el/);
+  assert.doesNotMatch(readFileSync(new URL('../app/finance/finance-editor.tsx',import.meta.url),'utf8'),/legoTotal|lastLegoTotal/);
+});
+test('LEGO amount events preserve manual input on source failure and existing months; successful explicit refresh replaces new-month input only',()=>{
+  // Exercise the actual field's event/render transitions with persistent hook state, without a DOM dependency.
+  const states:any[]=[];let cursor=0,changed=false;
+  const hooks={useState(initial:unknown){const index=cursor++;if(!(index in states))states[index]=initial;return [states[index],(value:unknown)=>{states[index]=typeof value==='function' ? value(states[index]) : value;changed=true;}];}};
+  const Amount=component('app/finance/finance-editor.tsx',hooks,'\nexport {FinanceAmount};').FinanceAmount;
+  const account={id:'cashflow-row-46',name:'LEGO',category:'Collection',kind:'asset',sort_order:46,turnover_month:null};
+  const market={brickeconomy:{hufMinor:123499,fetchedAt:'2026-10-07T10:30:00Z'}};
+  let props:any={account,stored:{amount_minor:9999900},newMonth:true,market,refreshVersion:0};
+  function input(tree:any):any {if(!tree || typeof tree!=='object')return;const children=Array.isArray(tree)?tree:[tree];for(const child of children){if(child?.type==='input' && child.props.name==='amount:cashflow-row-46')return child;const found=input(child?.props?.children);if(found)return found;}}
+  function render(){let tree:any;for(let i=0;i<5;i++){cursor=0;changed=false;tree=Amount(props);if(!changed)return input(tree).props;}throw new Error('Unstable field state');}
+  assert.equal(render().value,'1234');render().onChange({target:{value:'7 777'}});assert.equal(render().value,'7777');
+  props={...props,market:{brickeconomy:null},refreshVersion:1};assert.equal(render().value,'7777');
+  props={...props,market,refreshVersion:2};assert.equal(render().value,'1234');
+  props={...props,market:{brickeconomy:{...market.brickeconomy,hufMinor:0}},refreshVersion:3};assert.equal(render().value,'0');
+  states.length=0;props={...props,newMonth:false,market,refreshVersion:0};assert.equal(render().value,'99999');render().onChange({target:{value:'12345'}});
+  props={...props,refreshVersion:1};assert.equal(render().value,'12345');
 });
 test('only the four Lili/Bali DEBT fields carry forward; bank, other liabilities and named non-DEBT assets start blank',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;
