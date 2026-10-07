@@ -23,9 +23,11 @@ export const CARDVERSE_CATEGORY = "/termekkategoria/gyujtogetos-kartyajatekok/";
 export const CARDVERSE_URL = `https://www.cardverse.hu${CARDVERSE_CATEGORY}?_stock=instock&_cat=gyujtogetos-kartyajatekok&_brand=pokemon-tcg&~1`;
 export const METAGAMES_CATEGORY = '/gyujtogetos-kartyajatekok/pokemon-tcg';
 export const METAGAMES_URL = `https://www.metagames.hu${METAGAMES_CATEGORY}?keszlet=csak-keszleten`;
-export const SHOP_IDS = ["gamerunner","mythgames","pottyoszebra","grandline","krodomcards","jateknet","reflexshop","geekempire","tcgfutar","sportkartyabolt","rtcollectorsclub","cardverse","metagames"] as const;
+export const TCGBOLT_CATEGORY = '/termekkategoria/pokemon/';
+export const TCGBOLT_URL = `https://tcgbolt.hu${TCGBOLT_CATEGORY}`;
+export const SHOP_IDS = ["gamerunner","mythgames","pottyoszebra","grandline","krodomcards","jateknet","reflexshop","geekempire","tcgfutar","sportkartyabolt","rtcollectorsclub","cardverse","metagames","tcgbolt"] as const;
 export type ShopID = typeof SHOP_IDS[number];
-export const SHOP_NAMES:Record<ShopID,string> = {gamerunner:'GameRunner',mythgames:'MythGames',pottyoszebra:'Pöttyös Zebra',grandline:'GrandLine',krodomcards:'Krodom Cards',jateknet:'JátékNet',reflexshop:'Reflexshop',geekempire:'GeekEmpire',tcgfutar:'TCG Futár',sportkartyabolt:'Sport Kártya Bolt',rtcollectorsclub:'RT Collectors Club',cardverse:'Cardverse',metagames:'Metagames'};
+export const SHOP_NAMES:Record<ShopID,string> = {gamerunner:'GameRunner',mythgames:'MythGames',pottyoszebra:'Pöttyös Zebra',grandline:'GrandLine',krodomcards:'Krodom Cards',jateknet:'JátékNet',reflexshop:'Reflexshop',geekempire:'GeekEmpire',tcgfutar:'TCG Futár',sportkartyabolt:'Sport Kártya Bolt',rtcollectorsclub:'RT Collectors Club',cardverse:'Cardverse',metagames:'Metagames',tcgbolt:'TCG Bolt'};
 export function isShopID(value:unknown):value is ShopID {return typeof value==='string' && SHOP_IDS.some(id=>id===value);}
 export const DEFAULT_SCAN_INTERVAL_MINUTES=3;
 export const MIN_SCAN_INTERVAL_MINUTES=3;

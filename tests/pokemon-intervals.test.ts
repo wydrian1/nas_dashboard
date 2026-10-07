@@ -21,9 +21,9 @@ function legacy(){
   db.exec('UPDATE pokemon_shops SET interval_minutes=10;COMMIT;PRAGMA foreign_keys=ON');
   return db;
 }
-test('all 13 shops default to three minutes, and admin/server validation accepts only integers 3–60',()=>{
+test('all registered shops default to three minutes, and admin/server validation accepts only integers 3–60',()=>{
   const db=new DatabaseSync(':memory:');try{
-    initializeDatabase(db);assert.equal(db.prepare('SELECT COUNT(*) n FROM pokemon_shops WHERE interval_minutes=3').get()!.n,13);
+    initializeDatabase(db);assert.equal(db.prepare('SELECT COUNT(*) n FROM pokemon_shops WHERE interval_minutes=3').get()!.n,SHOP_IDS.length);
     for(const value of [3,4,5,60]){assert.equal(validScanInterval(value),true);db.prepare('UPDATE pokemon_shops SET interval_minutes=?').run(value);}
     for(const value of [-1,0,1,2,61,3.5,NaN,Infinity])assert.equal(validScanInterval(value),false);
     for(const value of [2,61])assert.throws(()=>db.prepare('UPDATE pokemon_shops SET interval_minutes=?').run(value),/CHECK constraint/);
