@@ -4,6 +4,7 @@ import { ActionForm, ActionButton } from "./action-form";
 import { savePokemonSettings, requestPokemonScan, savePokemonNotifications } from "./pokemon-actions";
 import type { PokemonSnapshot } from "@/lib/pokemon/types";
 import { filterPokemonTitles } from "./pokemon-search";
+import LocalSections,{LocalSection} from './local-sections';
 
 const date=(value:number|null)=>value ? new Intl.DateTimeFormat('hu-HU',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest'}).format(value) : 'Még nem volt';
 const price=(value:number|null)=>value===null ? 'Ár nem ismert' : value.toLocaleString('hu-HU')+' Ft';
@@ -36,7 +37,7 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
     <div className="page-shortcuts" role="navigation" aria-label="Ugrás a webshophoz">{snapshot.shops.map(({shop})=><a href={`#shop-${shop.id}`} key={shop.id}>{shop.name}</a>)}</div>
     <label className="pokemon-search" htmlFor="pokemon-search">Keresés terméknévben<input id="pokemon-search" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Termék neve…" autoComplete="off"/></label>
     {error && <p role="alert" className="error">{error}</p>}
-    <section className="pokemon-aggregate" aria-labelledby="pokemon-latest-title">
+    <LocalSections page="pokemon"><LocalSection sectionId="latest" label="Legújabb elérhetőségek"><section className="pokemon-aggregate" aria-labelledby="pokemon-latest-title">
       <div className="section-heading"><h2 id="pokemon-latest-title">Legújabb elérhetőségek <span>Összes webshop</span></h2><span className="subtle">15 másodpercenként frissülő állapot</span></div>
       <div className="pokemon-overview">
         <div><strong>{shops.reduce((sum,item)=>sum+item.products.length,0)}</strong><span>{search.trim() ? 'a keresésnek megfelelő elérhető termék' : 'elérhető termék a webshopokban'}</span></div>
@@ -55,13 +56,12 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
       </article>)}</div>
        {!latest.length && <div className="pokemon-latest-empty"><strong>{snapshot.latestEvents.length ? 'Nincs a szűrésnek megfelelő esemény.' : 'Az elmúlt 24 órából nincs új, továbbra is elérhető termék.'}</strong><p>Az új termékek, előrendelések és visszakészletezések itt legfeljebb 24 óráig láthatók, amíg elérhetők.</p></div>}
        <p className="footnote">Az elmúlt 24 óra legfeljebb 60, továbbra is elérhető termékeseménye, legújabb elöl. A 24 órás határ vagy egy teljes, sikeres vizsgálatból megállapított hiány után a termék innen eltűnik; az előzménye megmarad. Az első alapállapot nem számít új eseménynek. Az ár és a készlet a webshopban ellenőrizendő.</p>
-    </section>
-    <div className="section-heading pokemon-shops-heading"><h2>Webshopok <span>{snapshot.shops.length}</span></h2><span className="subtle">Önálló ütemezés és beállítások</span></div>
+    </section></LocalSection>
     {shops.map(({shop,products,events,notifications})=>{
       const key=[shop.id,shop.enabled,shop.interval_minutes].join('-');
       const own=notifications || {enabled:1,notify_new:shop.notify_new,notify_restock:shop.notify_restock,notify_preorder:shop.notify_preorder};
       const ownKey=[shop.id,own.enabled,own.notify_new,own.notify_restock,own.notify_preorder].join('-');
-      return <div className="pokemon-panel" id={`shop-${shop.id}`} key={shop.id}>
+      return <LocalSection sectionId={'shop-'+shop.id} label={shop.name} key={shop.id}><div className="pokemon-panel" id={`shop-${shop.id}`}>
       <div className="pokemon-shop-top"><div><span className="eyebrow">POKÉMON TCG</span><h3><a href={shop.url} target="_blank" rel="noopener noreferrer">{shop.name} ↗</a></h3><p>{['mythgames','rtcollectorsclub'].includes(shop.id) ? 'Elérhető = szerepel a készletszűrt listában · nincs külön kosárgomb-ellenőrzés' : 'Elérhető = aktív „Kosárba” gomb · előrendelések is'}</p></div><strong className="pokemon-status">{stateLabels[shop.status] || shop.status}</strong></div>
       <div className="pokemon-meta"><span>Utolsó siker: <strong>{date(shop.last_success)}</strong></span><span>Következő: <strong>{shop.enabled ? date(shop.next_scan) : 'Szünetel'}</strong></span><span>Worker: <strong>{snapshot.workerAlive ? 'Működik' : 'Nem érhető el'}</strong></span><span>Értesítés: {admin ? <a href="/config#mobile"><strong>Telefonos push</strong></a> : <strong>Telefonos push</strong>}</span></div>
       {!shop.baseline_at && <p className="footnote">Az első teljes vizsgálat értesítés nélküli alapállapotot ment.</p>}
@@ -96,6 +96,6 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
       </article>)}</div>{!products.length && <p>{search.trim() ? 'Nincs a keresésnek megfelelő elérhető termék.' : 'Még nincs mentett elérhető termék.'}</p>}</details>
       <details className="pokemon-events"><summary>Legutóbbi változások · 24 óra ({events.length})</summary><p className="footnote">Csak az elmúlt 24 óra továbbra is elérhető termékei. A sikeres, teljes vizsgálatból hiányzó termék innen is eltűnik.</p>{!events.length && <p>{search.trim() ? 'Nincs a keresésnek megfelelő esemény.' : 'Az elmúlt 24 órából nincs továbbra is elérhető termékhez tartozó esemény.'}</p>}{events.map(event=><div className="pokemon-event" key={event.id}><div><strong>{eventLabels[event.kind] || event.kind}</strong><a href={event.url} target="_blank" rel="noopener noreferrer">{event.title} ↗</a></div><small>{date(event.occurred_at)}</small></div>)}</details>
       <p className="footnote">Eltűnés megerősítése: két teljes vizsgálat · termékenként 1 óra értesítési szünet · hibás vizsgálat nem írja felül az előző állapotot.</p>
-    </div>;})}
+    </div></LocalSection>;})}</LocalSections>
   </section>;
 }

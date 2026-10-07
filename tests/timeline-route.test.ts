@@ -6,7 +6,7 @@ import {timelineAssets,timelineResponse} from '../lib/timeline-site.ts';
 test('public timeline HTML is standalone, has canonical local assets and does not use the authenticated dashboard shell',async()=>{
   const response=timelineResponse(),html=await response.text();assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'text/html; charset=utf-8');
   assert.match(html,/lang="hu"/);assert.match(html,/src="\/timeline\/presentation\.js"/);assert.match(html,/href="\/timeline\/style\.css"/);
-  assert.equal((html.match(/class="slide(?: |")/g)||[]).length,12);assert.match(html,/connect-src 'none'/);
+  assert.equal((html.match(/class="slide(?: |")/g)||[]).length,14);assert.match(html,/connect-src 'none'/);
   assert.doesNotMatch(html,/\/api\/|authjs|\/finance"|\/collections"|DashboardSidebar/);
 });
 test('timeline asset allowlist matches exactly the reviewed illustrations and code; responses use the correct MIME',async()=>{

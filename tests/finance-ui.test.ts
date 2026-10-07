@@ -10,12 +10,17 @@ import ts from 'typescript';
 import { initializeFinance } from '../lib/finance/schema.ts';
 import { readFinanceSnapshot } from '../lib/finance/store.ts';
 const require=createRequire(import.meta.url);
+const components=new Map<string,any>();
 function component(path:string,reactModule?:unknown,extra=''):any {
+  if(!reactModule&&!extra&&components.has(path))return components.get(path);
   const src=readFileSync(new URL('../'+path,import.meta.url),'utf8')+extra;
   const output=ts.transpileModule(src,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const exports:Record<string,any>={};new Function('require','exports',output)((name:string)=>{
     if(name==='react')return reactModule || require(name);
     if(name==='react/jsx-runtime')return require(name);
+    if(name==='@/lib/section-order')return require('../lib/section-order.ts');
+    if(name==='../local-sections')return component('app/local-sections.tsx');
+    if(name==='./finance-view')return component('app/finance/finance-view.tsx');
     if(name==='@/lib/finance/types')return require('../lib/finance/types.ts');
     if(name==='@/lib/finance/market-types')return require('../lib/finance/market-types.ts');
     if(name==='@/lib/finance/inflation-types')return require('../lib/finance/inflation-types.ts');
@@ -35,7 +40,7 @@ function component(path:string,reactModule?:unknown,extra=''):any {
     if(name==='./pokemon-actions')return {};
     if(name==='../action-form')return {ActionForm:({children}:any)=>React.createElement('form',{},children),ActionButton:({children}:any)=>React.createElement('button',{},children)};
     throw new Error('Unexpected import '+name);
-  },exports);return exports;
+  },exports);if(!reactModule&&!extra)components.set(path,exports);return exports;
 }
 function snapshot(){const db=new DatabaseSync(':memory:');initializeFinance(db);db.exec(`
   INSERT INTO finance_accounts VALUES('bank','Demo Bank','Banks','asset',1,NULL),('child','Child','Debt','debt',2,11);
@@ -170,9 +175,9 @@ test('finance workspace places comparisons above monthly entry and uses latest s
 test('workspace refresh callback updates current comparison props, not latest saved history',()=>{
   const states:any[]=[];let cursor=0;const hooks={useState(initial:unknown){const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],(value:unknown)=>{states[i]=value;}];}};
   const Workspace=component('app/finance/finance-workspace.tsx',hooks).default,data=snapshot(),before=JSON.stringify(data),inventory={items:[]},market={rates:null,collectr:null,brickeconomy:null,inflation:null};
-  const props={snapshot:data,latest:data,lego:inventory,pokemon:inventory,market};cursor=0;const initial=Workspace(props),editor=initial.props.children[1];
+  const props={snapshot:data,latest:data,lego:inventory,pokemon:inventory,market};cursor=0;const initial=Workspace(props),editor=initial.props.children[1].props.children;
   const updated={...market,brickeconomy:{hufMinor:456700,fetchedAt:'2026-10-07T10:00:00Z'}};editor.props.onMarketRefresh(updated);cursor=0;const refreshed=Workspace(props);
-  assert.equal(refreshed.props.children[0].props.market,updated);assert.equal(refreshed.props.children[0].props.snapshot,data);assert.equal(JSON.stringify(data),before);
+  assert.equal(refreshed.props.children[0].props.children.props.market,updated);assert.equal(refreshed.props.children[0].props.children.props.snapshot,data);assert.equal(JSON.stringify(data),before);
 });
 test('actual editor fetch propagates a successful market refresh but never calls comparison update on HTTP failure',async()=>{
   const states:any[]=[];let cursor=0;const hooks={useState(initial:unknown){const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],(value:any)=>{states[i]=typeof value==='function'?value(states[i]):value;}];}};

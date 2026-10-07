@@ -1,5 +1,5 @@
 import {lstat,mkdir,realpath,open,unlink,rmdir,statfs} from 'node:fs/promises';
-import {constants} from 'node:fs';
+import {constants,lstatSync,renameSync,unlinkSync} from 'node:fs';
 import {join,resolve,parse,relative,sep} from 'node:path';
 import {Readable,Transform,Writable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import type {DatabaseSync} from 'node:sqlite';
 import {HostingError,hostingId,MAX_FILE_BYTES,UPLOAD_TIMEOUT_MS} from './types.ts';
 import type {HostedEntry} from './types.ts';
-import {folderChain,reserveEntry,finishEntry,auditHosting} from './store.ts';
+import {folderChain,reserveEntry,finishEntry,auditHosting,hostingEntry,newHostingId} from './store.ts';
 
 export const hostingRoot=()=>join(process.cwd(),'data','file-hosting');
 export class HostingUploadMeter extends Transform {
@@ -93,4 +93,25 @@ export async function openHostedFile(db:DatabaseSync,entry:HostedEntry,root=host
   const handle=await open(path,constants.O_RDONLY|(constants.O_NOFOLLOW||0));
   try{const stat=await handle.stat();if(!stat.isFile()||stat.nlink!==1||stat.size!==entry.size||stat.ino!==before.ino||stat.dev!==before.dev)throw new HostingError('A fájl nem érhető el.',404);return handle;}
   catch(error){await handle.close();throw error;}
+}
+
+export async function deleteHostedFile(db:DatabaseSync,id:string,actor:string,root=hostingRoot()) {
+  const entry=hostingEntry(db,id);
+  if(entry.kind!=='file'||entry.state!=='ready')throw new HostingError('Csak kész fájl törölhető.',409);
+  const path=await entryPath(db,entry,root),discard=path+'.deleted-'+newHostingId();
+  // No await inside the transaction: other requests use the same connection.
+  // Rename is reversible until entry, audit and all links commit together.
+  let moved=false;
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    const current=hostingEntry(db,id);if(current.kind!=='file'||current.state!=='ready')throw new HostingError('A fájl már nem törölhető.',409);
+    const stat=lstatSync(path);
+    if(stat.isSymbolicLink()||!stat.isFile()||stat.nlink!==1||stat.size!==entry.size)throw new HostingError('A fájl ellenőrzést igényel; nem töröltük.',503);
+    renameSync(path,discard);moved=true;
+    const links=db.prepare('DELETE FROM hosted_links WHERE file_id=?').run(id).changes;
+    db.prepare('DELETE FROM hosted_entries WHERE id=?').run(id);
+    auditHosting(db,actor,'delete',id,{name:entry.name,size:entry.size,links});
+    db.exec('COMMIT');
+  }catch(error){db.exec('ROLLBACK');if(moved)renameSync(discard,path);throw error;}
+  try{unlinkSync(discard);}catch{throw new HostingError('A fájl és linkjei már nem érhetők el. A tárhely felszabadítása nem sikerült; admin ellenőrzés szükséges.',503);}
 }

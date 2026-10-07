@@ -24,4 +24,10 @@ public class UrlPolicyTest {
         assertTrue(UrlPolicy.external("https://gamerunner.hu/product"));
         assertFalse(UrlPolicy.external("intent://secret")); assertFalse(UrlPolicy.external("javascript:alert(1)"));
     }
+    @Test public void productPushRequiresMatchingExactShopHttpsHost(){
+        assertEquals("https://www.tcgbolt.hu/termek/pokemon/",UrlPolicy.productUrl("tcgbolt","https://www.tcgbolt.hu/termek/pokemon/"));
+        assertEquals("https://gamerunner.hu/product?variant=2",UrlPolicy.productUrl("gamerunner","https://gamerunner.hu/product?variant=2"));
+        for(String url:new String[]{"http://tcgbolt.hu/p","https://tcgbolt.hu.evil.example/p","https://evil.example/p","https://u:p@tcgbolt.hu/p","https://tcgbolt.hu:3000/p","javascript:alert(1)","intent://tcgbolt.hu/p","https://gamerunner.hu/p"})assertNull(url,UrlPolicy.productUrl("tcgbolt",url));
+        assertNull(UrlPolicy.productUrl("unknown","https://tcgbolt.hu/p"));assertNull(UrlPolicy.productUrl(null,null));
+    }
 }

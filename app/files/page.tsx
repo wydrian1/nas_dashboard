@@ -22,6 +22,6 @@ export default async function FilesPage({searchParams}:{searchParams:Promise<{fo
     <header className="topbar"><a href="/">← Vissza a dashboardra</a><span className="domain"><i/>nas.wydrian.hu</span></header>
     <section className="page-heading"><div><span className="eyebrow">PRIVÁT TÁROLÓ · NYILVÁNOS MEGOSZTÁS</span><h1>Fájlok</h1><p>Admin feltöltés és mappakezelés · fájlonként legfeljebb 1 GB.</p></div></section>
     <FileManager initial={{...initial,links}}/>
-    <footer className="main-footer">WYDRIAN DASHBOARD<span>Saját tér. Saját szabályok.</span></footer>
+    <footer className="main-footer">Wydrian Dashboard</footer>
   </main></div>;
 }

@@ -30,13 +30,13 @@ test('public story contains only reviewed static files, all local references exi
   assert.doesNotMatch(js,/\bfetch\s*\(|XMLHttpRequest|sendBeacon|localStorage|document\.cookie/);
 });
 
-test('12 chapters have headings, notes, unique anchors and matching chapter navigation',()=>{
+test('14 chapters have headings, notes, unique anchors and matching chapter navigation',()=>{
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length);
-  for(let i=1;i<=12;i++){
+  for(let i=1;i<=14;i++){
     const number=String(i).padStart(2,'0');assert.ok(ids.includes('chapter-'+number));assert.ok(ids.includes('title-'+number));
     assert.match(html,new RegExp('href="#chapter-'+number+'"'));
   }
-  assert.equal((html.match(/class="speaker-notes"/g)||[]).length,12);
+  assert.equal((html.match(/class="speaker-notes"/g)||[]).length,14);
   for(const image of images.filter(name=>name!=='mark')){
     const svg=read('assets/'+image+'.svg');assert.match(svg,/<title\b/);assert.match(svg,/<desc\b/);
     assert.doesNotMatch(svg,/<script|<foreignObject|\b(?:href|onload|onclick)=/);
@@ -64,7 +64,7 @@ function harness(hash=''){
   const handlers=new Map();
   const make=(id,text='')=>({id,hidden:false,disabled:false,textContent:text,style:{},classList:{toggle(){},add(){}},
     listeners:{},addEventListener(type,fn){this.listeners[type]=fn;},setAttribute(key,value){this[key]=value;},focus(){this.focused=true;},closest(){return null;}});
-  const slides=Array.from({length:12},(_,i)=>{const s=make('chapter-'+String(i+1).padStart(2,'0'));s.heading=make('heading','Dia '+(i+1));s.querySelector=()=>s.heading;return s;});
+  const slides=Array.from({length:14},(_,i)=>{const s=make('chapter-'+String(i+1).padStart(2,'0'));s.heading=make('heading','Dia '+(i+1));s.querySelector=()=>s.heading;return s;});
   const ids=Object.fromEntries(['previous','next','position','progress','timeline-dialog','notes-toggle','fullscreen','timeline-open','timeline-close'].map(id=>[id,make(id)]));
   ids['timeline-dialog'].showModal=function(){this.open=true;};ids['timeline-dialog'].close=function(){this.open=false;};
   const deck=make('deck');deck.querySelectorAll=()=>slides;
@@ -84,10 +84,10 @@ function harness(hash=''){
 
 test('navigation: buttons, keyboard, boundaries, hash, chapter dialog, notes and swipe',async()=>{
   const h=harness();const active=()=>h.slides.findIndex(s=>!s.hidden);
-  assert.equal(active(),0);assert.equal(h.ids.previous.disabled,true);assert.equal(h.ids.position.textContent,'01 / 12');
+  assert.equal(active(),0);assert.equal(h.ids.previous.disabled,true);assert.equal(h.ids.position.textContent,'01 / 14');
   h.ids.next.listeners.click();assert.equal(active(),1);assert.equal(h.window.location.hash,'#chapter-02');
   h.key('ArrowRight');assert.equal(active(),2);h.key('PageUp');assert.equal(active(),1);
-  h.key('End');assert.equal(active(),11);assert.equal(h.ids.next.disabled,true);h.key('ArrowRight');assert.equal(active(),11);
+  h.key('End');assert.equal(active(),13);assert.equal(h.ids.next.disabled,true);h.key('ArrowRight');assert.equal(active(),13);
   h.key('Home');assert.equal(active(),0);h.key('ArrowLeft');assert.equal(active(),0);
   h.key('n');assert.equal(h.ids['notes-toggle']['aria-pressed'],'true');h.key('n');assert.equal(h.ids['notes-toggle']['aria-pressed'],'false');
   h.ids['timeline-open'].listeners.click();assert.equal(h.ids['timeline-dialog'].open,true);

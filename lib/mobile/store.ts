@@ -85,7 +85,8 @@ export function revokeDevice(db:DatabaseSync,id:string) {
   });
 }
 export function queuePushEvent(db:DatabaseSync,eventId:number,shopId:string,title:string,kind:string,price:number|null,now:number) {
-  const payload=JSON.stringify({title:(isShopID(shopId) ? SHOP_NAMES[shopId] : 'Pokémon')+' · '+(kind==='restock' ? 'Újra elérhető' : kind==='preorder' ? 'Új előrendelés' : 'Új termék'),body:title.slice(0,180)+(price!==null ? ' · '+price.toLocaleString('hu-HU')+' Ft' : ''),path:'/pokemon#shop-'+shopId,eventId:String(eventId)});
+  const event=db.prepare('SELECT url FROM pokemon_events WHERE id=? AND shop_id=?').get(eventId,shopId) as {url:string}|undefined;
+  const payload=JSON.stringify({title:(isShopID(shopId) ? SHOP_NAMES[shopId] : 'Pokémon')+' · '+(kind==='restock' ? 'Újra elérhető' : kind==='preorder' ? 'Új előrendelés' : 'Új termék'),body:title.slice(0,180)+(price!==null ? ' · '+price.toLocaleString('hu-HU')+' Ft' : ''),kind:'product',shopId,productUrl:event?.url??'',path:'/pokemon#shop-'+shopId,eventId:String(eventId)});
   const devices=db.prepare('SELECT id,email FROM mobile_devices WHERE revoked=0 AND push_enabled=1 AND fcm_token IS NOT NULL AND expires_at>?').all(now) as {id:string;email:string}[];
   for(const device of devices){
     if(!notificationAllowed(db,device.email,eventId))continue;
