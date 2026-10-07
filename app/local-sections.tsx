@@ -16,6 +16,6 @@ export default function LocalSections({page,children}:{page:string;children:Reac
     try{localStorage.setItem(key,JSON.stringify(preference));setMessage('');}catch{setMessage('A sorrend ezen a lapon változott; a böngésző nem engedi a helyi mentést.');}
   }
   return <div className="local-sections">{order.map((id,index)=>{const slot=slots.find(child=>child.props.sectionId===id)!;return <div className="local-section" key={id} data-section={id}>
-    <div className="section-order-controls" role="group" aria-label={slot.props.label+' sorrendje'}><button type="button" title="Feljebb" aria-label={slot.props.label+': feljebb'} disabled={!ready||index===0} onClick={()=>move(id,-1)}>↑</button><button type="button" title="Lejjebb" aria-label={slot.props.label+': lejjebb'} disabled={!ready||index===order.length-1} onClick={()=>move(id,1)}>↓</button></div>{slot}
+    <div className="local-section-content">{slot}</div><div className="section-order-controls" role="group" aria-label={slot.props.label+' sorrendje'}><button type="button" title="Feljebb" aria-label={slot.props.label+': feljebb'} disabled={!ready||index===0} onClick={()=>move(id,-1)}>↑</button><button type="button" title="Lejjebb" aria-label={slot.props.label+': lejjebb'} disabled={!ready||index===order.length-1} onClick={()=>move(id,1)}>↓</button></div>
   </div>;})}{message&&<p role="status" className="footnote">{message}</p>}</div>;
 }
