@@ -20,6 +20,8 @@ A schema új `hosted_entries`, `hosted_links`, `hosted_audit` táblákat/indexek
 
 ## Feltöltés
 
+- A mappaútvonal egy közös alapvonalra igazított navigációs lista; az aktuális mappát `aria-current` jelöli. A menüsáv általános linkstílusai nem nyújtják szét a breadcrumbot.
+- A „Fájlok kiválasztása” mező a sötét felülethez illő magyar megjelenítést és kiválasztott fájlnevet/darabszámot ad. Alatta valódi, billentyűzettel és Android WebView-ból is elérhető natív többfájlos input marad; nincs új fájlkezelő API. A kiválasztás sikeres feltöltés után ürül, hiba/megszakítás esetén megmarad. Keskeny nézetben a feltöltési és mappalétrehozási mezők/gombok egymás alá törnek.
 - **1 GB = 1 000 000 000 bájt/fájl**, nulla bájtos fájl is támogatott.
 - Raw-body `POST /api/files/upload?name=<urlencoded>&folder=<id>`; nincs multipart/server-action memóriabeli 1 GB-os buffering. A kliens Blobot küld XHR-rel, haladásjelzővel és megszakítással. Több kijelölt fájl sorban töltődik fel.
 - Bejelentkezés és Origin ellenőrzése után méretkorlát a fejlécben **és** a tényleges streamen. Backpressure-es lemezírás és SHA-256 számítás, legfeljebb egyórás művelet.
