@@ -4,12 +4,8 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.Intent;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.net.Uri;
-import android.content.pm.ResolveInfo;
-import android.content.pm.PackageManager;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.ArrayList;
@@ -41,19 +37,7 @@ public class NasMessagingService extends FirebaseMessagingService {
             seen.add(event); while (seen.size() > 100) seen.remove(0);
             preferences.edit().putStringSet("events", new HashSet<>(seen)).commit();
         }
-        String product= "product".equals(data.get("kind")) ? UrlPolicy.productUrl(data.get("shopId"),data.get("productUrl")) : null;
-        Intent intent;
-        if(product!=null){
-            intent=new Intent(Intent.ACTION_VIEW,Uri.parse(product)).addCategory(Intent.CATEGORY_BROWSABLE);
-            // Resolve the browser, not a webshop app's verified deep-link handler.
-            ResolveInfo browser=getPackageManager().resolveActivity(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN,Intent.CATEGORY_APP_BROWSER),PackageManager.MATCH_DEFAULT_ONLY);
-            if(browser!=null&&!"android".equals(browser.activityInfo.packageName))intent.setPackage(browser.activityInfo.packageName);
-            else intent.setSelector(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN,Intent.CATEGORY_APP_BROWSER));
-        }else{
-            intent=new Intent(this,MainActivity.class).putExtra("path",UrlPolicy.notificationPath(data.get("path")))
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        }
-        PendingIntent pending = PendingIntent.getActivity(this, event.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pending = PendingIntent.getActivity(this, event.hashCode(), NotificationNavigation.destination(this, data, event), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String kind=data.get("kind"),notificationChannel="task".equals(kind)?TASKS:"release".equals(kind)?UPDATES:CHANNEL;
         Notification notification = new Notification.Builder(this, notificationChannel).setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(limit(data.get("title"), 150)).setContentText(limit(data.get("body"), 300))
