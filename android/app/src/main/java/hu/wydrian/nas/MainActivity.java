@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     private TextView status;
     private Button login;
     private String nextPath = "/";
+    private final NotificationNavigation notificationNavigation = new NotificationNavigation();
     private boolean pairingBusy, polling, restoring, destroyed;
     private boolean pageLoading, updateBusy;
     private boolean installPermissionPending, resumed;
@@ -59,6 +60,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); store = new SecureStore(this);
         if (getIntent().hasExtra("path")) nextPath = UrlPolicy.notificationPath(getIntent().getStringExtra("path"));
+        notificationNavigation.receive(getIntent());
         NasMessagingService.channel(this);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(getColor(R.color.nas_background));
         getWindow().getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility()
@@ -161,16 +163,22 @@ public class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         resumed=true;
+        openNotificationProduct();
         if (store.get("secret") != null) { restoreSession(); enableMessaging(); boolean retryInstall=getIntent().getBooleanExtra("updateReady",false) || (installPermissionPending && getPackageManager().canRequestPackageInstalls()); getIntent().removeExtra("updateReady"); installPermissionPending=false; checkAppUpdate(retryInstall); AppUpdateWorker.schedule(this); }
         else if (store.get("pair") != null) { showPairCode(); pollPair(); }
     }
     @Override protected void onPause() { resumed=false; super.onPause(); }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
+        notificationNavigation.receive(intent);
         if (intent.hasExtra("path")) { nextPath = UrlPolicy.notificationPath(intent.getStringExtra("path")); restoreSession(); }
+        if (resumed) openNotificationProduct();
         if (intent.getBooleanExtra("updateReady",false)) checkAppUpdate(true);
     }
     private void showStatus(String message) { if (destroyed) return; status.setText(message); status.setVisibility(View.VISIBLE); }
+    private void openNotificationProduct() {
+        if (!notificationNavigation.openProduct(this)) toast("Nem található használható böngésző. A készletoldalt az appban nyitjuk meg.");
+    }
     private void showLogin(String message) { finishPageLoad(); showStatus(message); login.setVisibility(View.VISIBLE); web.setVisibility(View.GONE); refresh.setVisibility(View.GONE); }
     private void toast(String message) { if (!destroyed) Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
     private void openExternal(String url) {
