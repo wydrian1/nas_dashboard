@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import { pinnedAddressOptions } from "../feed-download.ts";
 import { isPublicAddress } from "../url-policy.ts";
-import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY, TCGBOLT_CATEGORY } from "./types.ts";
+import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY, TCGBOLT_CATEGORY, BLOOMRIFT_CATEGORY } from "./types.ts";
 
 export class ShopRequestError extends Error {
   retryAfterMs: number;
@@ -78,6 +78,7 @@ export function shopFetchUrl(input:string):URL {
   if(origin==='https://www.cardverse.hu')return cardverseFetchUrl(input);
   if(origin==='https://www.metagames.hu')return metagamesFetchUrl(input);
   if(origin==='https://tcgbolt.hu')return tcgboltFetchUrl(input);
+  if(origin==='https://bloomrift.eu')return bloomriftFetchUrl(input);
   return gamerunnerFetchUrl(input);
 }
 export function pottyoszebraFetchUrl(input:string):URL {
@@ -157,6 +158,14 @@ export function tcgboltFetchUrl(input:string):URL {
   if(url.pathname==='/robots.txt' || url.pathname===TCGBOLT_CATEGORY)return url;
   const page=url.pathname.match(/^\/termekkategoria\/pokemon\/page\/([1-9]\d*)\/$/);
   if(!page || Number(page[1])>50)throw new ShopRequestError('Nem engedélyezett TCG Bolt kategória vagy lapozás.');
+  return url;
+}
+export function bloomriftFetchUrl(input:string):URL {
+  const url=new URL(input);
+  if(url.origin!=='https://bloomrift.eu' || url.username || url.password || url.hash || url.search)throw new ShopRequestError('Nem engedélyezett Bloomrift-cím vagy paraméter.');
+  if(url.pathname==='/robots.txt' || url.pathname===BLOOMRIFT_CATEGORY)return url;
+  const page=url.pathname.match(/^\/Osszes-angol-termek,([1-9]\d*)$/);
+  if(!page || Number(page[1])<2 || Number(page[1])>50)throw new ShopRequestError('Nem engedélyezett Bloomrift-kategória vagy lapozás.');
   return url;
 }
 export function metagamesFetchUrl(input:string):URL {

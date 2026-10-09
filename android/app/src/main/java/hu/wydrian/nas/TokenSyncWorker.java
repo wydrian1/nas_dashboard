@@ -33,7 +33,11 @@ public class TokenSyncWorker extends Worker {
         try {
             boolean enabled = allowed(getApplicationContext()) && token != null;
             NasApi.Result response = NasApi.post("/api/mobile/device", new JSONObject().put("action", "register").put("token", token == null ? JSONObject.NULL : token).put("enabled", enabled), secret);
-            if (response.status == 401) return Result.failure();
+            if (response.status == 401) { ShopPolicy.clear(getApplicationContext()); return Result.failure(); }
+            if (response.status == 200) {
+                try { if (secret.equals(store.get("secret"))) ShopPolicy.refresh(getApplicationContext(), secret); }
+                catch (Exception ignored) { /* An optional policy outage must not fail a successful push registration. */ }
+            }
             return response.status == 200 ? Result.success() : getRunAttemptCount() < 4 ? Result.retry() : Result.failure();
         } catch (Exception ignored) { return getRunAttemptCount() < 4 ? Result.retry() : Result.failure(); }
     }

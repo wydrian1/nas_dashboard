@@ -25,9 +25,13 @@ export const METAGAMES_CATEGORY = '/gyujtogetos-kartyajatekok/pokemon-tcg';
 export const METAGAMES_URL = `https://www.metagames.hu${METAGAMES_CATEGORY}?keszlet=csak-keszleten`;
 export const TCGBOLT_CATEGORY = '/termekkategoria/pokemon/';
 export const TCGBOLT_URL = `https://tcgbolt.hu${TCGBOLT_CATEGORY}`;
-export const SHOP_IDS = ["gamerunner","mythgames","pottyoszebra","grandline","krodomcards","jateknet","reflexshop","geekempire","tcgfutar","sportkartyabolt","rtcollectorsclub","cardverse","metagames","tcgbolt"] as const;
+export const BLOOMRIFT_CATEGORY = '/Osszes-angol-termek';
+export const BLOOMRIFT_URL = `https://bloomrift.eu${BLOOMRIFT_CATEGORY}`;
+export const SHOP_IDS = ["gamerunner","mythgames","pottyoszebra","grandline","krodomcards","jateknet","reflexshop","geekempire","tcgfutar","sportkartyabolt","rtcollectorsclub","cardverse","metagames","tcgbolt","bloomrift"] as const;
 export type ShopID = typeof SHOP_IDS[number];
-export const SHOP_NAMES:Record<ShopID,string> = {gamerunner:'GameRunner',mythgames:'MythGames',pottyoszebra:'Pöttyös Zebra',grandline:'GrandLine',krodomcards:'Krodom Cards',jateknet:'JátékNet',reflexshop:'Reflexshop',geekempire:'GeekEmpire',tcgfutar:'TCG Futár',sportkartyabolt:'Sport Kártya Bolt',rtcollectorsclub:'RT Collectors Club',cardverse:'Cardverse',metagames:'Metagames',tcgbolt:'TCG Bolt'};
+export const SHOP_NAMES:Record<ShopID,string> = {gamerunner:'GameRunner',mythgames:'MythGames',pottyoszebra:'Pöttyös Zebra',grandline:'GrandLine',krodomcards:'Krodom Cards',jateknet:'JátékNet',reflexshop:'Reflexshop',geekempire:'GeekEmpire',tcgfutar:'TCG Futár',sportkartyabolt:'Sport Kártya Bolt',rtcollectorsclub:'RT Collectors Club',cardverse:'Cardverse',metagames:'Metagames',tcgbolt:'TCG Bolt',bloomrift:'Bloomrift'};
+// Static, reviewed source registry; never derived from push data, request URLs or editable database rows.
+export const SHOP_URLS:Record<ShopID,string> = {gamerunner:GAMERUNNER_URL,mythgames:MYTHGAMES_URL,pottyoszebra:POTTYOSZEBRA_URL,grandline:GRANDLINE_URL,krodomcards:KRODOMCARDS_URL,jateknet:JATEKNET_URL,reflexshop:REFLEXSHOP_URL,geekempire:GEEKEMPIRE_URL,tcgfutar:TCGFUTAR_URL,sportkartyabolt:SPORTKARTYABOLT_URL,rtcollectorsclub:RTCOLLECTORSCLUB_URL,cardverse:CARDVERSE_URL,metagames:METAGAMES_URL,tcgbolt:TCGBOLT_URL,bloomrift:BLOOMRIFT_URL};
 export function isShopID(value:unknown):value is ShopID {return typeof value==='string' && SHOP_IDS.some(id=>id===value);}
 export const DEFAULT_SCAN_INTERVAL_MINUTES=3;
 export const MIN_SCAN_INTERVAL_MINUTES=3;
