@@ -72,6 +72,7 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
       {shop.id==='rtcollectorsclub' && <p className="footnote">A megadott rendezés és üres árszűrők robotoknak tiltottak; a figyelő csak az engedett készletszűrt kategóriát olvassa. A választott szabály szerint a listán szereplő termék elérhető.</p>}
       {shop.id==='cardverse' && <p className="footnote">A készlet-, kategória- és Pokémon TCG márkaszűrő egyezését és a teljes találatszámot is ellenőrizzük. Az ikon alakú kosárgomb „Kosárba” hozzáférhető felirata számít.</p>}
       {shop.id==='metagames' && <p className="footnote">Csak a készletes Pokémon-kategória, aktív „Kosárba” gombbal. A teljes lapozott listát és annak változatlan elejét/végét ellenőrizzük.</p>}
+      {shop.id==='bloomrift' && <p className="footnote">Az összes angol Pokémon-termék teljes, lapozott kategóriáját ellenőrizzük. Csak az aktív „Kosárba” gombú termék elérhető; a „Nincs raktáron” és „Részletek” nem számít készletnek.</p>}
       {shop.last_error && <p role="alert" className="error">{shop.last_error}</p>}
       {admin && <div className="pokemon-controls"><ActionForm action={requestPokemonScan}><input type="hidden" name="shopID" value={shop.id}/><ActionButton>↻ Kézi vizsgálat</ActionButton></ActionForm></div>}
       <details className="pokemon-settings"><summary>Figyelés és értesítések beállítása</summary>{admin ? <ActionForm key={key} action={savePokemonSettings} className="pokemon-settings-form">

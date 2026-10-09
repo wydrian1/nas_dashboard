@@ -31,6 +31,16 @@ Főkeret-betöltés végén vagy hálózati/TLS/HTTP hiba esetén leáll a jelz�
 
 ## Push működése
 
+### Szerveroldali webshoplista — 1.1.4 / versionCode 11
+
+Az egyszeri 1.1.4 appfrissítés után egy későbbi webshophoz elegendő a web/worker forrásregiszterének bővítése; nincs boltonkénti APK-fordítás. Az app a fix `https://nas.wydrian.hu/api/mobile/shops` HTTPS-címet kéri le a meglévő eszköz-bearerrel. A szerver csak aktív, nem lejárt/nem visszavont és továbbra is jogosult telefonhoz ad listát; böngészős cookie nem helyettesíti a bearert. A lista kizárólag az ellenőrzött forráskód-regiszterből ered, soha nem szerkeszthető adatbázis-URL-ből vagy pushból.
+
+Legfeljebb 32 KiB, version 1, 100 shop, shoponként négy pontos domain; nincs wildcard, IP-cím, séma/port/path a domainmezőben. TLS- és redirect-szabályok változatlanok. A nyilvános domainlista privát, backupból kizárt app-cache-ben legfeljebb 24 óráig érvényes; a friss, valid lista az elsődleges, és a kivett boltot sem engedi. Hibás válasz nem írja felül az utolsó valid listát. Lejárt/hiányzó lista esetén csak a korábbi 14 beépített shop szűk offline bootstrapje használható; új/igazolatlan domain nem.
+
+Új shop értesítése csak szintaktikailag biztonságos jelölt URL-t visz a saját Activity-be: **ez még nem engedély**. Látható Activity-ből, szükség esetén háttérszálon frissített lista alapján ellenőrzött shop-ID + pontos HTTPS-host + credential nélküli + 443/default port URL nyílhat. A push nem bővítheti a listát. Offline vagy elutasított új domainnél marad a belső `/pokemon#shop-…` panel. A hálózati lekérés nem az értesítési service-ből indít böngészőt. A session-restoration/token-szinkron szintén frissíti a listát; leválasztás/401 törli a cache-t.
+
+A korábbi appok továbbra is használhatók, új boltnál a belső panel a fallback. **1.1.4 / 11** telepítendő a meglévő appra az eredeti aláírással, eltávolítás/újrapárosítás nélkül. Nincs új jogosultság, JS-bridge vagy FCM-payload-változtatás. A 26/35 API-s Robolectric tesztek új shopot, pontos hostokat, támadó URL-t, hibás/lejárt cache-t és egyszeri értesítésfogyasztást is vizsgálnak; nem helyettesítik a valódi telefonos megnyitást.
+
 ### Készletértesítés megnyitása — 1.1.3 / versionCode 10
 
 A készletpushra koppintás közvetlenül a saját `MainActivity`-t indítja, változtathatatlan `PendingIntent`-tel. A látható app az `onResume` után (már nyitott appnál az `onNewIntent` kezelésében) nyitja a webshophoz ellenőrzött HTTPS-terméklinket egy valódi HTTPS-böngészőben. Nem használ böngésző-indító `ACTION_MAIN` selectort, amely elveszítheti az URL-t vagy nem talál megfelelő Activity-t. Alapértelmezett böngésző hiányában a telepített böngészők közül választ; megszűnt/tiltott handler után másik böngészővel próbálkozik. Webshop-app deeplink-kezelőjét nem választja. Ha nincs használható böngésző, magyar visszajelzést ad, a validált `/pokemon#shop-…` készletoldal pedig az appban marad elérhető; nincs néma eltűnés.

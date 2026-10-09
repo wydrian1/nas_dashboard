@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
     private boolean pairingBusy, polling, restoring, destroyed;
     private boolean pageLoading, updateBusy;
     private boolean installPermissionPending, resumed;
+    private boolean shopPolicyBusy;
     private final Runnable loadingTimeout = this::finishPageLoad;
     private volatile int generation;
 
@@ -177,6 +178,19 @@ public class MainActivity extends Activity {
     }
     private void showStatus(String message) { if (destroyed) return; status.setText(message); status.setVisibility(View.VISIBLE); }
     private void openNotificationProduct() {
+        if (notificationNavigation.needsPolicy(this) && store.get("secret") != null) {
+            if (shopPolicyBusy) return;
+            shopPolicyBusy = true; int current = generation; String secret = store.get("secret");
+            network.execute(() -> {
+                try { if (current == generation && !destroyed) ShopPolicy.refresh(this, secret); }
+                catch (Exception ignored) { /* Fail closed for unknown shops; existing offline bootstrap remains bounded. */ }
+                ui.post(() -> { shopPolicyBusy = false; if (destroyed || current != generation || !resumed) return; finishNotificationProduct(); });
+            });
+            return;
+        }
+        finishNotificationProduct();
+    }
+    private void finishNotificationProduct() {
         if (!notificationNavigation.openProduct(this)) toast("Nem található használható böngésző. A készletoldalt az appban nyitjuk meg.");
     }
     private void showLogin(String message) { finishPageLoad(); showStatus(message); login.setVisibility(View.VISIBLE); web.setVisibility(View.GONE); refresh.setVisibility(View.GONE); }
@@ -247,6 +261,10 @@ public class MainActivity extends Activity {
                     else if (result.status == 200 && result.cookie != null && result.cookie.startsWith("__Secure-authjs.session-token=")) installSession(result.cookie);
                     else showStatus("A szerverkapcsolat nem sikerült. Próbáld újra a menüből.");
                 });
+                if (result.status == 200) {
+                    try { if (current == generation && !destroyed) ShopPolicy.refresh(this, secret); }
+                    catch (Exception ignored) { /* Session restoration does not depend on policy availability. */ }
+                }
             } catch (Exception ignored) { ui.post(() -> { restoring = false; if (current == generation) showStatus("Nem érhető el a szerver. Az utolsó megnyitott oldal látható; a menüből újra próbálhatod."); }); }
         });
     }
@@ -316,6 +334,7 @@ public class MainActivity extends Activity {
     private void clearLocal() {
         androidx.work.WorkManager.getInstance(this).cancelUniqueWork("app-update-check");
         synchronized (store) { generation++; store.clear(); } FirebaseMessaging.getInstance().setAutoInitEnabled(false);
+        ShopPolicy.clear(this);
         CookieManager.getInstance().removeAllCookies(null); CookieManager.getInstance().flush(); web.loadUrl("about:blank"); web.clearHistory(); web.clearCache(true);
         android.webkit.WebStorage.getInstance().deleteAllData(); login.setText("Google-belépés böngészőben");
     }

@@ -110,7 +110,8 @@ public class NotificationNavigationTest {
         for (String url : new String[]{"https://evil.example/p", "https://tcgbolt.hu.evil.example/p", "http://tcgbolt.hu/p", "intent://tcgbolt.hu/p", "https://user:pass@tcgbolt.hu/p", "https://tcgbolt.hu:3000/p", "https://gamerunner.hu/p"}) {
             NotificationNavigation navigation = new NotificationNavigation(); navigation.receive(notification("bad").putExtra("productUrl", url)); assertTrue(navigation.openProduct(activity));
             Intent result = NotificationNavigation.destination(activity, Map.of("kind", "product", "shopId", "tcgbolt", "productUrl", url, "path", "https://evil.example"), "bad");
-            assertEquals("/pokemon", result.getStringExtra("path")); assertFalse(result.hasExtra("productUrl"));
+            assertEquals("/pokemon", result.getStringExtra("path"));
+            NotificationNavigation candidate = new NotificationNavigation(); candidate.receive(result); candidate.openProduct(activity);
         }
         NotificationNavigation unknownShop = new NotificationNavigation(); unknownShop.receive(notification("bad-shop").putExtra("shopId", "unknown")); unknownShop.openProduct(activity);
         assertTrue(activity.attempted.isEmpty()); assertFalse(BrowserLauncher.open(activity, "javascript:alert(1)"));
