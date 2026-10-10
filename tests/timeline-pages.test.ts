@@ -42,7 +42,7 @@ test('Pages packaging rejects unreviewed/private sources and incomplete story be
   assert.throws(()=>buildTimelinePages(join(directory,'output'),copy),/symlinks are forbidden/);
   assert.equal(existsSync(join(directory,'output')),false);
   unlinkSync(join(copy,'assets'));renameSync(assets,join(copy,'assets'));
-  rmSync(join(copy,'assets','mark.svg'));
+  rmSync(join(copy,'assets','brand-w-modules.svg'));
   assert.throws(()=>buildTimelinePages(join(directory,'output'),copy),/incomplete/);
   assert.equal(existsSync(join(directory,'output')),false);
 }));

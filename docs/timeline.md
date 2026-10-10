@@ -8,6 +8,9 @@ A célcím csak sikeres Pages-deployment és HTTP-/böngészős ellenőrzés ut�
 ## Felépítés
 
 - Bemutató: `docs/history-site/index.html`, `style.css`, `presentation.js`, `assets/*.svg`.
+- Favicon és fejlécikon: `assets/brand-w-modules.svg`, byte-azonos a dashboard
+  `public/brand-w-modules.svg` ikonjával. A régi `mark.svg` nem kerül az artifactba;
+  az új fájlnév a korábban cache-elt bemutatóikont sem használja újra.
 - Zárt publikálható fájllista és csomagoló: `scripts/Build-Timeline-Pages.mjs`.
   Csak a 12 ellenőrzött forrásfájlt és a generált `.nojekyll` fájlt teszi a friss,
   gitignored `.timeline-pages/` könyvtárba; idegen/hiányzó fájlnál, symlinknél vagy

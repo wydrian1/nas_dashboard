@@ -3,7 +3,7 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const sourceRoot=fileURLToPath(new URL('../docs/history-site/',import.meta.url));
-export const timelineFiles=['index.html','style.css','presentation.js',...['mark','dashboard','architecture','pokemon','finance','mobile','collections','files','workflow'].map(name=>'assets/'+name+'.svg')];
+export const timelineFiles=['index.html','style.css','presentation.js',...['brand-w-modules','dashboard','architecture','pokemon','finance','mobile','collections','files','workflow'].map(name=>'assets/'+name+'.svg')];
 
 // Publish only the reviewed story, never the repository or the whole docs directory.
 export function buildTimelinePages(destination,source=sourceRoot){
