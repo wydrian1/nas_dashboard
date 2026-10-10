@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .next-staging/
+.timeline-pages/
 .next-previous/
 .next-backup-*/
 .runtime/
