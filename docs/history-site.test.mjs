@@ -8,7 +8,7 @@ import vm from 'node:vm';
 const root=fileURLToPath(new URL('./history-site/',import.meta.url));
 const read=name=>readFileSync(resolve(root,name),'utf8');
 const html=read('index.html'),js=read('presentation.js'),css=read('style.css');
-const images=['mark','dashboard','architecture','pokemon','finance','mobile','collections','files','workflow'];
+const images=['brand-w-modules','dashboard','architecture','pokemon','finance','mobile','collections','files','workflow'];
 
 test('public story contains only reviewed static files, all local references exist, no data or remote URLs',()=>{
   const expected=['index.html','style.css','presentation.js',...images.map(name=>'assets/'+name+'.svg')].sort();
@@ -28,6 +28,10 @@ test('public story contains only reviewed static files, all local references exi
   assert.match(html,/connect-src 'none'/);assert.match(html,/<html lang="hu">/);
   assert.match(html,/szintetikus illusztráció/);assert.match(html,/nem éles képernyőkép/);
   assert.doesNotMatch(js,/\bfetch\s*\(|XMLHttpRequest|sendBeacon|localStorage|document\.cookie/);
+  assert.equal(read('assets/brand-w-modules.svg'),readFileSync(new URL('../public/brand-w-modules.svg',import.meta.url),'utf8'));
+  assert.match(html,/<link rel="icon" href="assets\/brand-w-modules\.svg"/);
+  assert.match(html,/<img src="assets\/brand-w-modules\.svg" width="36" height="36"/);
+  assert.doesNotMatch(html,/assets\/mark\.svg/);
 });
 
 test('14 chapters have headings, notes, unique anchors and matching chapter navigation',()=>{
@@ -37,7 +41,7 @@ test('14 chapters have headings, notes, unique anchors and matching chapter navi
     assert.match(html,new RegExp('href="#chapter-'+number+'"'));
   }
   assert.equal((html.match(/class="speaker-notes"/g)||[]).length,14);
-  for(const image of images.filter(name=>name!=='mark')){
+  for(const image of images.filter(name=>name!=='brand-w-modules')){
     const svg=read('assets/'+image+'.svg');assert.match(svg,/<title\b/);assert.match(svg,/<desc\b/);
     assert.doesNotMatch(svg,/<script|<foreignObject|\b(?:href|onload|onclick)=/);
     assert.match(html,new RegExp('src="assets/'+image+'\\.svg"[^>]+alt="[^"]+"'));
