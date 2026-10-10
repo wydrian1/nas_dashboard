@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,readdirSync,statSync} from 'node:fs';
+import {existsSync,readFileSync,readdirSync,statSync} from 'node:fs';
 import {resolve,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import vm from 'node:vm';
@@ -76,13 +76,11 @@ test('print shows all slides; no-JS, narrow layout and reduced-motion are suppor
   assert.match(css,/#chapter-13 \.slide-footer\{margin-top:10px\}/);
 });
 
-test('public route uses only the closed story file list and does not alter private application routes',()=>{
-  const rootRoute=readFileSync(new URL('../app/timeline/route.ts',import.meta.url),'utf8');
-  const assets=readFileSync(new URL('../app/timeline/[...asset]/route.ts',import.meta.url),'utf8');
-  const adapter=readFileSync(new URL('../lib/timeline-site.ts',import.meta.url),'utf8');
-  assert.match(rootRoute,/dynamic='force-static'/);assert.match(assets,/dynamicParams=false/);assert.match(assets,/generateStaticParams/);
-  assert.match(adapter,/timelineAssets\.includes\(file\)/);assert.match(adapter,/docs\/history-site/);
-  assert.doesNotMatch(rootRoute+assets+adapter,/requireUser|requireAdmin|\.env|db\(|fetch\(/);
+test('presentation belongs to Pages and has no NAS-serving adapter',()=>{
+  for(const file of ['app/timeline/route.ts','app/timeline/[...asset]/route.ts','lib/timeline-site.ts'])assert.equal(existsSync(new URL('../'+file,import.meta.url)),false);
+  const packager=readFileSync(new URL('../scripts/Build-Timeline-Pages.mjs',import.meta.url),'utf8');
+  assert.match(packager,/timelineFiles\.includes\(file\)/);assert.match(packager,/docs\/history-site/);
+  assert.doesNotMatch(packager,/requireUser|requireAdmin|\.env|db\(|fetch\(/);
 });
 
 function harness(hash=''){

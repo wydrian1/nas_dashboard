@@ -1,21 +1,28 @@
 # Nyilvános fejlesztéstörténeti bemutató
 
-Célcím: **https://wydrian.hu/timeline**, bejelentkezés nélkül.
+Célcím: **https://wydrian1.github.io/nas_dashboard/** (GitHub Pages), bejelentkezés nélkül.
 Önálló, magyar nyelvű, 14 diás statikus oldal. Nincs alkalmazásmenü, privát adat,
-NAS API-hívás, analitika vagy külső kép/font. Nem GitHub Pages.
+NAS API-hívás, analitika vagy külső kép/font. A NAS nem szolgálja ki a bemutatót.
+A célcím csak sikeres Pages-deployment és HTTP-/böngészős ellenőrzés után tekinthető élőnek.
 
 ## Felépítés
 
 - Bemutató: `docs/history-site/index.html`, `style.css`, `presentation.js`, `assets/*.svg`.
-- Statikus adapterek: `app/timeline/route.ts`, `app/timeline/[...asset]/route.ts`.
-- Zárt fájllista és válaszok: `lib/timeline-site.ts`.
-- Mindkét adapter `force-static`: a HTML és az összes engedélyezett asset **buildkor**
-  előállított válasz. Az assetlista `generateStaticParams`-ból származik;
-  `dynamicParams=false`, nincs általános dokumentum- vagy fájlkiszolgáló.
-- A build HTML-asset hivatkozásait `/timeline/` alá igazítjuk, hogy a `/timeline`
-  cím záró perjel nélkül is működjön. A forrás önmagában, helyi fájlként is használható.
-- A HTML és a képek/JS/CSS a lezárt `.next-staging` build részei. A webes élesítő
-  ugyanúgy hash-ellenőrzött csomagban viszi őket, nem kell új Caddy-szolgáltatás.
+- Zárt publikálható fájllista és csomagoló: `scripts/Build-Timeline-Pages.mjs`.
+  Csak a 12 ellenőrzött forrásfájlt és a generált `.nojekyll` fájlt teszi a friss,
+  gitignored `.timeline-pages/` könyvtárba; idegen/hiányzó fájlnál, symlinknél vagy
+  meglévő célkönyvtárnál leáll. A teljes repository vagy `docs/` nem publikálható.
+- Workflow: `.github/workflows/timeline-pages.yml`. Csak `main`-ről telepít;
+  releváns változásra automatikusan, illetve kézi indítással. A külön build job
+  ellenőrzi a bemutatót és a publikációs határt; csak utána tölti fel a szűk artifactot.
+  A deploy job kizárólag `pages: write` és `id-token: write` jogot kap.
+  Az actionök pontos commitra rögzítettek; nem kell NAS-elérés vagy külön titok.
+- Minden HTML-asset hivatkozás relatív: a `/nas_dashboard/` projektprefix alatt és
+  helyi fájlként is működik, nincs NAS-os `/timeline/`-átírás vagy API-függőség.
+- A korábbi `app/timeline/*` adapterek és `lib/timeline-site.ts` megszűntek;
+  a bemutató nem része a Next-buildnek. Éles webfrissítés után a NAS `/timeline`
+  és assetútvonalai 404-et adnak, nincs átirányítás vagy második kiszolgált példány.
+  A Gitben tárolt dokumentációs forrás megmarad, nem élő NAS-oldalként.
 - A privát dashboard, pénzügy, gyűjtemények, fájlkezelés és reader-jogosultságok nem
   változnak. A nyilvánosság csak a bemutató zárt fájllistájára vonatkozik.
 
@@ -25,7 +32,7 @@ NAS API-hívás, analitika vagy külső kép/font. Nem GitHub Pages.
 - Mobilon vízszintes húzás; az Idővonal gombbal fejezetválasztó.
 - `N`: előadói jegyzet; `F`: teljes képernyő, ha a böngésző engedélyezi.
 - Nyomtatáskor minden dia külön oldalra kerül; JavaScript nélkül egymás alatt olvashatók.
-- Közvetlen diahivatkozás: `/timeline#chapter-04`.
+- Közvetlen diahivatkozás: `https://wydrian1.github.io/nas_dashboard/#chapter-04`.
 
 ## Forrás és képek
 
@@ -96,21 +103,34 @@ Nincs valódi import, felhasználó, eszközazonosító, hitelesítési adat vag
 
 ```powershell
 node --test docs/history-site.test.mjs
+node scripts/Build-Timeline-Pages.mjs
 npm test
 npm run typecheck
 $env:DASHBOARD_BUILD_DIR='.next-staging'
 npm run build
 ```
 
+A csomagoló új célkönyvtárat igényel; ismételt ellenőrzéshez a korábban generált
+`.timeline-pages/` tartalmat külön, célzottan kell eltávolítani, nem a forrást.
 A dokumentációs teszt ellenőrzi a publikálható fájlok zárt listáját, a relatív
 forráshivatkozásokat, az illusztrációkat, az offline működést, a navigációt és
-a nyomtatási/no-JS szabályokat. A route-tesztek a MIME-típusokat, a buildkori
-előállítást, az assethivatkozásokat és az idegen fájlnevek tiltását is ellenőrzik.
-HTTP-próbán a built route **session nélkül** is 200, minden kép/JS/CSS elérhető,
-de idegen dokumentum, privát fájl vagy útvonalbejárás nem adható ki.
+a nyomtatási/no-JS szabályokat. A `tests/timeline-pages.test.ts` az artifact
+pontos fájllistáját/forrásazonosságát, a projektprefixet, az idegen/hiányzó forrás
+elutasítását, a friss célkönyvtárat és a NAS-adapterek hiányát ellenőrzi.
+HTTP-próbán a Pages-cím **session nélkül** 200, minden kép/JS/CSS elérhető,
+de más dokumentum vagy privát fájl nem kerülhet az artifactba.
 
 A böngészős ellenőrzés minden diát desktop és mobil szélességen vizsgál,
 fejezetválasztással, jegyzetekkel, nyomtatással és kikapcsolt JavaScripttel is.
-Élesítés a szokásos tesztelt/aláírt webes csomaggal, külön merge/élesítési engedély
-után. A célcím csak sikeres aktiválás és mindkét domainen elvégzett anonim HTTP-próba
-után tekinthető élőnek. A repository privát marad.
+Átállás külön merge/élesítési engedély után:
+
+1. GitHub repository **Settings → Pages → Source: GitHub Actions**. Az oldalnak
+   elérhetőnek kell lennie; nem a `main /docs` branch-alapú publikálását használjuk.
+   A tulajdonos állítja a repository láthatóságát; a workflow ezen nem változtat.
+2. Merge után a workflow publikálja az artifactot. A futásnak sikeresnek kell lennie,
+   a deployment által visszaadott címen ellenőrizni kell az anonim oldalt/asseteket,
+   a 14 fejezetet, a két promptot, a mobilos használatot és a 14 oldalas nyomtatást.
+3. **Csak működő Pages-oldal után** aktiváljuk a NAS tesztelt, aláírt webes csomagját,
+   amely eltávolítja a régi route-okat. Mindkét NAS-domainen `/timeline` és korábbi
+   assetjei 404-et kell adjanak; a privát oldalak, adatok és jogosultságok maradnak.
+   A worker és az APK nem változik. A régi webbuild csak a szokásos rollback-mentés.
