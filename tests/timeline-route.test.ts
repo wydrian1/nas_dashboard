@@ -7,6 +7,9 @@ test('public timeline HTML is standalone, has canonical local assets and does no
   const response=timelineResponse(),html=await response.text();assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'text/html; charset=utf-8');
   assert.match(html,/lang="hu"/);assert.match(html,/src="\/timeline\/presentation\.js"/);assert.match(html,/href="\/timeline\/style\.css"/);
   assert.equal((html.match(/class="slide(?: |")/g)||[]).length,14);assert.match(html,/connect-src 'none'/);
+  assert.match(html,/2026\. SZEPTEMBER 30\./);assert.match(html,/MINTAPROMPTOK/);
+  assert.match(html,/Web 1\.4\.6 · Android 1\.1\.4/);
+  assert.equal((html.match(/<blockquote>/g)||[]).length,2);
   assert.doesNotMatch(html,/\/api\/|authjs|\/finance"|\/collections"|DashboardSidebar/);
 });
 test('timeline asset allowlist matches exactly the reviewed illustrations and code; responses use the correct MIME',async()=>{

@@ -42,13 +42,38 @@ test('14 chapters have headings, notes, unique anchors and matching chapter navi
     assert.doesNotMatch(svg,/<script|<foreignObject|\b(?:href|onload|onclick)=/);
     assert.match(html,new RegExp('src="assets/'+image+'\\.svg"[^>]+alt="[^"]+"'));
   }
-  assert.match(html,/287/);assert.match(html,/141/);assert.match(html,/2026\. október 7-ig/);
+  assert.match(html,/2026\. október 10-ig/);
+});
+
+test('story covers evidenced pre-GitHub milestones, major later features and anonymized sample prompts',()=>{
+  const chapter=number=>html.match(new RegExp('<section id="chapter-'+number+'"[\\s\\S]*?<\\/section>'))?.[0]??'';
+  for(const number of ['02','03','04','05','06'])assert.match(chapter(number),/GITHUB ELŐTT/);
+  assert.match(chapter('02'),/2026\. SZEPTEMBER 30\./);assert.match(chapter('02'),/RSS-hírolvasó/);
+  assert.match(chapter('03'),/12 → 15/);assert.match(chapter('03'),/Bloomrift/);
+  assert.match(chapter('04'),/Új boltok új APK nélkül/);
+  assert.match(chapter('05'),/Excelből/);assert.match(chapter('06'),/Google Drive-mentés/);
+  assert.match(chapter('06'),/01:03/);assert.match(chapter('06'),/01:19/);
+  assert.match(chapter('08'),/Pokémon-reader/);assert.match(chapter('08'),/Határidő-emlékeztetők/);
+  assert.match(chapter('09'),/Mentett és aktuális/);assert.match(chapter('10'),/feltöltési haladás és megszakítás/);
+  assert.match(chapter('11'),/rendezőnyilak alapból rejtettek/i);
+  assert.equal((chapter('12').match(/<blockquote>/g)||[]).length,2);
+  assert.match(chapter('12'),/Nem szó szerinti idézetek/);assert.match(chapter('12'),/Google-belépéssel/);
+  assert.match(chapter('12'),/Firebase-projektet/);
+  assert.doesNotMatch(chapter('12'),/https?:|[A-Z]:\\|@|ses_|msg_/i);
+  assert.match(chapter('13'),/datetime="2026-09-30"/);assert.match(chapter('13'),/datetime="2026-10-09"/);
+  const mainStory=html.replace(/<aside class="speaker-notes">[\s\S]*?<\/aside>/g,'');
+  assert.doesNotMatch(mainStory,/class="commit"|PR \d|287|141|323 teszt|Web 1\.4\.1/);
+  assert.match(chapter('14'),/Web 1\.4\.6 · Android 1\.1\.4/);
+  assert.match(chapter('14'),/valódi telefonos értesítésnyitás/);
+  assert.match(read('assets/pokemon.svg'),/15 bekötött webshop/);
 });
 
 test('print shows all slides; no-JS, narrow layout and reduced-motion are supported',()=>{
   assert.match(html,/<noscript>/);assert.match(css,/\[hidden\]\{display:none!important\}/);
   assert.match(css,/@media print/);assert.match(css,/\.deck>\.slide\[hidden\]\{display:block!important/);
   assert.match(css,/@media\(max-width:760px\)/);assert.match(css,/prefers-reduced-motion:reduce/);
+  assert.match(css,/\.timeline\.milestone-timeline p\{font-size:10px;line-height:1\.4\}/);
+  assert.match(css,/#chapter-13 \.slide-footer\{margin-top:10px\}/);
 });
 
 test('public route uses only the closed story file list and does not alter private application routes',()=>{

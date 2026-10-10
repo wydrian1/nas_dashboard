@@ -29,20 +29,68 @@ NAS API-hívás, analitika vagy külső kép/font. Nem GitHub Pages.
 
 ## Forrás és képek
 
-A forrás a Git-történet és a projekt dokumentációja, 2026. október 7-ig.
-Az első Git-pillanatkép (`365b0a5`, október 3.) már működő alkalmazást tartalmazott;
-nem állítjuk, hogy azon a napon kezdődött a teljes fejlesztés.
-A commitok a fejlesztési mérföldköveket, nem feltétlenül az élesítés napját jelölik.
-Rövid, tényszerű szöveg. A frissítés tartalmazza a PR 18–23 éles kiadásait:
-1.4.0, nyilvános timeline, BrickEconomy, TCG Bolt mint 14. webshop,
-és 1.4.1 mentett/aktuális gyűjtemény-összehasonlítás. A most készülő feladat
-nem szerepel már élesített funkcióként. A privát importok eredményét nem publikáljuk.
+A forrás a **sessionelőzmények, a Git-történet és a projekt dokumentációja**,
+2026. október 10-ig. Csak nagyobb funkciók és összefüggő fejlesztési mérföldkövek
+szerepelnek: nem PR-/commit-lista, nem apró javítások vagy tesztszámok gyűjteménye.
+Az első Git-pillanatkép (`365b0a5`, október 3. **01:19**, Budapest) már működő
+alkalmazást tartalmazott. A fejlesztés szeptember 30-án indult.
+
+### A GitHub előtti történet ellenőrzése
+
+Az eredeti dashboard-session felhasználói kéréseit **és** sikeres megvalósításról,
+élesítésről szóló válaszait olvasási módban visszakerestük. Egy kérés vagy terv
+önmagában nem bizonyít elkészült funkciót. A táblázat dátumai Budapest szerintiek;
+a kérések, a kész állapot és az első Git-pillanatkép külön események.
+
+| Funkció | Sessionben rögzített bizonyíték | Forrás a kezdeti kódban / dokumentációban |
+|---|---|---|
+| HTTPS, Google-belépés, szolgáltatásállapotok, RSS | Szept. 30. 21:53–21:56 kérés; 22:33 éles visszaellenőrzés | Kezdeti forrás: auth, dashboard, feeds |
+| CPU/RAM/tárhely, képes RSS, időjárás, gyorslinkek, jegyzetek | Szept. 30. 22:49, 23:05 és 23:46 sikeres válaszok | Kezdeti rendszerállapot-, időjárás- és napi eszközmodulok |
+| Pokémon-worker és közös készletoldal | Okt. 1. 00:31 működő worker; 14:32 külön oldal; 16:24 már 12 webshop | `lib/pokemon`, `docs/pokemon-monitor-plan.md` |
+| Android és szerveroldali push | Okt. 1. 22:33 kérés; 23:22 aláírt APK és éles szerver | `android`, `docs/android-app.md` |
+| Admin / Pokémon-reader | Okt. 2. 17:48 éles jogosultságellenőrzés | `docs/roles.md` |
+| Excelből pénzügyi modul | Okt. 2. 22:36 kérés; 23:05 elkészült és éles | `docs/finance.md` |
+| Korai LEGO-nyilvántartás, pénzügyi előtöltés | Okt. 2-i kérés; okt. 3. 00:10 éles előtöltés | Kezdeti pénzügy és LEGO-adatmodell |
+| RAID-költözés | Okt. 3. 00:16 sikeres költözés és megőrzés | `docs/project-move.md` |
+| Titkosított napi Drive-backup és helyreállítás | Okt. 3. 01:03 Drive-ról letöltött próba-visszaállítás, napi mentés | `docs/backups.md`, `docs/disaster-recovery.md` |
+
+A távoli OpenCode szeptember 30-án még elhalasztott ötlet volt, **nem** kész funkció;
+az október 3-i PR 2 igazolja a működő hozzáférést. Az e-mailes készletértesítés
+kezdeti terv maradt, majd a push kiváltotta. Home Assistant és a blokkolt boltok
+nem szerepelnek elkészült funkcióként. Az eredeti session nyers tartalmát, fiókjait,
+fájlútvonalait, portjait, privát számait és azonosítóit nem másoljuk a bemutatóba.
+
+### GitHub utáni nagyobb bővítések
+
+- Október 3.: tulajdonosi OpenCode és eToro-előtöltés (PR 2, 4–5).
+- Október 4–9.: kereshető, 15 boltra bővített készletfigyelő; Metagames,
+  TCG Bolt és Bloomrift; október 6-tól háromperces alapidőköz (PR 6–7, 9, 22, 30).
+- Október 6.: határidő-push, ellenőrzött Android-frissítő, Fontos infók és
+  info-reader (PR 11–12).
+- Október 7.: külön Gyűjtemények, nominális/reálgyarapodás, BrickEconomy és
+  mentett/aktuális értékek; admin fájltároló megosztásokkal (PR 16–17, 19, 21, 23).
+- Október 7–8.: fájltörlés és rendezhető tartalmi blokkok, közös rendezőnyíl-kapcsoló,
+  továbbfejlesztett telefonos fájlhasználat (PR 24, 27–28).
+- Október 9.: hitelesített mobil boltszabályok; új, ellenőrzött boltokhoz nem kell
+  boltonként új APK az egyszeri 1.1.4-frissítés után (PR 30).
+
+Utolsó ellenőrzött kiadás: **Web 1.4.6 / Android 1.1.4**. A boltok aktuális
+üzemállapotát és a telefonra ténylegesen telepített verziót a timeline nem állítja.
+A valódi telefonos értesítésnyitás és a külső gyűjteményimport visszaigazolása
+nem helyettesíthető szerver-/szimulációs teszttel. Ez a timeline-frissítés nem
+szerepel már élesített új alkalmazásfunkcióként.
+
+### Mintapromptok
+
+Két rövid, **átfogalmazott, nem szó szerinti** minta a 12. dián:
+szeptember 30. 21:53 + 21:56 (dashboard + Google-belépés), illetve
+október 1. 22:33 (Android WebView + Firebase-push).
+A személyes domaint, fiókot, infrastruktúra-azonosítókat és titkokat kihagyjuk.
+A promptokat nem teljes sessionexportként, hanem a cél megfogalmazásának példájaként közöljük.
 
 A képek ehhez a bemutatóhoz készített, eredeti SVG-illusztrációk, nem éles képernyőképek.
 A termékek, pénzügyi összegek, fájlok és telefonképernyők szintetikusak.
 Nincs valódi import, felhasználó, eszközazonosító, hitelesítési adat vagy működő megosztási link.
-A 287 teszt / 141 HTTP-próba az október 7-i kombinált funkciókiadás történeti eredménye,
-nem a bemutató saját tesztszáma vagy egy jövőbeli kiadás ígérete.
 
 ## Ellenőrzés és élesítés
 
