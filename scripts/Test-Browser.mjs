@@ -17,7 +17,8 @@ const owner='owner@example.test',reader='reader@example.test',info='info@example
 process.env.ALLOWED_EMAIL=owner;
 const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
 const origin='http://127.0.0.1:'+port;
-symlinkSync(join(root,'.next-staging'),join(fixture,'.next'),process.platform==='win32'?'junction':'dir');
+// Runtime route caches must never mutate the build that will be sealed/published.
+cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:path=>path!==join(root,'.next-staging','cache')&&path!==join(root,'.next-staging','server','route-cache')});
 symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
 cpSync(join(root,'public'),join(fixture,'public'),{recursive:true});
 writeFileSync(join(fixture,'package.json'),'{"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next"};');mkdirSync(join(fixture,'data'));
@@ -52,6 +53,8 @@ try{
   let response=await call('/api/operations','owner');check(response.status===200,'owner operations API');const health=await response.json();check(health.backup.state==='unknown','missing backup is unknown');check(health.shops.find(item=>item.id==='grandline').stale,'stale shop metadata');check(!JSON.stringify(health).includes('synthetic-fcm-token'),'no token exposure');
   response=await call('/timeline');check(response.status===404,'timeline remains off the NAS');await response.body?.cancel();
   for(const [role,path,destination]of [['reader','/system','/pokemon'],['info','/notifications','/important-info'],['admin','/system','/']]){response=await call(path,role);check(response.status===307&&response.headers.get('location')===destination,'role boundary '+role+' '+path);await response.body?.cancel();}
+  for(const role of ['owner','admin']){response=await call('/notifications',role);check(response.status===307&&response.headers.get('location')==='/config#notifications','legacy notifications redirect '+role);await response.body?.cancel();}
+  for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/config',role);check(response.status===307&&response.headers.get('location')===destination,'configuration still admin-only '+role);await response.body?.cancel();}
   browser=await chromium.launch({headless:true});
   for(const role of ['owner','reader','info']){
     const context=await browser.newContext({viewport:{width:1440,height:900},extraHTTPHeaders:{cookie:cookies[role]}}),page=await context.newPage(),errors=[],requests=[];
@@ -63,7 +66,8 @@ try{
     for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'search no overflow '+role+' '+width);}
     if(role!=='info'){
       await page.goto(origin+'/pokemon');check(await page.locator('#shop-grandline').innerText().then(text=>text.includes('Elavult készletadat')&&text.includes('Hozzáférésvédelem')),'stale stock clearly labelled '+role);
-      await page.goto(origin+'/notifications');check(await page.locator('h1').textContent()==='Értesítési központ','personal notifications '+role);check(await page.locator('select[name=digest_minutes]').inputValue()==='0','immediate default preserved '+role);
+      await page.goto(origin+(role==='owner'?'/config#notifications':'/notifications'));check(await page.locator('h1').textContent()===(role==='owner'?'Konfig':'Értesítési központ'),'personal notifications '+role);check(await page.locator('#notifications').count()===1,'notification section '+role);check(await page.locator('select[name=digest_minutes]').inputValue()==='0','immediate default preserved '+role);
+      check(await page.locator('nav a[href="/notifications"]').count()===(role==='reader'?1:0),'standalone notification menu reader-only '+role);
       check(await page.locator('input[name=watchlist_only]').isChecked()===false,'watchlist opt-in default '+role);
       for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'notifications no overflow '+role+' '+width);}
       check(await page.locator('.section-order-controls:not([hidden])').count()===0,'order controls hidden by default '+role);
@@ -73,8 +77,9 @@ try{
     if(role==='owner'){
       await page.goto(origin+'/system');check(await page.locator('h1').textContent()==='Rendszer állapota','system view');check(await page.getByText('Mentési bizonyíték nem elérhető',{exact:false}).count()>0,'unknown backup visible');
       const financeResponse=await page.goto(origin+'/finance'),serverPage=load(await financeResponse.text());
-      check(await page.locator('[data-valuation=quality]').count()===2,'valuation data quality cards');check(await page.locator('[data-valuation=quality]').first().innerText().then(text=>text.includes('0 sor')),'quality metadata readable');
-      check(await page.locator('[data-valuation=quality]').nth(1).innerText().then(text=>text.includes('1 sor / 3 db')),'unknown acquisition dates preserved');
+      check(await page.locator('[data-valuation=quality]').count()===0,'redundant inventory quality panels removed');
+      check(await page.locator('[data-valuation=saved]').count()===2&&await page.locator('[data-valuation=market]').count()===2,'saved and market comparisons retained');
+      check(await page.locator('.collection-growth-card').nth(1).innerText().then(text=>text.includes('1 vásárlási sor dátuma ismeretlen')),'unknown-date calculation disclosure retained');
       await page.locator('.section-order-toggle button:not([disabled])').waitFor();
       for(const [selector,count]of [['.finance-pie circle title',1],['.finance-real-chart rect title',3]]){
         const serverTitles=serverPage(selector).map((_,element)=>serverPage(element).text()).get();
@@ -88,5 +93,5 @@ try{
   console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,390,320]}));
 }finally{
   if(browser)await browser.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));
-  unlinkSync(join(fixture,'.next'));unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});
+  unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});
 }

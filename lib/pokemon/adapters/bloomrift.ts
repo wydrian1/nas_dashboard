@@ -4,8 +4,9 @@ import {BLOOMRIFT_URL,type PokemonProduct,type ShopScan} from '../types.ts';
 import {bloomriftFetchUrl,downloadShopPage} from '../fetch-policy.ts';
 import {robotsPermission} from '../robots.ts';
 import type {CatalogScanOptions} from './catalog-scan.ts';
+import {readBloomriftCredentials,bloomriftMemberDownload} from '../bloomrift-session.ts';
 
-export const BLOOMRIFT_ADAPTER_VERSION='1.0.0';
+export const BLOOMRIFT_ADAPTER_VERSION='1.1.0';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 const pageUrl=(page:number)=>BLOOMRIFT_URL+(page===1?'':','+page);
 export function bloomriftProductUrl(input:string):string {
@@ -21,14 +22,24 @@ export function parseBloomriftPage(html:string,expectedPage=1) {
   if(!counters.length || counters.some(text=>text!==counters[0]) || !Number.isSafeInteger(total) || total>600 || expectedPage>pages)throw new Error('Hiányos vagy nem igazolt üres Bloomrift-összesítő.');
   for(const [rel,target]of [['next',expectedPage<pages?pageUrl(expectedPage+1):null],['prev',expectedPage>1?pageUrl(expectedPage-1):null]] as const){const links=$(`link[rel="${rel}"]`);if(links.length!==(target?1:0) || target&&links.attr('href')!==target)throw new Error('Nem igazolt Bloomrift-lapozási cél.');}
   const scroll=$('script').toArray().flatMap(element=>$(element).text().match(/\bvar infinite_scroll_num=\d+;/g)||[]),loading=$('.page_artlist_next_loading [data-page]');
-  if(expectedPage<pages ? scroll.length!==1 || scroll[0]!==`var infinite_scroll_num=${expectedPage};` || loading.length!==1 || loading.attr('data-page')!==String(expectedPage+1) : scroll.length!==0 || loading.length!==0)throw new Error('Ismeretlen Bloomrift-oldalbetöltési állapot.');
+  const controls=$('.paging-sorting-ordering input.page-input');
+  const numbered=expectedPage>1 && scroll.length===0 && loading.length===0 && controls.length===2 && controls.toArray().every(element=>{
+    const control=$(element);return control.attr('type')==='number' && control.attr('step')==='1' && control.attr('min')==='1' && control.attr('max')===String(pages) && control.attr('value')===String(expectedPage) && control.attr('data-direct-link')===BLOOMRIFT_URL+',[page_selected]' && normalize(control.siblings('.page-item__last-page-text').text())===String(pages);
+  });
+  if(expectedPage<pages ? !numbered && (scroll.length!==1 || scroll[0]!==`var infinite_scroll_num=${expectedPage};` || loading.length!==1 || loading.attr('data-page')!==String(expectedPage+1)) : scroll.length!==0 || loading.length!==0)throw new Error('Ismeretlen Bloomrift-oldalbetöltési állapot.');
   const lists=$('#list-artlist_product_list[role="list"]'),cards=lists.children('.product[role="listitem"]');
   if(lists.length!==1 || cards.length!==count || lists.children('.product').length!==count)throw new Error('Hiányos Bloomrift-terméklista.');
   const cardIDs:string[]=[],products:PokemonProduct[]=[];
   cards.each((_,element)=>{
     const card=$(element),sku=card.attr('data-sku')||'',encoded=sku.replace(/-/g,'__unas__'),link=card.find('a.product__name-link'),title=normalize(link.text()),cart=card.find('button.product__cart-btn'),main=card.find('.product-main-btn'),stock=card.find('.product__stock'),stockText=normalize(stock.find('.stock__text').text());
-    if(!/^[a-z0-9_]+(?:-[a-z0-9_]+)*$/i.test(sku) || sku.length>100 || sku.includes('__unas__') || card.attr('id')!=='page_artlist_artlist_'+encoded || link.length!==1 || link.attr('data-sku')!==sku || !link.attr('href') || !title || title.length>500 || stock.length!==1 || stock.find('.stock__text').length!==1 || main.length!==1)throw new Error('Hiányos Bloomrift-termékkártya vagy SKU.');
+    if(!/^[a-z0-9_]+(?:-[a-z0-9_]+)*$/i.test(sku) || sku.length>100 || sku.includes('__unas__') || card.attr('id')!=='page_artlist_artlist_'+encoded || link.length!==1 || link.attr('data-sku')!==sku || !link.attr('href') || !title || title.length>500 || stock.length!==1 || stock.find('.stock__text').length!==1)throw new Error('Hiányos Bloomrift-termékkártya vagy SKU.');
     const url=bloomriftProductUrl(link.attr('href')!);cardIDs.push(sku);
+    const gate=card.find('.not-buyable__text');
+    if(gate.length){
+      if(gate.length!==1 || normalize(gate.text())!=='A termék kizárólag regisztrált és bejelentkezett felhasználók számára érhető el!' || main.length || cart.length || card.find('a.product__details-btn').length || !stock.is('.no-stock') || stock.is('.on-stock') || stockText!=='Nincs raktáron')throw new Error('Nem igazolt Bloomrift bejelentkezéshez kötött készlet.');
+      return; // Explicitly unavailable, never infer a purchasable product from an anonymous gate.
+    }
+    if(main.length!==1)throw new Error('Hiányos Bloomrift-termékkártya vagy SKU.');
     if(!cart.length){const details=card.find('a.product__details-btn');if(!stock.is('.no-stock') || stock.is('.on-stock') || stockText!=='Nincs raktáron' || details.length!==1 || details.attr('aria-label')!=='Részletek' || bloomriftProductUrl(details.attr('href')||'')!==url)throw new Error('Ismeretlen Bloomrift-kosárgombállapot.');return;}
     const quantity=card.find(`input[name="db_artlist_${encoded}"]`);
     if(cart.length!==1 || cart.attr('type')!=='button' || cart.attr('aria-label')!=='Kosárba' || cart.attr('data-text')!=='Kosárba' || cart.attr('onclick')!==`cart_add('${encoded}','artlist_');` || quantity.length!==1 || quantity.attr('id')!=='db_artlist_'+encoded || quantity.attr('type')!=='hidden' || quantity.attr('value')!=='1' || !stock.is('.on-stock') || stock.is('.no-stock') || !/^(Raktáron(?: \([1-9]\d* db\))?|Előrendelhető)$/i.test(stockText))throw new Error('Nem igazolt Bloomrift-kosárgomb vagy készlet.');
@@ -44,8 +55,11 @@ export function parseBloomriftPage(html:string,expectedPage=1) {
 }
 let robotsCache:{source:string;time:number}|undefined;
 export async function scanBloomrift(signal:AbortSignal,options:CatalogScanOptions={}):Promise<ShopScan> {
-  signal.throwIfAborted();const download=options.download||downloadShopPage,wait=options.wait||((ms:number,abort:AbortSignal)=>delay(ms,undefined,{signal:abort}));let robots=robotsCache;
-  if(options.download || !robots || Date.now()-robots.time>24*60*60_000){const source=await download('https://bloomrift.eu/robots.txt',signal);if(/<\/?[a-z][^>]*>/i.test(source)||!/^User-agent:/im.test(source))throw new Error('A Bloomrift robots.txt nem értelmezhető.');robots={source,time:Date.now()};if(!options.download)robotsCache=robots;}
+  signal.throwIfAborted();const anonymous=options.download||downloadShopPage,wait=options.wait||((ms:number,abort:AbortSignal)=>delay(ms,undefined,{signal:abort}));let robots=robotsCache;
+  if(options.download || !robots || Date.now()-robots.time>24*60*60_000){const source=await anonymous('https://bloomrift.eu/robots.txt',signal);if(/<\/?[a-z][^>]*>/i.test(source)||!/^User-agent:/im.test(source))throw new Error('A Bloomrift robots.txt nem értelmezhető.');robots={source,time:Date.now()};if(!options.download)robotsCache=robots;}
+  const credentials=options.download?null:await readBloomriftCredentials(),loginGate=robotsPermission(robots.source,'/shop_logincheck.php');
+  if(credentials && !loginGate.allowed)throw new Error('A Bloomrift robots.txt tiltja a bejelentkezést.');
+  const download=credentials?bloomriftMemberDownload(credentials,Math.max(loginGate.delayMs,robotsPermission(robots.source,'/Osszes-angol-termek').delayMs)):anonymous;
   async function page(index:number){signal.throwIfAborted();const url=bloomriftFetchUrl(pageUrl(index)),gate=robotsPermission(robots!.source,url.pathname);if(!gate.allowed)throw new Error('A Bloomrift robots.txt tiltja a kategória lekérését.');await wait(gate.delayMs,signal);return parseBloomriftPage(await download(url.href,signal),index);}
   const first=await page(1),products=[...first.products],ids=[...first.cardIDs];let last=first;
   for(let index=2;index<=first.pages;index++){last=await page(index);if(last.total!==first.total || last.pages!==first.pages)throw new Error('A Bloomrift termékszáma megváltozott lapozás közben.');ids.push(...last.cardIDs);products.push(...last.products);if(new Set(ids).size!==ids.length)throw new Error('Ismételt Bloomrift-lapozási eredmény.');}

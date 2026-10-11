@@ -3,7 +3,7 @@
 ## Felületek és hozzáférés
 
 - `/system`: csak a tulajdonosnak; háttérfigyelő-életjel, boltok, mentési bizonyítékok, publikált APK, kiadási bejegyzés, napi pushállapotok és a meglévő olvasási szolgáltatáspróbák. `/api/operations` ugyanígy tulajdonosi, `no-store`; a korábbi `/api/system` rendszererőforrás-API változatlan.
-- `/notifications`: adminok és Pokémon-olvasók saját beállításai, személyes figyelőlistája és legutóbbi 100 telefononkénti küldési bejegyzése. Más fiók adatai, FCM-token, párosítási titok és nyers payload nem kerül a válaszba.
+- `/config#notifications`: adminok saját beállításai, személyes figyelőlistája és legutóbbi 100 telefononkénti küldési bejegyzése, a Konfig részeként. A régi `/notifications` admincím ide irányít; Pokémon-olvasónak ugyanaz a saját felület külön `/notifications` oldalon marad, Konfig-hozzáférés nélkül. Más fiók adatai, FCM-token, párosítási titok és nyers payload nem kerül a válaszba.
 - `/search`: bejelentkezés szükséges, a tényleges adatbázis-szerepkör korlátozza a modulokat. Admin: jegyzetek, saját teendők, kész fájlok neve, aktív gyűjteménytételek neve, fontos infók, készletfigyelő. Pokémon-olvasó: készletfigyelő. Infóolvasó: fontos infók. Nincs fájltartalom-, titok- vagy megosztásitoken-keresés. A LIKE-helyettesítő karakterek literálisak; legfeljebb 50 találat, modulonként 10.
 
 ## Készletfrissesség
@@ -27,7 +27,7 @@ Az új táblák hozzáadó migrációval jönnek létre. Meglévő eszköz, pár
 
 A nézet a meglévő `.runtime/automatic-backups/status.json`, a hozzá tartozó nyugta és a `Test-CloudBackup.ts` által előállított `.runtime/research/cloud-backup-restore-verified.json` eredményéből csak a szükséges időpontokat/állapotot olvassa. Hiányzó, olvashatatlan, eltérő archívumhoz tartozó vagy jövőbeli adat nem siker. Mentés/felhőellenőrzés: 36 óra; teljes, hash-, hitelesített visszafejtés-, fájlmanifest- és SQLite-ellenőrzött recovery kit próba: 30 nap. Nem olvas helyreállítási kulcsot, nem indít mentést, és nem változtat ACL-t. A későbbi élesítés előtt a szolgáltatásfiók olvasási hozzáférését külön ellenőrizni kell; hiánya a felületen „nem ellenőrizhető”, nem zöld állapot.
 
-A pénzügyi gyarapodásnál külön adatminőségkártya mutatja az ismeretlen beszerzési dátumok sor-/darabszámát és bekerülési összegét, valamint a rögzített 0 Ft-os sorokat. A piaci lekérés 24 óra után elavult. Az SSR és kliens azonos szerveroldali `checkedAt` időpontot használ. Nem változik mentett havi érték, beszerzési dátum, bekerülés vagy a meglévő reálgyarapodási feltételezés. Nincs új import vagy külső gyűjteményegyeztetés.
+A pénzügyi gyarapodás a mentett havi értéket és az aktuális piaci becslést külön mutatja, külön „Nyilvántartási adatminőség” panel nélkül. A számításhoz szükséges ismeretlendátum-feltételezés továbbra is látható az érintett összehasonlításnál. A piaci lekérés 24 óra után elavult. Az SSR és kliens azonos szerveroldali `checkedAt` időpontot használ. Nem változik mentett havi érték, beszerzési dátum, bekerülés vagy a meglévő reálgyarapodási feltételezés. Nincs új import vagy külső gyűjteményegyeztetés.
 
 ## Elkülönített ellenőrzés és CI
 
@@ -39,7 +39,7 @@ A pénzügyi gyarapodásnál külön adatminőségkártya mutatja az ismeretlen 
 4. `npm run typecheck`
 5. `npm run test:browser` (a script közvetlen futtatásával)
 
-A gyökér `.next`, generált deklarációk és élő adatbázis nem kellenek ehhez, és nem módosulnak. A forrás-HEAD és tisztaság ismét ellenőrzésre kerül a végén. A böngészőteszt ideiglenes szintetikus SQLite-adatbázist és loopback szervert használ, blokkolja a külső böngészőkéréseket, és valódi szerverakciókat, szerepkörhatárokat, hibamentes hidratációt és 1440/390/320 pixeles elrendezést ellenőriz. Az elszigetelt munkaterület és eredményfájl megmarad ellenőrizhető bizonyítéknak.
+A gyökér `.next`, generált deklarációk és élő adatbázis nem kellenek ehhez, és nem módosulnak. A forrás-HEAD és tisztaság ismét ellenőrzésre kerül a végén. A böngészőteszt a build külön másolatával, ideiglenes szintetikus SQLite-adatbázissal és loopback szerverrel fut: a teszt által létrehozott runtime route-cache nem kerül a csomagolandó buildbe. Blokkolja a külső böngészőkéréseket, és valódi szerverakciókat, szerepkörhatárokat, feltöltött pénzügyi grafikonok hibamentes hidratációját és 1440/390/320 pixeles elrendezést ellenőriz. Az elszigetelt munkaterület és eredményfájl megmarad ellenőrizhető bizonyítéknak.
 
 A `Prepare-Deployment.mjs` ezt az ellenőrzött buildet csomagolja a régi helybeni építés helyett; a két meglévő olvasási ACL-preflight megmarad. Éles buildhez a privát `.env.local` csak folyamatkörnyezetként kerül az izolált buildbe, nem a forrásarchívumba.
 

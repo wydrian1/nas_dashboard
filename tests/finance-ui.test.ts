@@ -183,6 +183,7 @@ test('collection cards retain saved values and add independent current HUF valua
   const market={rates:{date:'2026-10-06',usdHuf:300,eurHuf:350,fetchedAt:'2026-10-07T10:00:00Z'},collectr:{usdMinor:100,fetchedAt:'2026-10-07T10:30:00Z'},brickeconomy:{hufMinor:40000,fetchedAt:'2026-10-07T11:30:00Z'},inflation:{annual:[],monthly:[{month:'2026-10',mom:.1,yoy:.1}],fetchedAt:'2026-10-07T10:00:00Z'},rateError:null,collectrError:null,inflationError:null};
   const before=JSON.stringify(data),page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,lego:inventory,pokemon:inventory,market}))),cards=page('.collection-growth-card');
   assert.equal(cards.length,2);assert.equal(page('[data-valuation="saved"]').length,2);assert.equal(page('[data-valuation="market"]').length,2);
+  assert.equal(page('[data-valuation="quality"]').length,0);assert.doesNotMatch(page.text(),/Nyilvántartási adatminőség/);
   assert.match(cards.eq(0).find('[data-valuation="saved"]').text(),/200\s*Ft/);assert.match(cards.eq(0).find('[data-valuation="market"]').text(),/300\s*Ft/);
   assert.match(cards.eq(0).find('[data-valuation="market"]').text(),/\+190\s*Ft/);assert.match(cards.eq(0).find('.collection-growth-delta').text(),/\+100\s*Ft/);
   assert.match(cards.eq(1).find('[data-valuation="market"]').text(),/400\s*Ft/);assert.match(cards.eq(1).find('.collection-growth-delta').text(),/\+250\s*Ft/);
