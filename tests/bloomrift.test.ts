@@ -20,6 +20,17 @@ function multi(page:number,total=22){
   if(page>1)$('head').append(`<link rel="prev" href="${BLOOMRIFT_URL}${page===2?'':','+(page-1)}">`);
   return $.html();
 }
+function numbered(page:number){
+  const $=load(multi(page,27));$('script,.page_artlist_next_loading').remove();
+  for(let index=0;index<2;index++)$('body').append(`<div class="paging-sorting-ordering"><div><input class="page-input" type="number" step="1" min="1" max="3" value="${page}" data-direct-link="${BLOOMRIFT_URL},[page_selected]"><span class="page-item__last-page-text">3</span></div></div>`);
+  return $.html();
+}
+test('Bloomrift validates numbered middle pages as well as infinite scroll, including page/count/link proof',async()=>{
+  assert.equal(parseBloomriftPage(numbered(2),2).cardIDs.length,12);
+  for(const html of [numbered(2).replace('value="2"','value="3"'),numbered(2).replace('max="3"','max="4"'),numbered(2).replace('min="1"','min="0"'),numbered(2).replace('https://bloomrift.eu/Osszes-angol-termek,[page_selected]','https://evil.example/[page_selected]'),numbered(2).replace('class="page-input"','class="missing"')])assert.throws(()=>parseBloomriftPage(html,2));
+  const result=await scanBloomrift(new AbortController().signal,{download:async url=>url.endsWith('robots.txt')?robots:url.endsWith(',2')?numbered(2):url.endsWith(',3')?multi(3,27):multi(1,27),wait:async()=>{}});
+  assert.equal(result.pages,3);assert.equal(result.total,27);
+});
 test('Bloomrift parser uses SKU/cart/stock proof, rejects details-only stock and parses HUF/image',()=>{
   const result=parseBloomriftPage(fixture);assert.equal(result.total,2);assert.equal(result.cardIDs.length,2);assert.equal(result.products.length,1);assert.equal(result.products[0].externalID,'PKM-EN-DEMO');assert.equal(result.products[0].priceHuf,2290);assert.equal(result.products[0].availability,'in_stock');assert.match(result.products[0].image!,/^https:\/\/bloomrift.eu\/img\//);
   assert.equal(parseBloomriftPage(fixture.replace('<button class="product__cart-btn"','<button disabled class="product__cart-btn"')).products.length,0);
@@ -34,6 +45,21 @@ test('Bloomrift parser fails closed on broken category, count, card identity/car
   for(const html of bad)assert.throws(()=>parseBloomriftPage(html));
   assert.throws(()=>parseBloomriftPage(multi(1),2));assert.throws(()=>parseBloomriftPage(multi(1).replaceAll('termek,2','termek,3')));assert.throws(()=>parseBloomriftPage(multi(1).replace('data-page="2"','data-page="3"')));
   assert.throws(()=>parseBloomriftPage(multi(1).replace('infinite_scroll_num=1','infinite_scroll_num=2')));assert.throws(()=>parseBloomriftPage(multi(2).replaceAll('DEMO22','DEMO21'),2));
+});
+function memberGate(html=fixture){
+  const $=load(html),card=$('[data-sku="PKM-EN-SOLD"].product');
+  card.find('.product-main-btn').replaceWith('<div class="product__main"><div class="product__main-btn-col"><div class="not-buyable__text">A termék kizárólag regisztrált és bejelentkezett felhasználók számára érhető el!</div></div></div>');
+  return $.html();
+}
+test('Bloomrift recognizes exactly the anonymous member-only unavailable card without losing public stock or SKU identity',()=>{
+  const before=parseBloomriftPage(fixture),after=parseBloomriftPage(memberGate());
+  assert.deepEqual(after,before);
+  for(const bad of [memberGate().replace('Nincs raktáron','Raktáron'),memberGate().replace('stock no-stock','stock on-stock'),memberGate().replace('regisztrált és bejelentkezett','bejelentkezett'),memberGate().replace('PKM__unas__EN__unas__SOLD','BROKEN'),memberGate().replace('</div></div></div>','</div><button class="product__cart-btn">Kosárba</button></div></div>')])assert.throws(()=>parseBloomriftPage(bad));
+});
+test('Bloomrift scanner includes member-gated SKU in completeness proof and leaves anonymous gate with uncertain stock as a failure',async()=>{
+  const result=await scanBloomrift(new AbortController().signal,{download:async url=>url.endsWith('robots.txt')?robots:memberGate(),wait:async()=>{}});
+  assert.equal(result.total,1);assert.deepEqual(result.products,parseBloomriftPage(fixture).products);
+  await assert.rejects(scanBloomrift(new AbortController().signal,{download:async url=>url.endsWith('robots.txt')?robots:memberGate().replace('Nincs raktáron','Raktáron'),wait:async()=>{}}));
 });
 test('Bloomrift fetch policy is category/robots only: no AJAX, cart, products, sorting, foreign hosts or excessive pages',()=>{
   for(const url of [BLOOMRIFT_URL,BLOOMRIFT_URL+',2',BLOOMRIFT_URL+',50','https://bloomrift.eu/robots.txt']){assert.equal(bloomriftFetchUrl(url).href,url);assert.equal(shopFetchUrl(url).href,url);}

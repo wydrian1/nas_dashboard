@@ -105,7 +105,7 @@ test('dashboard, news and notes use the shared accent eyebrow and responsive tit
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));
-  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/notifications','/important-info','/search','/config']);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/search','/config']);
   assert.equal(page('nav a').first().find('span').text(),'Dashboard');assert.equal(page('nav a').eq(1).find('span').text(),'Hírolvasó');
   assert.equal(page('nav a').first().attr('aria-current'),'page');
   assert.equal(page('nav a[href="/mobile"],nav a[href^="/#"]').length,0);
@@ -118,11 +118,24 @@ test('phone settings live under admin configuration; legacy route redirects and 
   assert.match(source('app/mobile/page.tsx'),/redirect\('\/config#mobile'\)/);
   assert.match(source('app/mobile/actions.ts'),/revalidatePath\('\/config'\)/);
 });
+test('admin notification settings live inside config while Pokemon readers retain their private page and no config access',()=>{
+  const Sidebar=component('app/dashboard-sidebar.tsx').default;
+  for(const role of ['admin','pokemon-reader','info-reader']){
+    const page=load(renderToStaticMarkup(React.createElement(Sidebar,{role})));
+    assert.equal(page('nav a[href="/notifications"]').length,role==='pokemon-reader'?1:0);
+    assert.equal(page('nav a[href="/config"]').length,role==='admin'?1:0);
+  }
+  const config=source('app/config/page.tsx'),route=source('app/notifications/page.tsx'),settings=source('app/notifications/settings.tsx');
+  assert.match(config,/href="#notifications"/);assert.match(config,/<NotificationSettings\s*\/>/);
+  assert.match(config,/session\.role!=='admin'/);assert.match(route,/session\.role==='admin'\)redirect\('\/config#notifications'\)/);
+  assert.ok(settings.indexOf('await requireUser()')<settings.indexOf('deliveryPreferences(db(),email)'));assert.match(settings,/session\.user!\.email!/);
+  assert.match(source('app/notifications/actions.ts'),/revalidatePath\('\/config'\)/);
+});
 test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
   assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
-  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/notifications','/important-info','/search','/opencode','/system','/config']);
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/search','/opencode','/system','/config']);
   assert.equal(owner('nav a[href="/system"]').length,1);
   const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
   assert.equal(reader('nav a[href="/opencode"]').length,0);

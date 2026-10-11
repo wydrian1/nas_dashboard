@@ -39,7 +39,6 @@ function GrowthCard({name,saved,asOf,current,provider,profile,items,now}:{name:s
       {current.unavailable && <p className="footnote" role="status">{current.unavailable}</p>}
       <div className="collection-growth-values collection-growth-delta"><div><span>Eltérés az utolsó mentett értéktől</span><strong className={delta===null?'':delta<0?'finance-negative':'finance-positive'}>{delta===null?'Nem számolható':signed(delta)}</strong></div></div>
     </div>
-    <div className="collection-growth-comparison" data-valuation="quality"><h4>Nyilvántartási adatminőség</h4><p>{quality.unknownDateRows} sor / {quality.unknownDateUnits} db ismeretlen beszerzési dátummal · {formatMoney(quality.unknownDateCostMinor)} érintett bekerülés.</p><p>{quality.zeroCostRows} sorban 0 Ft a rögzített bekerülés; ez lehet valódi nulla, nem minősítjük automatikusan hiányzó árnak.</p><p className="footnote">A feltételezett dátum befolyásolja a reálgyarapodást, de nem módosítja a nyilvántartást vagy a mentett összegeket. A külső portfólió és a helyi tételek azonosságát nem állítjuk.</p></div>
   </article>;
 }
 export default function CollectionGrowthSection({snapshot,lego,pokemon,inflation,market}:{snapshot:FinanceSnapshot;lego:LegoSnapshot;pokemon:PokemonCollectionSnapshot;inflation?:InflationSeries|null;market?:FinanceMarket}) {

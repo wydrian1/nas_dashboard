@@ -14,7 +14,7 @@ export default function DashboardSidebar({name,active='overview',unread,role='ad
        <a className={active==='files' ? 'active' : undefined} aria-current={active==='files' ? 'page' : undefined} href="/files">▱ <span>Fájlok</span></a>
       <a className={active==='notes' ? 'active' : undefined} aria-current={active==='notes' ? 'page' : undefined} href="/notes">✓ <span>Jegyzetek / teendők</span></a></>}
       {role!=='info-reader' && <a className={active==='pokemon' ? 'active' : undefined} aria-current={active==='pokemon' ? 'page' : undefined} href="/pokemon">◉ <span>Pokémon figyelő</span></a>}
-      {role!=='info-reader'&&<a className={active==='notifications'?'active':undefined} aria-current={active==='notifications'?'page':undefined} href="/notifications">♧ <span>Értesítési központ</span></a>}
+      {role==='pokemon-reader'&&<a className={active==='notifications'?'active':undefined} aria-current={active==='notifications'?'page':undefined} href="/notifications">♧ <span>Értesítési központ</span></a>}
       {role!=='pokemon-reader' && <a className={active==='important-info' ? 'active' : undefined} aria-current={active==='important-info' ? 'page' : undefined} href="/important-info">ⓘ <span>Fontos infók</span></a>}
       <a className={active==='search'?'active':undefined} aria-current={active==='search'?'page':undefined} href="/search">⌕ <span>Keresés</span></a>
       {role==='admin' && openCode && <a className={active==='opencode' ? 'active' : undefined} aria-current={active==='opencode' ? 'page' : undefined} href="/opencode">⌘ <span>OpenCode</span></a>}
