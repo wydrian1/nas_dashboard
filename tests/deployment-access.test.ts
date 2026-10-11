@@ -7,7 +7,8 @@ import {spawnSync} from 'node:child_process';
 test('deployment preparation checks dashboard runtime access before build and again before packaging',()=>{
   const source=readFileSync(new URL('../scripts/Prepare-Deployment.mjs',import.meta.url),'utf8');
   const first=source.indexOf("-File','scripts/Test-Deployment-Access.ps1'"),second=source.lastIndexOf("-File','scripts/Test-Deployment-Access.ps1'");
-  assert.ok(first>0&&first<source.indexOf("-File','scripts/Build-Dashboard.ps1'"));assert.ok(second>first&&second<source.indexOf('const id=randomBytes'));
+  assert.ok(first>0&&first<source.indexOf('const checked=checkedRelease(root,true)'));assert.ok(second>first&&second<source.indexOf('const id=randomBytes'));
+  assert.ok(second>source.indexOf('const checked=checkedRelease(root,true)'));
   assert.doesNotMatch(readFileSync(new URL('../scripts/Test-Deployment-Access.ps1',import.meta.url),'utf8'),/Set-Acl|icacls|Start-Service|Stop-Service|Restart-Service/);
 });
 test('Windows deployment access preflight is read-only and rejects a recreated unreadable config or deny ACE',{skip:process.platform!=='win32'},()=>{

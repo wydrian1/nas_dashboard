@@ -5,6 +5,7 @@ import { MOBILE_PROJECT } from './store.ts';
 import { roleFor } from '../users.ts';
 import { notificationAllowed } from '../pokemon/notifications.ts';
 import {taskPushAllowed} from './task-reminders.ts';
+import {deliveryPreferences,quietNow} from './preferences.ts';
 
 type Credential={type:string;project_id:string;client_email:string;private_key:string;token_uri:string};
 type PushJob={id:string;device_id:string;event_id:number|null;payload:string;attempts:number;expires_at:number};
@@ -71,14 +72,25 @@ export async function sendNextPush(db:DatabaseSync,options:{configured?:boolean;
   if(!device?.fcm_token || !roleFor(db,device.email) || (job.event_id!==null && !notificationAllowed(db,device.email,job.event_id))){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
   const payload=JSON.parse(job.payload);
   if((payload.kind==='task'&&!taskPushAllowed(db,job.id,device.email,now))||(payload.kind==='release'&&roleFor(db,device.email)!=='admin')){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
+  const preferences=deliveryPreferences(db,device.email);
+  if(job.event_id!==null&&quietNow(preferences,now)){db.prepare("UPDATE mobile_push_outbox SET state='muted',lease_until=0 WHERE id=?").run(job.id);return;}
+  const batch=[job];
+  if(job.event_id!==null&&preferences.digest_minutes){
+    db.exec('BEGIN IMMEDIATE');try{
+      const others=db.prepare("SELECT * FROM mobile_push_outbox WHERE device_id=? AND event_id IS NOT NULL AND state IN ('queued','retry') AND next_attempt<=? AND expires_at>? ORDER BY created_at,id LIMIT 19").all(job.device_id,now,now) as PushJob[];
+      for(const other of others){if(!notificationAllowed(db,device.email,other.event_id!)){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(other.id);continue;}db.prepare("UPDATE mobile_push_outbox SET state='sending',attempts=attempts+1,lease_until=? WHERE id=?").run(now+2*60_000,other.id);batch.push(other);}
+      db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
+  const outgoing=job.event_id!==null&&preferences.digest_minutes?{title:'Pokémon · '+batch.length+' készletesemény',body:batch.map(item=>String(JSON.parse(item.payload).body||'Termék')).join('\n').slice(0,300),kind:'digest',path:'/pokemon',eventId:'digest-'+job.id}:payload;
   const authorized=()=>{
     const current=options.now ?? Date.now(),active=db.prepare('SELECT fcm_token,email FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,current);
-    return current<job.expires_at&&active?.fcm_token===device.fcm_token&&active.email===device.email&&!!roleFor(db,device.email)
-      &&(job.event_id===null||notificationAllowed(db,device.email,job.event_id))
+    return batch.every(item=>current<item.expires_at)&&active?.fcm_token===device.fcm_token&&active.email===device.email&&!!roleFor(db,device.email)
+      &&(job.event_id===null||(!quietNow(deliveryPreferences(db,device.email),current)&&batch.every(item=>notificationAllowed(db,device.email,item.event_id!))))
       &&(payload.kind!=='task'||taskPushAllowed(db,job.id,device.email,current))&&(payload.kind!=='release'||roleFor(db,device.email)==='admin');
   };
-  const result=await (options.deliver || deliverFcm)(device.fcm_token,payload,Math.ceil((job.expires_at-now)/1000),authorized);
-  const state=result.state==='retry' && job.attempts>=4 ? 'failed' : result.state;
-  db.prepare('UPDATE mobile_push_outbox SET state=?,error=?,lease_until=0,next_attempt=?,sent_at=? WHERE id=?').run(state,result.error || null,now+Math.max(Math.min(5*60_000,60_000*2**job.attempts),result.retryAfterMs || 0),state==='sent' ? Date.now() : null,job.id);
+  const result=await (options.deliver || deliverFcm)(device.fcm_token,outgoing,Math.ceil((Math.min(...batch.map(item=>item.expires_at))-now)/1000),authorized);
+  transactionResult();
+  function transactionResult(){db.exec('BEGIN IMMEDIATE');try{for(const item of batch){const state=result.state==='retry'&&item.attempts>=4?'failed':result.state;db.prepare('UPDATE mobile_push_outbox SET state=?,error=?,lease_until=0,next_attempt=?,sent_at=? WHERE id=?').run(state,result.error||null,now+Math.max(Math.min(5*60_000,60_000*2**item.attempts),result.retryAfterMs||0),state==='sent'?Date.now():null,item.id);}db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}}
   if(result.invalidToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE id=? AND fcm_token=?').run(job.device_id,device.fcm_token);
 }

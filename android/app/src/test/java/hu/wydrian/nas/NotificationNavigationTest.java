@@ -116,9 +116,9 @@ public class NotificationNavigationTest {
         NotificationNavigation unknownShop = new NotificationNavigation(); unknownShop.receive(notification("bad-shop").putExtra("shopId", "unknown")); unknownShop.openProduct(activity);
         assertTrue(activity.attempted.isEmpty()); assertFalse(BrowserLauncher.open(activity, "javascript:alert(1)"));
     }
-    @Test public void taskReleaseAndTestPushStayInsideTheDashboard() {
+    @Test public void taskReleaseTestAndDigestPushStayInsideTheDashboard() {
         browsers(handler("browser.default", true));
-        for (String[] kindPath : new String[][]{{"task", "/notes#task-12"}, {"release", "/"}, {"test", "/pokemon"}}) {
+        for (String[] kindPath : new String[][]{{"task", "/notes#task-12"}, {"release", "/"}, {"test", "/pokemon"}, {"digest", "/pokemon"}}) {
             Intent intent = NotificationNavigation.destination(activity, Map.of("kind", kindPath[0], "path", kindPath[1], "shopId", "tcgbolt", "productUrl", PRODUCT), kindPath[0]);
             assertEquals(MainActivity.class.getName(), intent.getComponent().getClassName()); assertEquals(kindPath[1], intent.getStringExtra("path")); assertFalse(intent.hasExtra("productUrl"));
             NotificationNavigation navigation = new NotificationNavigation(); navigation.receive(intent); assertTrue(navigation.openProduct(activity));

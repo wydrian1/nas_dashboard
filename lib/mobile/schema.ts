@@ -22,5 +22,15 @@ export function initializeMobile(database:DatabaseSync) {
       UNIQUE(device_id,event_id)
     );
     CREATE INDEX IF NOT EXISTS mobile_push_due ON mobile_push_outbox(state,next_attempt);
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      email TEXT PRIMARY KEY REFERENCES dashboard_users(email),quiet_enabled INTEGER NOT NULL DEFAULT 0 CHECK(quiet_enabled IN (0,1)),
+      quiet_start INTEGER NOT NULL DEFAULT 1320 CHECK(quiet_start BETWEEN 0 AND 1439),quiet_end INTEGER NOT NULL DEFAULT 480 CHECK(quiet_end BETWEEN 0 AND 1439),
+      digest_minutes INTEGER NOT NULL DEFAULT 0 CHECK(digest_minutes IN (0,5,10)),watchlist_only INTEGER NOT NULL DEFAULT 0 CHECK(watchlist_only IN (0,1))
+    );
+    CREATE TABLE IF NOT EXISTS pokemon_watch_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL REFERENCES dashboard_users(email),query TEXT NOT NULL,
+      shop_id TEXT REFERENCES pokemon_shops(id),language TEXT NOT NULL CHECK(language IN ('any','english','japanese')),max_huf INTEGER CHECK(max_huf BETWEEN 1 AND 10000000)
+    );
+    CREATE INDEX IF NOT EXISTS pokemon_watch_owner ON pokemon_watch_rules(email);
   `);
 }

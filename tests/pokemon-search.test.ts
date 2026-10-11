@@ -64,7 +64,7 @@ test('one accessible client search filters aggregate, all shop products and all 
   assert.equal(page('.pokemon-latest-card').length,2);assert.equal(page('.pokemon-product').length,2);assert.equal(page('.pokemon-event').length,2);
   view.search('  DESTINED  ');page=view.render();
   for(const selector of ['.pokemon-latest-title','.pokemon-product a','.pokemon-event a']){assert.equal(page(selector).length,1);assert.match(page(selector).text(),/Destined Rivals/);}
-  assert.equal(page('.pokemon-overview strong').first().text(),'1');assert.match(page('#shop-mythgames .pokemon-products summary').text(),/\(0\)/);assert.match(page('#shop-mythgames .pokemon-events summary').text(),/\(0\)/);
+   assert.equal(page('.pokemon-overview strong').first().text(),'0');assert.equal(page('.pokemon-overview strong').eq(1).text(),'1');assert.match(page('.pokemon-overview').text(),/elavult, utolsó ismert/);assert.match(page('#shop-mythgames .pokemon-products summary').text(),/\(0\)/);assert.match(page('#shop-mythgames .pokemon-events summary').text(),/\(0\)/);
   assert.equal(page('.pokemon-panel').length,2);assert.equal(page('.pokemon-settings').length,2);assert.equal(JSON.stringify(data),before);
   view.search('');page=view.render();for(const selector of ['.pokemon-latest-card','.pokemon-product','.pokemon-event'])assert.equal(page(selector).length,2);
 });

@@ -26,7 +26,10 @@ test('deployment broker is separate, non-admin, replay-safe and cannot invoke a 
   assert.doesNotMatch(native,/ChangeServiceConfig|CreateService|cmd\.exe|powershell\.exe|ProcessStartInfo\([^,]*request/i);
   assert.match(native,/Path.Combine\(release,"publish.apk"\)/);assert.match(native,/Path.Combine\(release,"rollback.apk"\)/);assert.doesNotMatch(native,/artifacts\\(?:delegated|rollback)-/);
   assert.match(source('scripts/Install-Deployer.ps1'),/privs \$name SeChangeNotifyPrivilege/);assert.match(source('scripts/Install-Deployer.ps1'),/config WydrianDashboard obj= 'NT SERVICE\\WydrianDashboard'/);assert.match(source('scripts/Install-Deployer.ps1'),/NoPropagateInherit,InheritOnly/);
-  assert.match(source('scripts/Prepare-Deployment.mjs'),/Build-Dashboard\.ps1/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--test/);assert.match(source('scripts/Prepare-Deployment.mjs'),/--noEmit/);assert.match(source('scripts/Prepare-Deployment.mjs'),/finally\{writeFileSync\('next-env.d.ts',declarations\)/);
+  const prepare=source('scripts/Prepare-Deployment.mjs'),check=source('scripts/Check-Release.mjs');
+  assert.match(prepare,/checkedRelease\(root,true\)/);assert.match(prepare,/tree\(checked.build,'web'\)/);
+  assert.match(check,/\[npm,'test'\]/);assert.match(check,/\[npm,'run','typecheck'\]/);assert.match(check,/\[npm,'run','build'\]/);assert.match(check,/DASHBOARD_BUILD_DIR:'.next-staging'/);
+  assert.match(check,/\['archive'/);assert.match(check,/Source changed while checking release/);assert.doesNotMatch(check,/writeFileSync\(join\(root,'next-env|ignoreBuildErrors/);
   assert.match(source('docs/admin-helper.md'),/Kizárólag a négy/);assert.match(source('admin-helper/NasAdminHelper.cs'),/owner-confirmed/);
 });
 test('APK publication avoids metadata merge and recovery independently restarts verified previous components',()=>{

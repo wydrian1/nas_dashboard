@@ -63,7 +63,7 @@ export async function loadCollectrValue(fetcher:Fetcher=fetch,now=Date.now()):Pr
 export async function financeMarket():Promise<FinanceMarket> {
   const enabled=process.env.FINANCE_ETORO_ENABLED==='true';
   const [rates,collectr,inflation,etoro,brickeconomy]=await Promise.allSettled([loadExchangeRates(),loadCollectrValue(),loadInflation(),enabled ? loadEtoroValue() : Promise.resolve(null),loadBrickEconomyValue()]);
-  return {rates:rates.status==='fulfilled' ? rates.value : null,collectr:collectr.status==='fulfilled' ? collectr.value : null,
+  return {checkedAt:Date.now(),rates:rates.status==='fulfilled' ? rates.value : null,collectr:collectr.status==='fulfilled' ? collectr.value : null,
     rateError:rates.status==='rejected' ? 'Az árfolyam most nem érhető el. USD-ben menteni ellenőrzött árfolyam nélkül nem lehet; Ft-bevitel használható.' : null,
     collectrError:collectr.status==='rejected' ? 'A Collectr értéke most nem érhető el. A Pokémon-mezőt kézzel töltsd ki; nem másoljuk az előző hónapot.' : null,
     brickeconomy:brickeconomy.status==='fulfilled' ? brickeconomy.value : null,

@@ -12,7 +12,7 @@ export type ExchangeRates={date:string;usdHuf:number;eurHuf:number;fetchedAt:str
 export type CollectrValue={usdMinor:number;fetchedAt:string};
 export type EtoroValue={usdMinor:number;fetchedAt:string};
 export type BrickEconomyValue={hufMinor:number;fetchedAt:string};
-export type FinanceMarket={rates:ExchangeRates|null;collectr:CollectrValue|null;rateError:string|null;collectrError:string|null;inflation:InflationSeries|null;inflationError:string|null;etoro?:EtoroValue|null;etoroError?:string|null;brickeconomy?:BrickEconomyValue|null;brickeconomyError?:string|null};
+export type FinanceMarket={checkedAt?:number;rates:ExchangeRates|null;collectr:CollectrValue|null;rateError:string|null;collectrError:string|null;inflation:InflationSeries|null;inflationError:string|null;etoro?:EtoroValue|null;etoroError?:string|null;brickeconomy?:BrickEconomyValue|null;brickeconomyError?:string|null};
 export function usdAccount(id:string):boolean{return (USD_ACCOUNT_IDS as readonly string[]).includes(id);}
 export function usdToHuf(usdMinor:number,rate:number):number {
   if(!Number.isSafeInteger(usdMinor) || usdMinor<0 || !Number.isFinite(rate) || rate<=0 || rate>10000)throw new FinanceInputError('Érvénytelen USD-összeg vagy árfolyam.');

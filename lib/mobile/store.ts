@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { SHOP_NAMES, isShopID } from '../pokemon/types.ts';
 import { roleFor } from '../users.ts';
 import { notificationAllowed } from '../pokemon/notifications.ts';
+import {deliveryPreferences,quietNow,productPushDue} from './preferences.ts';
 
 export const MOBILE_ORIGIN='https://nas.wydrian.hu';
 export const MOBILE_PROJECT='nas-wydrian-hu';
@@ -92,7 +93,7 @@ export function queuePushEvent(db:DatabaseSync,eventId:number,shopId:string,titl
     if(!notificationAllowed(db,device.email,eventId))continue;
     const recent=db.prepare(`SELECT 1 FROM mobile_push_outbox o JOIN pokemon_events e ON e.id=o.event_id
       JOIN pokemon_events current ON current.id=? WHERE o.device_id=? AND e.shop_id=current.shop_id AND e.external_id=current.external_id AND o.created_at>?`).get(eventId,device.id,now-60*60_000);
-    if(!recent)db.prepare('INSERT OR IGNORE INTO mobile_push_outbox(id,device_id,event_id,payload,created_at,expires_at) VALUES(?,?,?,?,?,?)').run(opaque(),device.id,eventId,payload,now,now+15*60_000);
+    if(!recent){const preferences=deliveryPreferences(db,device.email);db.prepare('INSERT OR IGNORE INTO mobile_push_outbox(id,device_id,event_id,payload,created_at,expires_at,state,next_attempt) VALUES(?,?,?,?,?,?,?,?)').run(opaque(),device.id,eventId,payload,now,now+15*60_000,quietNow(preferences,now)?'muted':'queued',productPushDue(preferences,now));}
   }
 }
 export function cancelShopPush(db:DatabaseSync,shopId:string) {

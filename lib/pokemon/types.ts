@@ -50,7 +50,7 @@ export type PokemonShop = {
 // in_stock records presence in the purchasable filtered list; availability distinguishes preorders.
 export type StoredProduct = { external_id: string; title: string; url: string; sku: string; image: string | null; price_huf: number | null; availability: string; in_stock: number; missing_count: number; episode: number; first_seen: number; last_seen: number; last_queued: number | null };
 export type PokemonEvent = { id: number; kind: string; title: string; url: string; price_huf: number | null; occurred_at: number; mail_state: string };
-export type PokemonAggregateEvent = PokemonEvent & {shop_id:string;shop_name:string;image:string|null};
-export type PokemonShopSnapshot = { shop: PokemonShop; products: StoredProduct[]; events: PokemonEvent[]; notifications?:import('./notifications.ts').NotificationSettings; mail: {id:string;kind:string;state:string;error:string|null;created_at:number}[] };
+export type PokemonAggregateEvent = PokemonEvent & {shop_id:string;shop_name:string;image:string|null;stale?:boolean};
+export type PokemonShopSnapshot = { shop: PokemonShop; health?:import('./health.ts').ShopHealth;products: StoredProduct[]; events: PokemonEvent[]; notifications?:import('./notifications.ts').NotificationSettings; mail: {id:string;kind:string;state:string;error:string|null;created_at:number}[] };
 // Keep original GameRunner fields for existing private API consumers; mail/smtpConfigured are retired compatibility fields.
 export type PokemonSnapshot = PokemonShopSnapshot & { shops:PokemonShopSnapshot[]; latestEvents:PokemonAggregateEvent[]; viewerRole?:import('../users.ts').Role; workerAlive:boolean; smtpConfigured:boolean };

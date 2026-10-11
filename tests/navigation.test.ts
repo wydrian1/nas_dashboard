@@ -105,7 +105,7 @@ test('dashboard, news and notes use the shared accent eyebrow and responsive tit
 test('admin menu starts with Dashboard and news; dashboard sections and phone management are not separate menu items',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'overview'})));
-  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/config']);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/notifications','/important-info','/search','/config']);
   assert.equal(page('nav a').first().find('span').text(),'Dashboard');assert.equal(page('nav a').eq(1).find('span').text(),'Hírolvasó');
   assert.equal(page('nav a').first().attr('aria-current'),'page');
   assert.equal(page('nav a[href="/mobile"],nav a[href^="/#"]').length,0);
@@ -122,7 +122,8 @@ test('OpenCode owner menu is opt-in and never appears for Pokemon readers',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const owner=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'opencode',openCode:true})));
   assert.equal(owner('nav a[href="/opencode"]').attr('aria-current'),'page');
-  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/important-info','/opencode','/config']);
+  assert.deepEqual(owner('nav a').map((_,el)=>owner(el).attr('href')).get(),['/','/news','/finance','/collections','/files','/notes','/pokemon','/notifications','/important-info','/search','/opencode','/system','/config']);
+  assert.equal(owner('nav a[href="/system"]').length,1);
   const reader=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'pokemon-reader',openCode:true})));
   assert.equal(reader('nav a[href="/opencode"]').length,0);
   assert.match(source('app/opencode/page.tsx'),/if\(!isOpenCodeOwner\(session.user\?\.email\)\)redirect\('\/'\)/);
@@ -162,10 +163,10 @@ test('all configured shop shortcuts precede the event feed and point to existing
   }finally{db.close();}
 });
 
-test('reader navigation exposes only Pokemon; reader settings expose only their own notification switches',()=>{
+test('reader navigation exposes Pokemon and personal tools only; shop settings remain unchanged',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const nav=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'pokemon',role:'pokemon-reader'})));
-  assert.equal(nav('nav a').length,1);assert.equal(nav('nav a').attr('href'),'/pokemon');
+  assert.deepEqual(nav('nav a').map((_,el)=>nav(el).attr('href')).get(),['/pokemon','/notifications','/search']);
   const db=new DatabaseSync(':memory:');initializeDatabase(db);
   try{
     const snapshot=readPokemonSnapshot(db,false,Date.now(),{email:'reader@example.com',role:'pokemon-reader'});
@@ -177,10 +178,10 @@ test('reader navigation exposes only Pokemon; reader settings expose only their 
     assert.equal(page('.pokemon-products').length,SHOP_IDS.length);assert.equal(page('.pokemon-events').length,SHOP_IDS.length);
   }finally{db.close();}
 });
-test('info-reader navigation exposes only Important info with no Pokemon/config/finance destinations',()=>{
+test('info-reader navigation exposes Important info and authorised search but no private module destinations',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'important-info',role:'info-reader',openCode:true})));
-  assert.equal(page('nav a').length,1);assert.equal(page('nav a').attr('href'),'/important-info');assert.equal(page('nav a').attr('aria-current'),'page');assert.equal(page('a[href="/finance"],a[href="/pokemon"],a[href="/config"],a[href="/opencode"]').length,0);
+  assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/important-info','/search']);assert.equal(page('nav a[href="/important-info"]').attr('aria-current'),'page');assert.equal(page('a[href="/finance"],a[href="/pokemon"],a[href="/config"],a[href="/opencode"],a[href="/system"],a[href="/notifications"]').length,0);
   assert.match(page.text(),/Fontos infók/);
 });
 

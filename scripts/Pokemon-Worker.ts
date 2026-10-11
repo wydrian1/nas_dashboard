@@ -47,7 +47,7 @@ while(!shutdown.signal.aborted){
         console.log(JSON.stringify({time:new Date().toISOString(),shop:shopID,count:scan.total,...result}));
       } catch(error) {
         const message=error instanceof Error ? error.message : 'Ismeretlen vizsgálati hiba.';
-        failScan(database,owner,message,error instanceof ShopRequestError ? error.retryAfterMs : 0);
+        failScan(database,owner,message,error instanceof ShopRequestError ? error.retryAfterMs : 0,Date.now(),error instanceof ShopRequestError?error.kind:'error');
         console.error(shopID+' scan failed: '+message);
       }
       database.prepare("UPDATE pokemon_worker SET heartbeat=? WHERE id=1").run(Date.now());
