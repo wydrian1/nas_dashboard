@@ -9,6 +9,8 @@ import { load } from 'cheerio';
 import ts from 'typescript';
 import { initializeFinance } from '../lib/finance/schema.ts';
 import { readFinanceSnapshot } from '../lib/finance/store.ts';
+import { formatMoney, formatPercent } from '../lib/finance/types.ts';
+import { realGrowthPeriods, cpiGrowthPeriods } from '../lib/finance/market-types.ts';
 const require=createRequire(import.meta.url);
 const components=new Map<string,any>();
 function component(path:string,reactModule?:unknown,extra=''):any {
@@ -82,6 +84,28 @@ test('composition pie excludes debt even if an asset and liability share the sam
   const data=snapshot();data.accounts[1].category='Banks';const Composition=component('app/finance/composition.tsx').default;
   const page=load(renderToStaticMarkup(React.createElement(Composition,{snapshot:data})));
   assert.equal(page('.finance-pie-legend li').length,1);assert.match(page('.finance-pie-legend').text(),/100%/);assert.match(page('.finance-composition-debt').text(),/-200/);
+});
+test('composition SVG title survives server rendering as complete text without mutating balances',()=>{
+  const data=snapshot(),before=JSON.stringify(data),Composition=component('app/finance/composition.tsx').default;
+  const page=load(renderToStaticMarkup(React.createElement(Composition,{snapshot:data})));
+  assert.deepEqual(page('.finance-pie circle title').map((_,element)=>page(element).text()).get(),[`Banks: ${formatMoney(130000)} · 100%`]);
+  assert.equal(JSON.stringify(data),before);
+});
+test('annual and KSH real-growth SVG titles survive server rendering as complete text for every series',()=>{
+  const data=snapshot(),Growth=component('app/finance/real-growth.tsx').default;
+  data.annual.push({as_of:'2026-09-01',start_date:'2025-09-01',excel_total_minor:110000,nominal:null,inflation:.04,excel_real:null});
+  const inflation={annual:[],monthly:[{month:'2026-09',mom:.01,yoy:.06}],fetchedAt:'2026-10-12T00:00:00Z'},before=JSON.stringify(data);
+  for(const indices of [null,inflation]){
+    const periods=indices?cpiGrowthPeriods(data,indices):realGrowthPeriods(data);
+    assert.equal(periods.length,1);
+    const page=load(renderToStaticMarkup(React.createElement(Growth,{snapshot:data,inflation:indices})));
+    assert.deepEqual(page('.finance-real-chart rect title').map((_,element)=>page(element).text()).get(),periods.flatMap(period=>[
+      `${period.label} · Nominális: ${formatPercent(period.nominal)}`,
+      `${period.label} · Infláció: ${formatPercent(period.inflation)}`,
+      `${period.label} · Reálérték: ${formatPercent(period.real)}`
+    ]));
+  }
+  assert.equal(JSON.stringify(data),before);
 });
 test('eToro editor displays Total Balance prefill with fetch time, explicit save and untouched empty crypto row',()=>{
   const data=snapshot(),Editor=component('app/finance/finance-editor.tsx').default;

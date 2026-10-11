@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {encode} from 'next-auth/jwt';
 import {initializeDatabase} from '../lib/db-schema.ts';
+import {load} from 'cheerio';
 
 const root=process.cwd(),fixture=mkdtempSync(join(process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir(),'nas-browser-'));
 const owner='owner@example.test',reader='reader@example.test',info='info@example.test',admin='admin@example.test',now=Date.now(),secret=randomBytes(32).toString('base64url');
@@ -25,6 +26,14 @@ for(const [email,role]of [[reader,'pokemon-reader'],[info,'info-reader'],[admin,
 db.prepare("INSERT INTO notes(title,content) VALUES('Lantern private note','Synthetic private content'),('Literal %_ note','Safe text')").run();
 db.prepare('INSERT INTO important_info VALUES(1,?,1,?)').run('<p>Lantern reader notice</p>',new Date(now).toISOString());
 db.prepare("INSERT INTO finance_lego_items VALUES('lego-fixture','12345','Lantern LEGO',3,5000,NULL,1,?,NULL)").run(new Date(now).toISOString());
+// Populated snapshots exercise both SVG title renderers; an empty finance page cannot expose #418.
+db.exec("INSERT INTO finance_accounts VALUES('fixture-bank','Fixture bank','Fixture assets','asset',1,NULL),('fixture-debt','Fixture debt','Fixture debt','debt',2,11)");
+for(const [month,amount]of [['2025-09',80000],['2026-08',100000],['2026-09',130000]]){
+  db.prepare("INSERT INTO finance_months(month,as_of,source,note,updated_at) VALUES(?,?,'manual','',?)").run(month,month+'-01',new Date(now).toISOString());
+  db.prepare('INSERT INTO finance_balances(month,account_id,amount_minor) VALUES(?,?,?)').run(month,'fixture-bank',amount);
+}
+db.prepare('INSERT INTO finance_balances(month,account_id,amount_minor) VALUES(?,?,?)').run('2026-09','fixture-debt',-20000);
+db.prepare('INSERT INTO finance_annual VALUES(?,?,?,NULL,?,NULL)').run('2026-09-01','2025-09-01',110000,.04);
 db.prepare("INSERT INTO pokemon_products(shop_id,external_id,sku,title,url,price_huf,availability,in_stock,first_seen,last_seen) VALUES('grandline','fixture','','Lantern English Booster Box','https://www.grandline.hu/product',5000,'in_stock',1,?,?)").run(now,now);
 db.prepare("UPDATE pokemon_shops SET baseline_at=?,last_success=?,failure_count=1,status='protected',last_error='Synthetic access protection' WHERE id='grandline'").run(now,now);
 db.prepare("INSERT INTO pokemon_worker VALUES(1,?,'running')").run(now);
@@ -63,8 +72,16 @@ try{
     }
     if(role==='owner'){
       await page.goto(origin+'/system');check(await page.locator('h1').textContent()==='Rendszer állapota','system view');check(await page.getByText('Mentési bizonyíték nem elérhető',{exact:false}).count()>0,'unknown backup visible');
-      await page.goto(origin+'/finance');check(await page.locator('[data-valuation=quality]').count()===2,'valuation data quality cards');check(await page.locator('[data-valuation=quality]').first().innerText().then(text=>text.includes('0 sor')),'quality metadata readable');
+      const financeResponse=await page.goto(origin+'/finance'),serverPage=load(await financeResponse.text());
+      check(await page.locator('[data-valuation=quality]').count()===2,'valuation data quality cards');check(await page.locator('[data-valuation=quality]').first().innerText().then(text=>text.includes('0 sor')),'quality metadata readable');
       check(await page.locator('[data-valuation=quality]').nth(1).innerText().then(text=>text.includes('1 sor / 3 db')),'unknown acquisition dates preserved');
+      await page.locator('.section-order-toggle button:not([disabled])').waitFor();
+      for(const [selector,count]of [['.finance-pie circle title',1],['.finance-real-chart rect title',3]]){
+        const serverTitles=serverPage(selector).map((_,element)=>serverPage(element).text()).get();
+        check(serverTitles.length===count&&serverTitles.every(text=>text.trim().length>0),'complete server-rendered SVG titles '+selector);
+        check(JSON.stringify(await page.locator(selector).allTextContents())===JSON.stringify(serverTitles),'hydrated SVG titles match server '+selector);
+      }
+      for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'populated finance no overflow '+width);}
     }
     check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls '+role);await context.close();
   }
