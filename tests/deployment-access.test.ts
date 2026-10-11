@@ -12,7 +12,8 @@ test('deployment preparation checks dashboard runtime access before build and ag
   assert.doesNotMatch(readFileSync(new URL('../scripts/Test-Deployment-Access.ps1',import.meta.url),'utf8'),/Set-Acl|icacls|Start-Service|Stop-Service|Restart-Service/);
 });
 test('Windows deployment access preflight is read-only and rejects a recreated unreadable config or deny ACE',{skip:process.platform!=='win32'},()=>{
-  const root=process.cwd(),fixture=mkdtempSync(join(root,'.runtime/research/deployment-access-test-'));
+  const root=process.cwd();mkdirSync(join(root,'.runtime/research'),{recursive:true});
+  const fixture=mkdtempSync(join(root,'.runtime/research/deployment-access-test-'));
   const powershell=join(process.env.WINDIR!,'System32/WindowsPowerShell/v1.0/powershell.exe'),script=join(root,'scripts/Test-Deployment-Access.ps1');
   const run=(args:string[])=>spawnSync(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',...args],{encoding:'utf8',timeout:30000,windowsHide:true});
   const quote=(value:string)=>"'"+value.replaceAll("'","''")+"'";
