@@ -5,11 +5,13 @@ import { SHOP_IDS } from "./types.ts";
 import type { PokemonSnapshot, StoredProduct, PokemonEvent, PokemonAggregateEvent } from "./types.ts";
 import { notificationSettings } from './notifications.ts';
 import {canAccess,AccessError,type Role} from '../users.ts';
+import {shopHealth} from './health.ts';
 
 export function readPokemonSnapshot(database:DatabaseSync,_legacySmtpConfigured=false,now=Date.now(),viewer?:{email:string;role:Role}):PokemonSnapshot {
   if(viewer&&!canAccess(viewer.role,'pokemon'))throw new AccessError();
   const recentSince=now-24*60*60_000;
   const worker=database.prepare('SELECT heartbeat FROM pokemon_worker WHERE id=1').get() as {heartbeat:number}|undefined;
+  const workerAlive=!!worker&&worker.heartbeat<=now+60_000&&now-worker.heartbeat<4*60_000;
   const shops=SHOP_IDS.map(shopID=>({
     shop:shop(database,shopID),
     ...(viewer ? {notifications:notificationSettings(database,viewer.email,shopID)} : {}),
@@ -28,6 +30,7 @@ export function readPokemonSnapshot(database:DatabaseSync,_legacySmtpConfigured=
     JOIN pokemon_products p ON p.shop_id=e.shop_id AND p.external_id=e.external_id
       AND p.in_stock=1 AND p.missing_count=0 AND p.episode=e.episode
     WHERE e.occurred_at>? AND e.occurred_at<=?
-    ORDER BY e.occurred_at DESC,e.id DESC LIMIT 60`).all(recentSince,now) as PokemonAggregateEvent[]).map(plainSqlRow);
-  return {...shops[0],shops,latestEvents,...(viewer ? {viewerRole:viewer.role} : {}),workerAlive:!!worker && now-worker.heartbeat<4*60_000,smtpConfigured:false};
+    ORDER BY e.occurred_at DESC,e.id DESC LIMIT 60`).all(recentSince,now) as unknown as PokemonAggregateEvent[]).map(plainSqlRow);
+  const withHealth=shops.map(item=>({...item,health:shopHealth(item.shop,workerAlive,now)}));
+  return {...withHealth[0],shops:withHealth,latestEvents:latestEvents.map(event=>({...event,stale:withHealth.find(item=>item.shop.id===event.shop_id)?.health.stale??true})),...(viewer ? {viewerRole:viewer.role} : {}),workerAlive,smtpConfigured:false};
 }

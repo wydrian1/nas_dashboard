@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { PokemonShop, ShopID, ShopScan, StoredProduct } from "./types.ts";
 import { queuePushEvent } from "../mobile/store.ts";
+import type {ShopFailureKind} from './health.ts';
 
 export function transaction<T>(database:DatabaseSync, operation:()=>T):T {
   database.exec("BEGIN IMMEDIATE");
@@ -24,12 +25,12 @@ function owned(database:DatabaseSync,owner:string,now:number):PokemonShop {
   if(!row)throw new Error("A webshopvizsgálat zárolása lejárt.");
   return {...row} as PokemonShop;
 }
-export function failScan(database:DatabaseSync,owner:string,message:string,retryAfterMs=0,now=Date.now()) {
+export function failScan(database:DatabaseSync,owner:string,message:string,retryAfterMs=0,now=Date.now(),kind:ShopFailureKind='error') {
   transaction(database,()=>{
     const current=owned(database,owner,now);
-    const backoff=Math.max(current.interval_minutes*60_000,Math.min(6*60*60_000,60_000*2**Math.min(current.failure_count+1,9)),retryAfterMs);
+    const backoff=Math.max(current.interval_minutes*60_000,Math.min(6*60*60_000,60_000*2**Math.min(current.failure_count+1,9)),retryAfterMs,['maintenance','protected'].includes(kind)?15*60_000:0);
     database.prepare("INSERT INTO pokemon_scans VALUES(?,?,?,?,?,?,?,?)").run(owner,current.id,current.lease_until-5*60_000,now,"failed",null,null,message.slice(0,500));
-    database.prepare("UPDATE pokemon_shops SET status='error',last_error=?,failure_count=failure_count+1,next_scan=?,lease_until=0,lease_owner=NULL WHERE id=?").run(message.slice(0,500),now+backoff,current.id);
+    database.prepare("UPDATE pokemon_shops SET status=?,last_error=?,failure_count=failure_count+1,next_scan=?,lease_until=0,lease_owner=NULL WHERE id=?").run(kind,message.slice(0,500),now+backoff,current.id);
   });
 }
 export function finishScan(database:DatabaseSync,owner:string,scan:ShopScan,now=Date.now()) {

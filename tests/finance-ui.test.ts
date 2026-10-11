@@ -30,6 +30,7 @@ function component(path:string,reactModule?:unknown,extra=''):any {
     if(name==='@/lib/finance/input-types')return require('../lib/finance/input-types.ts');
     if(name==='@/lib/finance/chart-types')return require('../lib/finance/chart-types.ts');
     if(name==='@/lib/finance/collection-growth-types')return require('../lib/finance/collection-growth-types.ts');
+    if(name==='@/lib/finance/valuation-quality')return require('../lib/finance/valuation-quality.ts');
     if(name==='./integer-amount-input' || name==='../finance/integer-amount-input')return component('app/finance/integer-amount-input.tsx');
     if(name==='./finance-chart')return component('app/finance/finance-chart.tsx');
     if(name==='./real-growth')return component('app/finance/real-growth.tsx');

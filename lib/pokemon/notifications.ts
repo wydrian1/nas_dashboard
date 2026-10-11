@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { roleFor, requireAccess, canAccess, type Role } from '../users.ts';
 import { isShopID } from './types.ts';
+import {deliveryPreferences,watchRules,watchMatches} from '../mobile/preferences.ts';
 
 export type NotificationSettings={enabled:number;notify_new:number;notify_restock:number;notify_preorder:number};
 export function notificationSettings(db:DatabaseSync,email:string,shopID:string):NotificationSettings {
@@ -9,9 +10,10 @@ export function notificationSettings(db:DatabaseSync,email:string,shopID:string)
 }
 export function notificationAllowed(db:DatabaseSync,email:string,eventID:number):boolean {
    const role=roleFor(db,email);if(!canAccess(role,'pokemon'))return false;
-  const event=db.prepare(`SELECT e.shop_id,e.kind,p.availability,s.enabled FROM pokemon_events e
-    JOIN pokemon_shops s ON s.id=e.shop_id LEFT JOIN pokemon_products p ON p.shop_id=e.shop_id AND p.external_id=e.external_id WHERE e.id=?`).get(eventID) as {shop_id:string;kind:string;availability:string;enabled:number}|undefined;
-  if(!event?.enabled)return false;
+   const event=db.prepare(`SELECT e.shop_id,e.kind,e.title,e.price_huf,p.availability,s.enabled FROM pokemon_events e
+     JOIN pokemon_shops s ON s.id=e.shop_id LEFT JOIN pokemon_products p ON p.shop_id=e.shop_id AND p.external_id=e.external_id WHERE e.id=?`).get(eventID) as {shop_id:string;kind:string;title:string;price_huf:number|null;availability:string;enabled:number}|undefined;
+   if(!event?.enabled)return false;
+   if(deliveryPreferences(db,email).watchlist_only&&!watchRules(db,email).some(rule=>watchMatches(rule,event)))return false;
   const settings=notificationSettings(db,email,event.shop_id);
   if(role==='pokemon-reader')return !!settings.enabled;
   return !!settings.enabled && !!(event.kind==='restock' ? settings.notify_restock : settings.notify_new)

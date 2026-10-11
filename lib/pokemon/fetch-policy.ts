@@ -2,11 +2,13 @@ import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import { pinnedAddressOptions } from "../feed-download.ts";
 import { isPublicAddress } from "../url-policy.ts";
+import {interruptionRedirect,type ShopFailureKind} from './health.ts';
 import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY, TCGBOLT_CATEGORY, BLOOMRIFT_CATEGORY } from "./types.ts";
 
 export class ShopRequestError extends Error {
   retryAfterMs: number;
-  constructor(message: string, retryAfterMs=0) {super(message);this.retryAfterMs=retryAfterMs;}
+  kind:ShopFailureKind;
+  constructor(message: string, retryAfterMs=0,kind:ShopFailureKind='error') {super(message);this.retryAfterMs=retryAfterMs;this.kind=kind;}
 }
 export function gamerunnerFetchUrl(input: string): URL {
   const url=new URL(input);
@@ -35,7 +37,8 @@ export async function downloadShopPage(input: string, signal: AbortSignal, redir
         res.resume();
         const value=res.headers["retry-after"];
         const retry=typeof value==="string" ? (/^\d+$/.test(value) ? Number(value)*1000 : Math.max(0,Date.parse(value)-Date.now())) : 0;
-        reject(new ShopRequestError(`A webshop HTTP ${res.statusCode || "hiba"} választ adott.`,Number.isFinite(retry)?retry:0));return;
+        const kind=res.statusCode===403?'protected':res.statusCode===429?'rate_limited':'error';
+        reject(new ShopRequestError(`A webshop HTTP ${res.statusCode || "hiba"} választ adott.`,Number.isFinite(retry)?retry:0,kind));return;
       }
       const chunks:Buffer[]=[];let size=0;
       res.on("data",(chunk:Buffer)=>{size+=chunk.length;if(size>3*1024*1024)req.destroy(new ShopRequestError("Túl nagy webshopoldal."));else chunks.push(chunk);});
@@ -48,6 +51,8 @@ export async function downloadShopPage(input: string, signal: AbortSignal, redir
     if (redirects>=3) throw new ShopRequestError("Túl sok webshop-átirányítás.");
     const target=new URL(response.location,url);
     if(target.origin!==url.origin)throw new ShopRequestError("Másik webshopra történő átirányítás nem engedélyezett.");
+    const interruption=interruptionRedirect(target);
+    if(interruption)throw new ShopRequestError(interruption==='maintenance'?'A webshop karbantartási oldalra irányít; a korábbi készlet nem aktuális.':'A webshop hozzáférésvédelmet kér; ezt nem kerüljük meg.',15*60_000,interruption);
     return downloadShopPage(target.href,signal,redirects+1);
   }
   return response.body;
