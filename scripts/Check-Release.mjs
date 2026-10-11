@@ -15,7 +15,9 @@ export function checkedRelease(root=process.cwd(),productionEnvironment=false){
   if(!npm)throw new Error('Run with npm run check:release or provide the local Node/npm runtime');
   run(process.execPath,[npm,'ci','--ignore-scripts','--no-audit','--no-fund'],source);
   run(process.execPath,['node_modules/playwright/cli.js','install',...(process.env.CI==='true'?['--with-deps']:[]),'chromium'],source);
-  const tests=run(process.execPath,[npm,'test'],source);
+  // Legacy fixtures use the source's default test-owner identity. Do not inherit
+  // a deployment/CI owner override into those in-memory databases.
+  const tests=run(process.execPath,[npm,'test'],source,{ALLOWED_EMAIL:undefined});
   run(process.execPath,['--test','docs/history-site.test.mjs'],source);
   run(process.execPath,[npm,'run','build'],source,{...(productionEnvironment?parseEnv(readFileSync(join(root,'.env.local'),'utf8')):{}),DASHBOARD_BUILD_DIR:'.next-staging',NEXT_TELEMETRY_DISABLED:'1'});
   run(process.execPath,[npm,'run','typecheck'],source);
