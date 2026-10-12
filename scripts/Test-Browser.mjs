@@ -25,7 +25,10 @@ cpSync(join(root,'public'),join(fixture,'public'),{recursive:true});
 writeFileSync(join(fixture,'package.json'),'{"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next"};');mkdirSync(join(fixture,'data'));
 // Dashboard SSR uses Node request(), not browser fetch: isolate fixed NAS probes too.
 writeFileSync(join(fixture,'block-service-probes.mjs'),`import http from 'node:http';import https from 'node:https';import {EventEmitter} from 'node:events';import {syncBuiltinESMExports} from 'node:module';
-for(const module of [http,https]){const request=module.request;module.request=function(target,...args){if(target instanceof URL&&target.hostname==='127.0.0.1'&&['8081','32400','8920'].includes(target.port)){const req=new EventEmitter();req.end=()=>queueMicrotask(()=>req.emit('error',new Error('Synthetic fixture blocks NAS probes')));return req;}return request.call(this,target,...args);};}syncBuiltinESMExports();`);
+for(const module of [http,https]){const request=module.request;module.request=function(target,...args){if(target instanceof URL&&target.hostname==='127.0.0.1'&&['8081','32400','8920'].includes(target.port)){const req=new EventEmitter();req.end=()=>queueMicrotask(()=>req.emit('error',new Error('Synthetic fixture blocks NAS probes')));return req;}return request.call(this,target,...args);};}syncBuiltinESMExports();
+// Emulate Caddy's HTTPS origin only for explicitly marked same-origin fixture calls.
+// Chromium preserves the actual loopback Origin even when route headers override it.
+const emit=http.Server.prototype.emit;http.Server.prototype.emit=function(event,...args){const request=args[0];if(event==='request'&&request.url?.split('?')[0].startsWith('/api/files')&&request.headers['x-nas-browser-fixture']==='files-proxy'&&request.headers.host===${JSON.stringify(new URL(origin).host)}&&request.headers.origin===${JSON.stringify(origin)}&&request.headers['sec-fetch-site']==='same-origin'){request.headers.origin='https://nas.wydrian.hu';for(let index=0;index<request.rawHeaders.length;index+=2)if(request.rawHeaders[index].toLowerCase()==='origin')request.rawHeaders[index+1]='https://nas.wydrian.hu';}return emit.call(this,event,...args);};`);
 const db=new DatabaseSync(join(fixture,'data/dashboard.sqlite'));initializeDatabase(db);
 for(const [email,role]of [[reader,'pokemon-reader'],[info,'info-reader'],[admin,'admin']])db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,?,?)').run(email,role,now,now);
 db.prepare("INSERT INTO notes(title,content) VALUES('Lantern private note','Synthetic private content'),('Literal %_ note','Safe text')").run();
@@ -52,13 +55,15 @@ try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Fixture startup timed out')),30000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Fixture server exited'));});child.stdout.on('data',()=>{if(log.includes('Ready in')){clearTimeout(timer);resolve();}});});
   const cookies={};for(const [role,email]of Object.entries({owner,reader,info,admin}))cookies[role]='authjs.session-token='+await encode({secret,salt:'authjs.session-token',maxAge:900,token:{email,name:'Synthetic browser check'}});
   const call=(path,role)=>fetch(origin+path,{redirect:'manual',headers:role?{cookie:cookies[role]}:{},signal:AbortSignal.timeout(20000)});
-  for(const path of ['/search','/system','/notifications']){const response=await call(path);check(response.status===307&&response.headers.get('location')==='/','anonymous denied '+path);await response.body?.cancel();}
+  for(const path of ['/search','/system','/notifications','/files']){const response=await call(path);check(response.status===307&&response.headers.get('location')==='/','anonymous denied '+path);await response.body?.cancel();}
   for(const role of [null,'reader','info','admin']){const response=await call('/api/operations',role);check(response.status===(role?403:401),'owner-only operations API '+role);await response.body?.cancel();}
   let response=await call('/api/operations','owner');check(response.status===200,'owner operations API');const health=await response.json();check(health.backup.state==='unknown','missing backup is unknown');check(health.shops.find(item=>item.id==='grandline').stale,'stale shop metadata');check(!JSON.stringify(health).includes('synthetic-fcm-token'),'no token exposure');
   response=await call('/timeline');check(response.status===404,'timeline remains off the NAS');await response.body?.cancel();
   for(const [role,path,destination]of [['reader','/system','/pokemon'],['info','/notifications','/important-info'],['admin','/system','/']]){response=await call(path,role);check(response.status===307&&response.headers.get('location')===destination,'role boundary '+role+' '+path);await response.body?.cancel();}
   for(const role of ['owner','admin']){response=await call('/notifications',role);check(response.status===307&&response.headers.get('location')==='/config#notifications','legacy notifications redirect '+role);await response.body?.cancel();}
   for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/config',role);check(response.status===307&&response.headers.get('location')===destination,'configuration still admin-only '+role);await response.body?.cancel();}
+  for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/files',role);check(response.status===307&&response.headers.get('location')===destination,'files remain admin-only '+role);await response.body?.cancel();}
+  response=await fetch(origin+'/api/files/folders',{method:'POST',headers:{cookie:cookies.owner,origin,'Content-Type':'application/json'},body:JSON.stringify({parent:null,name:'Rejected loopback origin'})});check(response.status===403,'file writes still reject unsupported loopback origins');await response.body?.cancel();
   for(const role of ['owner','admin'])for(const [query,destination]of [['','/#dashboard-search'],['?q=lantern','/?q=lantern#dashboard-search'],['?q=%25_','/?q=%25_#dashboard-search'],['?q=one&q=two','/#dashboard-search']]){response=await call('/search'+query,role);check(response.status===307&&response.headers.get('location')===destination,'legacy search redirect '+role+' '+query);await response.body?.cancel();}
   for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/?q=lantern',role);check(response.status===307&&response.headers.get('location')===destination,'dashboard remains admin-only '+role);await response.body?.cancel();}
   browser=await chromium.launch({headless:true});
@@ -66,7 +71,13 @@ try{
     const context=await browser.newContext({viewport:{width:1440,height:900}});
     await context.addCookies([{name:'authjs.session-token',value:cookies[role].slice('authjs.session-token='.length),url:origin}]);
     const page=await context.newPage(),errors=[],requests=[];
-    await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
+    await context.route('**/*',route=>{
+      const request=route.request();if(!request.url().startsWith(origin+'/'))return route.abort();
+      // Fixture-only proxy headers: file APIs require the real HTTPS dashboard origin.
+      // Traffic and storage stay in this loopback/temp fixture; never relax app policy.
+      if(new URL(request.url()).pathname.startsWith('/api/files'))return route.continue({headers:{...request.headers(),'x-nas-browser-fixture':'files-proxy','x-forwarded-host':'nas.wydrian.hu','x-forwarded-proto':'https'}});
+      return route.continue();
+    });
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(origin+'/search?q=lantern');const searchHeading=await page.locator('h1').textContent();check(searchHeading===(role==='owner'?'Dashboard':'Keresés'),'search rendered '+role+': '+searchHeading+' at '+page.url());
     check(await page.locator('nav a[href="/search"]').count()===0,'no standalone search menu '+role);
@@ -108,6 +119,44 @@ try{
       const fallback=await noJS.newPage();await fallback.goto(origin+'/');await fallback.locator('#dashboard-search summary').click();await fallback.locator('#dashboard-search input').fill('lantern');
       await Promise.all([fallback.waitForURL(url=>url.searchParams.get('q')==='lantern'),fallback.locator('#dashboard-search button').click()]);
       check(await fallback.locator('#dashboard-search[open] .search-result').count()>0,'native dashboard search works without JavaScript');await noJS.close();
+      await page.goto(origin+'/files');await page.locator('.section-order-toggle button:not([disabled])').waitFor();
+      check(await page.locator('[data-section="upload"] .section-heading h2').textContent()==='Tároló','storage has a real shared panel heading');
+      check(await page.locator('.files-breadcrumbs').count()===0,'root storage does not repeat its own title as a breadcrumb');
+      check(await page.locator('.files-panel > .section-heading').count()===3,'all files panels use shared headings');
+      check(await page.locator('[data-section="entries"] h2 span').textContent()==='0 bejegyzés','entries count is a separate badge');
+      check(await page.locator('.section-order-controls:not([hidden])').count()===0,'files order controls remain hidden');
+      const picker=page.locator('.files-file-picker input[type=file]'),longName='Hosszú_fájlnév_'.repeat(10)+'.txt';
+      await picker.focus();check(await page.locator('.files-file-picker').evaluate(element=>getComputedStyle(element).outlineWidth==='2px'),'native file input retains visible keyboard focus');
+      await picker.setInputFiles({name:longName,mimeType:'text/plain',buffer:Buffer.from('Synthetic file storage layout test')});
+      check(await page.locator('.files-file-selection').textContent()===longName,'selected long filename stays available');
+      for(const width of [1440,1101,1024,390,320]){
+        await page.setViewportSize({width,height:844});
+        const geometry=await page.locator('.files-tools').evaluate(element=>Array.from(element.querySelectorAll('form')).map(form=>{const rect=node=>{const box=node.getBoundingClientRect();return {x:box.x,y:box.y,width:box.width,height:box.height};};const field=form.querySelector('.files-file-picker')||form.querySelector('input');return {form:rect(form),label:rect(form.querySelector('label')),field:rect(field),button:rect(form.querySelector('button')),margin:getComputedStyle(form.querySelector('input')).marginTop};})),[folder,upload]=geometry;
+        check(geometry.every(item=>item.margin==='0px'&&Math.abs(item.field.height-44)<.1&&Math.abs(item.field.width-item.form.width)<.1),'equal full-width fields without inherited margin '+width);
+        check(width>1100?Math.abs(folder.label.y-upload.label.y)<.1&&Math.abs(folder.field.y-upload.field.y)<.1&&Math.abs(folder.button.y-upload.button.y)<.1:Math.abs(folder.field.x-upload.field.x)<.1&&upload.form.y>=folder.form.y+folder.form.height+23,'aligned desktop or stacked storage forms '+width);
+        check(geometry.every(item=>item.button.y>=item.field.y+item.field.height+11&&item.button.height>=44),'actions sit below fields with usable touch targets '+width);
+        check(await page.locator('.files-panel-heading h2').first().evaluate(element=>getComputedStyle(element).fontSize)===(width<=720?'17px':'19px'),'shared panel title typography '+width);
+        check(await page.locator('[data-section="entries"] .files-panel').evaluate(element=>Math.abs(element.getBoundingClientRect().y-document.querySelector('[data-section="upload"] .files-panel').getBoundingClientRect().bottom-24)<.1),'one section gap, no doubled panel margin '+width);
+        check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'files long selection no page overflow '+width);
+      }
+      const folderName='Hosszú_mappanév_'.repeat(10);
+      await page.locator('.files-tools form').first().locator('input').fill(folderName);const made=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/files/folders'&&response.request().method()==='POST');await page.getByRole('button',{name:'Mappa létrehozása',exact:true}).click();const madeResponse=await made;check(madeResponse.status()===201,'folder API success: '+await madeResponse.text());await page.getByText('Mappa létrehozva.',{exact:true}).waitFor();
+      check(await page.locator('.files-table tbody tr').count()===1,'styled folder form still creates a real fixture folder');
+      await Promise.all([page.waitForURL(url=>url.searchParams.has('folder')),page.locator('.files-table a').click()]);await page.locator('.section-order-toggle button:not([disabled])').waitFor();
+      check(await page.locator('.files-breadcrumbs li').count()===2&&await page.locator('.files-breadcrumbs a[aria-current=page]').textContent()===folderName,'long folder breadcrumb remains navigable');
+      check(await page.locator('[data-section="entries"] h2').textContent().then(text=>text.startsWith(folderName)),'folder title retained in shared heading');
+      await picker.setInputFiles({name:longName,mimeType:'text/plain',buffer:Buffer.from('Synthetic file storage layout test')});
+      const sent=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/files/upload'&&request.method()==='POST');await page.getByRole('button',{name:'Feltöltés',exact:true}).click();const uploadRequest=await sent;await page.getByText('1 fájl feltöltve.',{exact:true}).waitFor();
+      check(uploadRequest.headers()['content-type']==='application/octet-stream'&&uploadRequest.postData()==='Synthetic file storage layout test','styled upload still streams raw fixture bytes');
+      await page.locator('.files-table tbody tr').filter({hasText:longName}).waitFor(); // Upload success precedes the final listing refresh.
+      check(await page.locator('.files-file-selection').textContent()==='Nincs kiválasztott fájl'&&await page.locator('.files-table tbody tr').count()===1,'successful upload clears selection and refreshes listing');
+      await page.getByRole('button',{name:'Link létrehozása',exact:true}).click();
+      check(await page.locator('[data-section="share"] .section-heading h2').textContent()==='Megosztás: '+longName,'share panel uses same heading and preserves filename');
+      await page.locator('.files-share-form select').selectOption('custom');check(await page.locator('.files-share-form input[type=datetime-local][required]').count()===1,'custom link expiry control retained');
+      for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'populated folder/share panel no overflow '+width);}
+      await page.locator('.files-share-form select').selectOption('24');await page.getByRole('button',{name:'Megosztási link létrehozása',exact:true}).click();await page.getByText('Megosztási link létrehozva; lent másolható.',{exact:true}).waitFor();
+      check(await page.locator('.files-link input[readonly]').inputValue().then(url=>url.startsWith('https://nas.wydrian.hu/s/'))&&await page.locator('[data-section="links"] h2 span').textContent()==='1','share form still creates a signed fixture link and updates badge');
+      check(await page.locator('.section-order-controls:not([hidden])').count()===0,'files ordering stays opt-in after operations');
       await page.goto(origin+'/system');check(await page.locator('h1').textContent()==='Rendszer állapota','system view');check(await page.getByText('Mentési bizonyíték nem elérhető',{exact:false}).count()>0,'unknown backup visible');
       const financeResponse=await page.goto(origin+'/finance'),serverPage=load(await financeResponse.text());
       check(await page.locator('[data-valuation=quality]').count()===0,'redundant inventory quality panels removed');
@@ -123,7 +172,7 @@ try{
     }
     check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls '+role);await context.close();
   }
-  console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,390,320]}));
+  console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,1101,1024,390,320]}));
 }finally{
   if(browser)await browser.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));
   unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});
