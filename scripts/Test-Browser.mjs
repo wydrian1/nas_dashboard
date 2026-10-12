@@ -2,6 +2,7 @@
 import {mkdtempSync,mkdirSync,writeFileSync,cpSync,symlinkSync,unlinkSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:net';
 import {spawn} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
@@ -22,6 +23,9 @@ cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:p
 symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
 cpSync(join(root,'public'),join(fixture,'public'),{recursive:true});
 writeFileSync(join(fixture,'package.json'),'{"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next"};');mkdirSync(join(fixture,'data'));
+// Dashboard SSR uses Node request(), not browser fetch: isolate fixed NAS probes too.
+writeFileSync(join(fixture,'block-service-probes.mjs'),`import http from 'node:http';import https from 'node:https';import {EventEmitter} from 'node:events';import {syncBuiltinESMExports} from 'node:module';
+for(const module of [http,https]){const request=module.request;module.request=function(target,...args){if(target instanceof URL&&target.hostname==='127.0.0.1'&&['8081','32400','8920'].includes(target.port)){const req=new EventEmitter();req.end=()=>queueMicrotask(()=>req.emit('error',new Error('Synthetic fixture blocks NAS probes')));return req;}return request.call(this,target,...args);};}syncBuiltinESMExports();`);
 const db=new DatabaseSync(join(fixture,'data/dashboard.sqlite'));initializeDatabase(db);
 for(const [email,role]of [[reader,'pokemon-reader'],[info,'info-reader'],[admin,'admin']])db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,?,?)').run(email,role,now,now);
 db.prepare("INSERT INTO notes(title,content) VALUES('Lantern private note','Synthetic private content'),('Literal %_ note','Safe text')").run();
@@ -41,7 +45,7 @@ db.prepare("INSERT INTO pokemon_worker VALUES(1,?,'running')").run(now);
 db.prepare("INSERT INTO mobile_devices(id,label,email,secret_hash,created_at,expires_at,last_seen,push_enabled,fcm_token) VALUES('fixture-device','Synthetic phone',?,'synthetic-secret-hash',?,?,?,1,'synthetic-fcm-token')").run(owner,now,now+86400000,now);
 db.prepare("INSERT INTO mobile_push_outbox(id,device_id,payload,state,created_at,expires_at) VALUES('fixture-push','fixture-device','{}','sent',?,?)").run(now,now+10000);
 assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);db.close();
-const child=spawn(process.execPath,[join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_SECRET:secret,AUTH_URL:origin,AUTH_MULTI_DOMAIN:'false',AUTH_TRUST_HOST:'true',ALLOWED_EMAIL:owner,FINANCE_ETORO_ENABLED:'false',FINANCE_EXTERNAL_FETCH_ENABLED:'false',SERVICE_PROBES_ENABLED:'false',ADMIN_HELPER_ENABLED:'false',OPENCODE_WEB_ENABLED:'false',NEXT_TELEMETRY_DISABLED:'1'}});
+const child=spawn(process.execPath,['--import',pathToFileURL(join(fixture,'block-service-probes.mjs')).href,join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_SECRET:secret,AUTH_URL:origin,AUTH_MULTI_DOMAIN:'false',AUTH_TRUST_HOST:'true',ALLOWED_EMAIL:owner,FINANCE_ETORO_ENABLED:'false',FINANCE_EXTERNAL_FETCH_ENABLED:'false',SERVICE_PROBES_ENABLED:'false',ADMIN_HELPER_ENABLED:'false',OPENCODE_WEB_ENABLED:'false',NEXT_TELEMETRY_DISABLED:'1'}});
 let log='',browser,checks=0;const check=(value,message)=>{assert.ok(value,message);checks++;};
 for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{log+=chunk;writeFileSync(join(fixture,'server.log'),log);});
 try{
@@ -55,12 +59,18 @@ try{
   for(const [role,path,destination]of [['reader','/system','/pokemon'],['info','/notifications','/important-info'],['admin','/system','/']]){response=await call(path,role);check(response.status===307&&response.headers.get('location')===destination,'role boundary '+role+' '+path);await response.body?.cancel();}
   for(const role of ['owner','admin']){response=await call('/notifications',role);check(response.status===307&&response.headers.get('location')==='/config#notifications','legacy notifications redirect '+role);await response.body?.cancel();}
   for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/config',role);check(response.status===307&&response.headers.get('location')===destination,'configuration still admin-only '+role);await response.body?.cancel();}
+  for(const role of ['owner','admin'])for(const [query,destination]of [['','/#dashboard-search'],['?q=lantern','/?q=lantern#dashboard-search'],['?q=%25_','/?q=%25_#dashboard-search'],['?q=one&q=two','/#dashboard-search']]){response=await call('/search'+query,role);check(response.status===307&&response.headers.get('location')===destination,'legacy search redirect '+role+' '+query);await response.body?.cancel();}
+  for(const [role,destination]of [['reader','/pokemon'],['info','/important-info']]){response=await call('/?q=lantern',role);check(response.status===307&&response.headers.get('location')===destination,'dashboard remains admin-only '+role);await response.body?.cancel();}
   browser=await chromium.launch({headless:true});
   for(const role of ['owner','reader','info']){
-    const context=await browser.newContext({viewport:{width:1440,height:900},extraHTTPHeaders:{cookie:cookies[role]}}),page=await context.newPage(),errors=[],requests=[];
+    const context=await browser.newContext({viewport:{width:1440,height:900}});
+    await context.addCookies([{name:'authjs.session-token',value:cookies[role].slice('authjs.session-token='.length),url:origin}]);
+    const page=await context.newPage(),errors=[],requests=[];
     await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
-    await page.goto(origin+'/search?q=lantern');check(await page.locator('h1').textContent()==='Keresés','search rendered '+role);
+    await page.goto(origin+'/search?q=lantern');const searchHeading=await page.locator('h1').textContent();check(searchHeading===(role==='owner'?'Dashboard':'Keresés'),'search rendered '+role+': '+searchHeading+' at '+page.url());
+    check(await page.locator('nav a[href="/search"]').count()===0,'no standalone search menu '+role);
+    if(role==='owner')check(await page.locator('#dashboard-search').getAttribute('open')!==null,'query automatically opens search');
     const kinds=await page.locator('.search-result small').allTextContents();
     if(role==='owner'){check(kinds.includes('Jegyzet')&&kinds.includes('LEGO'),'admin private results');}else{check(kinds.length===1&&kinds[0]===(role==='reader'?'Készletfigyelő':'Fontos infók'),'search role isolation '+role);check(!await page.locator('.search-result').filter({hasText:'private note'}).count(),'private note hidden '+role);}
     for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'search no overflow '+role+' '+width);}
@@ -75,6 +85,29 @@ try{
       check((await page.locator('a[href="/system"]').count()>0)===(role==='owner'),'owner-only menu '+role);
     }
     if(role==='owner'){
+      await page.goto(origin+'/');await page.locator('.section-order-toggle button:not([disabled])').waitFor();
+      check(await page.locator('#dashboard-search').getAttribute('open')===null,'dashboard search collapsed by default');
+      check(!(await page.locator('#dashboard-search input').isVisible()),'collapsed search hides input');
+      check(await page.locator('#dashboard-search').evaluate(element=>element.getBoundingClientRect().height<=56),'closed search is compact');
+      check(await page.locator('.section-order-controls:not([hidden])').count()===0,'dashboard order controls still hidden');
+      const summary=page.locator('#dashboard-search summary');await summary.focus();await page.keyboard.press('Enter');
+      check(await page.locator('#dashboard-search input').isVisible(),'keyboard opens native disclosure');
+      await page.locator('#dashboard-search input').fill('lantern');await page.locator('#dashboard-search button').click();await page.waitForURL(url=>url.searchParams.get('q')==='lantern');
+      check(await page.locator('#dashboard-search[open] .search-result').count()>0,'GET search returns results in dashboard disclosure');
+      await page.locator('#dashboard-search summary').click();check(!(await page.locator('#dashboard-search input').isVisible()),'search can collapse with results');
+      for(const width of [1440,1024,390,320]){
+        await page.setViewportSize({width,height:844});
+        const geometry=await page.locator('.sidebar nav a').evaluateAll(links=>links.map(link=>{const icon=link.querySelector('.nav-icon').getBoundingClientRect(),text=link.querySelector('.nav-text').getBoundingClientRect();return {label:link.querySelector('.nav-text').textContent,iconX:icon.x,iconWidth:icon.width,textX:text.x,linkWidth:link.getBoundingClientRect().width,scrollWidth:link.scrollWidth};}));
+        check(geometry.every(item=>Math.abs(item.iconWidth-(width>720?24:20))<.1),'fixed icon column '+width);
+        const starts=[...new Set(geometry.map(item=>Math.round(item.textX*10)/10))];
+        check(starts.length===(width>720?1:2),'labels start in aligned columns '+width);
+        check(geometry.every(item=>item.scrollWidth<=Math.ceil(item.linkWidth)),'no clipped menu text '+width+': '+JSON.stringify(geometry.filter(item=>item.scrollWidth>Math.ceil(item.linkWidth))));
+        check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'dashboard no overflow '+width);
+      }
+      const noJS=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:844}});await noJS.addCookies([{name:'authjs.session-token',value:cookies.owner.slice('authjs.session-token='.length),url:origin}]);await noJS.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
+      const fallback=await noJS.newPage();await fallback.goto(origin+'/');await fallback.locator('#dashboard-search summary').click();await fallback.locator('#dashboard-search input').fill('lantern');
+      await Promise.all([fallback.waitForURL(url=>url.searchParams.get('q')==='lantern'),fallback.locator('#dashboard-search button').click()]);
+      check(await fallback.locator('#dashboard-search[open] .search-result').count()>0,'native dashboard search works without JavaScript');await noJS.close();
       await page.goto(origin+'/system');check(await page.locator('h1').textContent()==='Rendszer állapota','system view');check(await page.getByText('Mentési bizonyíték nem elérhető',{exact:false}).count()>0,'unknown backup visible');
       const financeResponse=await page.goto(origin+'/finance'),serverPage=load(await financeResponse.text());
       check(await page.locator('[data-valuation=quality]').count()===0,'redundant inventory quality panels removed');

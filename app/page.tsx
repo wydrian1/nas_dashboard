@@ -1,7 +1,7 @@
 import { requireUser } from "@/auth";
 import { redirect } from "next/navigation";
 import { login } from "@/app/actions";
-import { articles } from "@/lib/db";
+import { articles, db } from "@/lib/db";
 import { serviceStatuses } from "@/lib/services";
 import ServiceCards from "./service-cards";
 import { systemSnapshot } from "@/lib/system-info";
@@ -12,14 +12,17 @@ import WeatherCard from "./weather-card";
 import DashboardSidebar from "./dashboard-sidebar";
 import { isOpenCodeOwner } from '@/lib/opencode-access';
 import LocalSections,{LocalSection} from './local-sections';
+import DashboardSearch from './dashboard-search';
+import {globalSearch,searchQuery} from '@/lib/global-search';
+import './tools.css';
 
 export const dynamic = "force-dynamic";
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string;q?:string|string[] }> }) {
   const session = await requireUser().catch(()=>null);
   if(session?.role==='pokemon-reader')redirect('/pokemon');
   if(session?.role==='info-reader')redirect('/important-info');
   const allowed = session?.role==='admin';
-  const { error } = await searchParams;
+  const { error,q } = await searchParams;
   if (!allowed) return <main className="login-shell">
     <div className="login-card"><img className="brand-mark" src="/brand-w-modules.svg" alt="Wydrian" width="60" height="60"/><span className="eyebrow">SZEMÉLYES VEZÉRLŐKÖZPONT</span>
     <h1>Wydrian Dashboard</h1>
@@ -31,9 +34,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const [services, system] = await Promise.all([serviceStatuses(), systemSnapshot()]);
   const unread = articles().filter(article => !article.is_read).length;
   const personal = personalData(session.user!.email!);
+  const query=searchQuery(q),results=query.trim().length>=2?globalSearch(db(),session.user!.email!,query):[];
   return <div className="dashboard-shell"><DashboardSidebar name={session?.user?.name} unread={unread} openCode={isOpenCodeOwner(session?.user?.email)}/><main className="main-content" id="overview">
     <section className="page-heading"><div><span className="eyebrow">ÁTTEKINTÉS</span><h1>Dashboard</h1></div><span className="date">{new Intl.DateTimeFormat("hu-HU", { month: "long", day: "numeric", weekday: "long", timeZone: "Europe/Budapest" }).format(new Date())}</span></section>
     <LocalSections page="dashboard">
+      <LocalSection sectionId="search" label="Keresés"><DashboardSearch query={query} results={results}/></LocalSection>
       <LocalSection sectionId="services" label="Szolgáltatások"><section><div className="section-heading"><h2>Szolgáltatások <span>03</span></h2><span className="subtle">Élő állapot</span></div><ServiceCards initial={services} /></section></LocalSection>
       {!!personal.links.length&&<LocalSection sectionId="quicklinks" label="Gyorslinkek"><QuickLinks links={personal.links}/></LocalSection>}
       <LocalSection sectionId="weather" label="Időjárás"><WeatherCard location={personal.location}/></LocalSection>
