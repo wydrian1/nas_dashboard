@@ -19,11 +19,25 @@ function component(path:string,hooks?:unknown,environment:Record<string,unknown>
   },exports,environment.XMLHttpRequest,environment.fetch??globalThis.fetch);return exports;
 }
 const empty=()=>({folder:null,breadcrumbs:[],entries:[],links:[],maxFileBytes:1_000_000_000});
+test('storage, entries and sharing panels use shared section headings and separate count badges, retaining section ids and primary forms',()=>{
+  const page=load(renderToStaticMarkup(React.createElement(component('app/files/file-manager.tsx').default,{initial:empty()}))),storage=page('[data-section="upload"] .files-panel');
+  assert.equal(storage.find('.section-heading h2').text(),'Tároló');assert.equal(storage.attr('aria-labelledby'),storage.find('h2').attr('id'));
+  assert.equal(page('.files-panel').length,3);assert.equal(page('.files-panel > .section-heading').length,3);
+  assert.equal(page('[data-section="entries"] h2 span').text(),'0 bejegyzés');assert.equal(page('[data-section="links"] h2 span').text(),'0');
+  assert.deepEqual(page('[data-section]').map((_,element)=>page(element).attr('data-section')).get(),['upload','entries','links']);
+  assert.equal(storage.find('form > button.primary-button').length,2);assert.equal(storage.find('input:not([type])').attr('maxlength'),'180');assert.equal(storage.find('input[type="file"][multiple][required]').length,1);
+  const css=source('app/files/files.css');assert.match(css,/\.files-panel input,\.files-panel select\{[^}]*margin:0/);assert.match(css,/\.files-tools>form\{[^}]*grid-template-columns:minmax\(0,1fr\)/);assert.doesNotMatch(css,/\.files-panel\{[^}]*margin-bottom/);
+});
+test('folder names remain escaped in the shared entries heading while breadcrumbs retain navigation',()=>{
+  const folder={id:'a'.repeat(32),name:'Mappa <script> & hosszú név',parent_id:null,kind:'folder',state:'ready',size:0,sha256:null,created_at:1};
+  const page=load(renderToStaticMarkup(React.createElement(component('app/files/file-manager.tsx').default,{initial:{...empty(),folder,breadcrumbs:[folder]}}))),heading=page('[data-section="entries"] h2');
+  assert.equal(heading.clone().children().remove().end().text().trim(),folder.name);assert.equal(heading.find('script').length,0);assert.equal(heading.find('span').text(),'0 bejegyzés');assert.equal(page('nav a[aria-current="page"]').attr('href'),'/files?folder='+folder.id);
+});
 test('folder breadcrumbs form one ordered path with a current-page marker and menu-independent link styles',()=>{
   const parent={id:'a'.repeat(32),name:'Dokumentumok',parent_id:null,kind:'folder',state:'ready',size:0,sha256:null,created_at:1},folder={...parent,id:'b'.repeat(32),name:'Hosszú mappa <teszt>',parent_id:parent.id};
   const page=load(renderToStaticMarkup(React.createElement(component('app/files/file-manager.tsx').default,{initial:{...empty(),folder,breadcrumbs:[parent,folder]}}))),nav=page('nav[aria-label="Fájlmappa"]');
   assert.equal(nav.find('ol > li').length,3);assert.deepEqual(nav.find('ol > li > a').map((_,a)=>page(a).text()).get(),['Tároló',parent.name,folder.name]);assert.equal(nav.find('a[aria-current="page"]').attr('href'),'/files?folder='+folder.id);assert.equal(nav.find('li > span[aria-hidden="true"]').length,2);assert.equal(nav.find('script').length,0);
-  const root=load(renderToStaticMarkup(React.createElement(component('app/files/file-manager.tsx').default,{initial:empty()})));assert.equal(root('.files-breadcrumbs a[aria-current="page"]').text(),'Tároló');
+  const root=load(renderToStaticMarkup(React.createElement(component('app/files/file-manager.tsx').default,{initial:empty()})));assert.equal(root('.files-breadcrumbs').length,0);assert.equal(root('[data-section="upload"] h2').text(),'Tároló');
   const css=source('app/files/files.css');assert.match(css,/\.files-breadcrumbs li\{display:flex;align-items:baseline/);assert.match(css,/\.files-page \.files-breadcrumbs a\{[^}]*padding:0;margin:0/);assert.match(css,/overflow-wrap:anywhere/);
 });
 test('the Hungarian styled picker retains a real required multi-file control, descriptive status and keyboard focus',()=>{
