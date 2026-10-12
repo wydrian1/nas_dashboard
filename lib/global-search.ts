@@ -3,6 +3,7 @@ import {load} from 'cheerio';
 import {requireAccess} from './users.ts';
 import {isShopID} from './pokemon/types.ts';
 export type SearchResult={kind:string;title:string;preview:string;href:string};
+export function searchQuery(input:unknown):string{return typeof input==='string'&&input.length<=80&&!/[\x00-\x1f]/.test(input)?input:'';}
 export function globalSearch(db:DatabaseSync,email:string,input:unknown):SearchResult[]{
   const role=requireAccess(db,email,'mobile-self');
   if(typeof input!=='string'||input.trim().length<2||input.length>80||/[\x00-\x1f]/.test(input))return [];

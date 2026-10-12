@@ -12,7 +12,7 @@ Privát, Windows-alapú NAS-munkaterület: rendszeráttekintés, pénzügyek, gy
 
 | Felület | Tartalom | Hozzáférés |
 | --- | --- | --- |
-| **Dashboard** · `/` | NAS-szolgáltatások állapota, gyorslinkek, saját település időjárása, CPU/RAM/meghajtók | Admin |
+| **Dashboard** · `/` | Kompakt, lenyitható kereső, NAS-szolgáltatások állapota, gyorslinkek, saját település időjárása, CPU/RAM/meghajtók | Admin |
 | **Hírolvasó** · `/news` | RSS/Atom-források, képes hírek, olvasott/olvasatlan állapot, kézi frissítés | Admin |
 | **Pénzügy** · `/finance` | Havi vagyonállapotok, előzmények, összetétel, nominális és reálgyarapodás, kézi havi rögzítés | Admin |
 | **Gyűjtemények** · `/collections` | LEGO- és Pokémon-bekerülési tételek, darabszám, ár, beszerzési dátum | Admin |
@@ -21,7 +21,7 @@ Privát, Windows-alapú NAS-munkaterület: rendszeráttekintés, pénzügyek, gy
 | **Pokémon figyelő** · `/pokemon` | 15 webshop készlete, keresés/szűrők, új és visszakészletezett termékek | Admin, Pokémon-olvasó |
 | **Értesítési központ** · `/config#notifications` | Saját figyelőlista, pushszabályok, csendes idő, összefoglaló és küldési előzmény | Admin; Pokémon-olvasónak `/notifications` |
 | **Fontos infók** · `/important-info` | Közös formázott tájékoztató és a legfrissebb mentett pénzügyi állapot kijelölt adatai | Admin szerkeszti; infóolvasó olvassa |
-| **Keresés** · `/search` | Szerepkör szerint elérhető modulok közös keresője | Minden engedélyezett szerepkör |
+| **Keresés** · `/#dashboard-search` | Szerepkör szerint elérhető modulok közös keresője, külön menüpont nélkül; admin régi `/search` címe ide irányít | Admin; olvasóknak a jogosultságszűrt `/search` továbbra is elérhető |
 | **Rendszer állapota** · `/system` | Worker, webshopok, mentési bizonyítékok, APK, kiadás és pushállapotok | Csak tulajdonos |
 | **OpenCode** · `/opencode` | Az eredeti OpenCode webfelülete védett átjárón keresztül | Csak tulajdonos |
 | **Konfig** · `/config` | Gyorslinkek, RSS, felhasználók, telefonok/push; tulajdonosi restart-helper | Admin; helper csak tulajdonos |

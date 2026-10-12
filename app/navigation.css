@@ -9,8 +9,14 @@
 .sidebar nav::-webkit-scrollbar-thumb{background:#56657b;border-radius:999px}
 .sidebar nav::-webkit-scrollbar-thumb:hover{background:#8a95a9}
 .sidebar nav::-webkit-scrollbar-button{display:none;width:0;height:0}
+.sidebar nav a{display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;justify-content:start;gap:10px;min-height:44px;border:1px solid transparent}
+.sidebar nav a:has(b){grid-template-columns:24px minmax(0,1fr) auto}
+.sidebar nav a.active{border-color:#a8efc91a}
+.sidebar nav .nav-icon{display:grid;place-items:center;width:24px;height:24px;font-size:18px;line-height:1}
+.sidebar nav .nav-text{min-width:0;text-align:left;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.sidebar nav a b{margin-left:0;justify-self:end}
 .config-page #sources{scroll-margin-top:24px}
 .personal-form select{font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:10px;margin-top:8px;display:block;width:100%}
 .personal-form select:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
-@media(max-width:720px){.page-shortcuts{gap:8px}.page-shortcuts a{padding:10px 12px}.news-page .page-heading{flex-wrap:wrap;gap:16px}}
+@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.sidebar nav a{margin:0;padding:10px 8px;grid-template-columns:20px minmax(0,1fr);gap:6px}.sidebar nav a:has(b){grid-template-columns:20px minmax(0,1fr) auto}.sidebar nav .nav-icon{width:20px;height:20px;font-size:16px}.page-shortcuts{gap:8px}.page-shortcuts a{padding:10px 12px}.news-page .page-heading{flex-wrap:wrap;gap:16px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
