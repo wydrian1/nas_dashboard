@@ -1,14 +1,15 @@
-import { readFile,writeFile,mkdir,mkdtemp,readdir,rm,open,unlink,rename } from 'node:fs/promises';
+import { readFile,mkdir,mkdtemp,readdir,rm,open,unlink } from 'node:fs/promises';
 import { join,dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { archiveName,ownedArchiveDate,prepareStage,verifyStage,encryptArchive,decryptArchive,fileHash,command,verifyGoogleBackupConfig } from '../lib/backup.ts';
 import type { BackupSettings } from '../lib/backup.ts';
+import {writeBackupEvidence} from '../lib/backup-evidence.ts';
 
-const root=process.cwd(),secrets=join(root,'.runtime/backup-secrets'),output=join(root,'.runtime/automatic-backups'),statusPath=join(output,'status.json'),now=new Date();
+const root=process.cwd(),secrets=join(root,'.runtime/backup-secrets'),output=join(root,'.runtime/automatic-backups'),now=new Date();
 let workspace:string|undefined,archive:string|undefined,cloudVerified=false,locked=false;
 const lockPath=join(output,'running.lock');
-async function status(value:object){const temporary=statusPath+'.new';await writeFile(temporary,JSON.stringify({updatedAt:new Date().toISOString(),...value},null,2));await rename(temporary,statusPath);}
+async function status(value:object){await writeBackupEvidence(root,{kind:'status'},{updatedAt:new Date().toISOString(),...value});}
 async function remoteHash(executable:string,args:string[]):Promise<string> {
   return new Promise((resolve,reject)=>{const child=spawn(executable,args,{windowsHide:true,stdio:['ignore','pipe','pipe']}),hash=createHash('sha256');child.stdout.on('data',data=>hash.update(data));child.stderr.resume();
     const timer=setTimeout(()=>{child.kill();reject(new Error('Cloud verification timed out'));},30*60_000);child.once('error',()=>{clearTimeout(timer);reject(new Error('Cloud verification could not start'));});child.once('close',code=>{clearTimeout(timer);if(code!==0)reject(new Error('Cloud verification failed'));else resolve(hash.digest('hex'));});});
@@ -25,7 +26,7 @@ try{
   const name=archiveName(settings.installationId,now);archive=join(output,name);await encryptArchive(packed,archive,key);const sha256=await fileHash(archive);
   // Full authenticated decryption/extraction and manifest/SQLite check before reporting local success.
   const restoredTar=join(workspace,'restore.tar.gz'),restored=join(workspace,'restored');await decryptArchive(archive,restoredTar,key);await mkdir(restored);await command('tar.exe',['-xzf',restoredTar,'-C',restored]);await verifyStage(restored);
-  const receiptPath=archive+'.receipt.json';await writeFile(receiptPath,JSON.stringify({version:1,createdAt:now.toISOString(),archive:name,sha256,restoreVerifiedAt:new Date().toISOString(),cloudVerifiedAt:null},null,2));
+  await writeBackupEvidence(root,{kind:'receipt',archive:name},{version:1,createdAt:now.toISOString(),archive:name,sha256,restoreVerifiedAt:new Date().toISOString(),cloudVerifiedAt:null});
   await status({state:settings.cloudEnabled ? 'uploading' : 'local-only',archive:name,localRestoreVerified:true,cloudVerified:false,fileCount:manifest.files.length});
   if(settings.cloudEnabled){
     const rclone=join(root,'.runtime/rclone/rclone.exe'),config=join(secrets,'rclone.conf'),remote=settings.remote+':'+settings.remoteDirectory,common=['--config',config,'--retries','3','--low-level-retries','5','--contimeout','30s','--timeout','5m'];
@@ -38,7 +39,7 @@ try{
       const expected=await fileHash(path);if(expected!==receipt.sha256)throw new Error('Local archive checksum mismatch');
       await command(rclone,['copyto',path,remote+'/'+item,'--immutable',...common]);
       if(await remoteHash(rclone,['cat',remote+'/'+item,...common])!==expected)throw new Error('Uploaded archive checksum mismatch');
-      receipt.cloudVerifiedAt=new Date().toISOString();await writeFile(path+'.receipt.json',JSON.stringify(receipt,null,2));
+      receipt.cloudVerifiedAt=new Date().toISOString();await writeBackupEvidence(root,{kind:'receipt',archive:item},receipt);
     }
     cloudVerified=true;
     const entries=JSON.parse(await command(rclone,['lsjson',remote,'--files-only',...common])) as {Name:string;IsDir:boolean}[],cutoff=now.getTime()-settings.retentionDays*86400000;
