@@ -47,6 +47,20 @@ node --experimental-strip-types scripts\Run-Backup.ts
 
 `cloudEnabled=false` esetén csak helyi, titkosított és próba-visszaállított mentés készül. Ez **nem** Google Drive-backup. Sikeres OAuth + mentésmappa létrehozás után a kapcsolatbeállító kapcsolja true-ra. Állapot: `.runtime/automatic-backups/status.json`, futásonként `.nasbackup.receipt.json`; nincsenek tokenek vagy provider response-ok a naplóban. Ütemező ellenőrzési jelentése: `.runtime/research/backup-task-verified.json`.
 
+### Dashboard: csak az állapotbizonyíték olvasása
+
+A `Run-Backup.ts` az állapotot és a helyi/felhős nyugtát, a `Test-CloudBackup.ts` a teljes visszaállítási próba jelentését a közös `lib/backup-evidence.ts` íróval publikálja. Az új JSON ideiglenes fájlra kerül; Windows alatt **még az atomikus csere előtt** kap a dedikált `NT SERVICE\WydrianDashboard` szolgáltatás fájlszintű **Read** jogot. Minden csere újra beállítja ezt, így nem vész el a következő napi mentésnél. ACL-hiba esetén a fájl nem publikálódik sikeresnek, a feladat hibával zárul.
+
+A szülőmappán csak erre a mappára vonatkozó **Traverse** jog szükséges: nincs listázás, teljes könyvtár-olvasás vagy öröklődő grant. A `.nasbackup` archívumok, staging mappák, kulcsok és OAuth/rclone-fájlok nem kapnak dashboard-jogot. A LocalService worker nem kap új hozzáférést. A célok rögzítettek; átirányító link, hardlink, idegen fájlnév vagy túlméretes metaadat elutasított. Hiányzó, olvashatatlan, hibás vagy elavult bizonyíték továbbra sem zöld állapot.
+
+Már létező bizonyíték egyszeri, célzott ACL-javítása jogosult operátorként:
+
+```powershell
+node --experimental-strip-types scripts\Repair-BackupEvidenceAccess.ts
+```
+
+Ez csak a meglévő státusz, annak aktuális nyugtája és a létező visszaállítási jelentés jogait javítja. Nem ír át tartalmat vagy időbélyeget, nem indít mentést, nem olvas archívumot/kulcsot és nem indít újra szolgáltatást. A tartós védelemhez a javított mentésíró forrásnak kell a napi feladat által használt aktív projektben lennie. Ellenőrzés: friss `/api/operations` válasz és tényleges dashboard-szolgáltatásjog; a teljes Windows-regresszió ismételt fájlcserékkel is vizsgálja a szűk ACL-t.
+
 ## Visszaállítás — mindig új mappába
 
 ```powershell
