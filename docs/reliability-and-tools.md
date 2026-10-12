@@ -27,6 +27,8 @@ Az új táblák hozzáadó migrációval jönnek létre. Meglévő eszköz, pár
 
 A nézet a meglévő `.runtime/automatic-backups/status.json`, a hozzá tartozó nyugta és a `Test-CloudBackup.ts` által előállított `.runtime/research/cloud-backup-restore-verified.json` eredményéből csak a szükséges időpontokat/állapotot olvassa. Hiányzó, olvashatatlan, eltérő archívumhoz tartozó vagy jövőbeli adat nem siker. Mentés/felhőellenőrzés: 36 óra; teljes, hash-, hitelesített visszafejtés-, fájlmanifest- és SQLite-ellenőrzött recovery kit próba: 30 nap. Nem olvas helyreállítási kulcsot, nem indít mentést, és nem változtat ACL-t. A későbbi élesítés előtt a szolgáltatásfiók olvasási hozzáférését külön ellenőrizni kell; hiánya a felületen „nem ellenőrizhető”, nem zöld állapot.
 
+A mentésírók minden státusz-/nyugta-/visszaállításijelentés-csere előtt csak az új JSON-fájlra adják meg a dashboard dedikált szolgáltatásának olvasási jogát; a szülőmappán kizárólag nem öröklődő áthaladás szükséges. Nincs archívum-, kulcs- vagy teljes könyvtár-olvasás. Korábbi metaadatok egyszeri javítására külön operátori `Repair-BackupEvidenceAccess.ts` script szolgál, nem az állapotlekérő API. [Részletek](backups.md#dashboard-csak-az-állapotbizonyíték-olvasása).
+
 A pénzügyi gyarapodás a mentett havi értéket és az aktuális piaci becslést külön mutatja, külön „Nyilvántartási adatminőség” panel nélkül. A számításhoz szükséges ismeretlendátum-feltételezés továbbra is látható az érintett összehasonlításnál. A piaci lekérés 24 óra után elavult. Az SSR és kliens azonos szerveroldali `checkedAt` időpontot használ. Nem változik mentett havi érték, beszerzési dátum, bekerülés vagy a meglévő reálgyarapodási feltételezés. Nincs új import vagy külső gyűjteményegyeztetés.
 
 ## Elkülönített ellenőrzés és CI
