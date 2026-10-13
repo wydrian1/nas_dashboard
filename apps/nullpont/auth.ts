@@ -1,15 +1,11 @@
-import NextAuth from 'next-auth';
-import Google from 'next-auth/providers/google';
+import 'server-only';
+import { cookies } from 'next/headers';
 import { db } from './lib/db';
-import { playerAuthorized, verifiedEmail } from './lib/access';
-export const { auth, handlers, signIn, signOut } = NextAuth({
-  providers: [Google], trustHost: true,
-  cookies: { sessionToken: { name: process.env.AUTH_URL?.startsWith('https:') ? '__Secure-nullpont.session-token' : 'nullpont.session-token', options: { httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.AUTH_URL?.startsWith('https:') || false } } },
-  session: { strategy: 'jwt', maxAge: 60 * 60 * 12 }, pages: { signIn: '/', error: '/' },
-  callbacks: { signIn({ account, profile }) { return account?.provider === 'google' && playerAuthorized(db(), verifiedEmail(profile)); } },
-});
+import { playerAuthorized } from './lib/access';
+import { sessionEmail } from './lib/session';
+export function sessionCookie() { return process.env.AUTH_URL?.startsWith('https:') ? '__Host-nullpont.session-token' : 'nullpont.session-token'; }
 export async function requirePlayer() {
-  const session = await auth();
-  if (!session?.user?.email || !playerAuthorized(db(), session.user.email)) throw new Error('Bejelentkezés szükséges.');
-  return { email: session.user.email.trim().toLowerCase(), name: session.user.name };
+  const email = sessionEmail((await cookies()).get(sessionCookie())?.value, process.env.AUTH_SECRET || '');
+  if (!email || !playerAuthorized(db(), email)) throw new Error('Bejelentkezés szükséges.');
+  return { email, name: null };
 }
