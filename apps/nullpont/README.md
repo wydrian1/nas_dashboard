@@ -16,6 +16,12 @@ vagy közös sütikulcs. Csak a belépéshez használja a dashboard két HTTP-v�
    Mindkét alkalmazásban azonos, külön generált, legalább 32 karakteres
    `NULLPONT_SSO_SECRET` kell a szerverközi kódbeváltáshoz; a dashboardban
    `NULLPONT_URL` legyen a játék originje. Csak a loopback 127.0.0.1 használhat HTTP-t.
+   A NAS-on a cím `https://wydrian.hu/nullpont`: `NULLPONT_BASE_PATH=/nullpont`
+   buildkor és futáskor is szükséges, az `AUTH_URL` és a dashboard `NULLPONT_URL`
+   tartalmazza ezt az előtagot. A proxy a teljes útvonalat adja a 3100-as szolgáltatásnak.
+   Itt a saját Secure/HttpOnly/SameSite=Lax sütik Path=/nullpont hatókörűek;
+   nincs __Host- előtag (az csak Path=/ mellett használható). Az azonos web-origin
+   nem böngészőbiztonsági izoláció, de a munkamenetkulcs és az adatbázis külön marad.
 4. `NULLPONT_DATA_DIR` saját, abszolút adatkönyvtár. Az alkalmazásfiók csak ehhez,
    saját buildjéhez és szükséges saját konfigurációjához kapjon hozzáférést.
 5. `npm run build`, majd `npm start`. Saját loopback port: **3100**. Külön HTTPS

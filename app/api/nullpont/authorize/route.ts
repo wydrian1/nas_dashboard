@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (!state || !/^[A-Za-z0-9_-]{43}$/.test(state) || !challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) return new Response('Érvénytelen belépési kérés.', { status: 400 });
   const session = await requireUser().catch(() => null);
   if (!session) return new Response(null, { status: 303, headers: { Location: '/', 'Cache-Control': 'no-store' } });
-  const callback = new URL('/api/sso/callback', destination);
+  const callback = new URL(destination.replace(/\/$/, '') + '/api/sso/callback');
   callback.searchParams.set('state', state);
   callback.searchParams.set('code', issueNullpontCode(db(), session.user!.email!, challenge));
   return new Response(null, { status: 303, headers: { Location: callback.href, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
