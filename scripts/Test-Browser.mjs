@@ -171,37 +171,9 @@ try{
       for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'populated finance no overflow '+width);}
     }
     await page.goto(origin+'/adventure');
-    check(await page.locator('h1').textContent()==='NULLPONT','adventure accessible '+role);
-    check(await page.locator('nav a[href="/adventure"][aria-current=page]').count()===1,'adventure active menu '+role);
-    check(await page.locator('.adventure-story').innerText().then(text=>text.includes('Hideg padlón ébredsz')),'new account has independent opening '+role);
-    for(const width of [1440,390,320]){
-      await page.setViewportSize({width,height:900});
-      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'adventure no page overflow '+role+' '+width);
-      if(role==='owner'&&process.env.ADVENTURE_SCREENSHOT_DIR&&width!==320)await page.screenshot({path:join(process.env.ADVENTURE_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});
-    }
-    let turns=0;
-    const step=async label=>{await page.getByRole('button',{name:label,exact:true}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();};
-    const other=await context.newPage();await other.goto(origin+'/adventure');
-    await step('Megvizsgálom a fekvőlapot');
-    await other.getByRole('button',{name:'Megvizsgálom a falpanelt',exact:true}).click();
-    await other.getByRole('alert').filter({hasText:'másik böngészőfülben'}).waitFor();
-    check(await other.getByRole('status').textContent().then(text=>text.includes('1. lépés')),'stale tab cannot overwrite '+role);
-    await other.close();
-    await step('Felveszem a fóliát');await step('Megvizsgálom a falpanelt');await step('Felveszem a huzalt');
-    await page.reload();check(await page.locator('.adventure-notebook').innerText().then(text=>text.includes('Vezető fólia')&&text.includes('Szigetelt huzal')),'inventory reload '+role);
-    await step('Megszólítom a hangot');await step('Megkérdezem, ki vagyok');await step('Megütöm a hangszóró burkolatát');
-    const combine=page.locator('.adventure-choice').filter({hasText:'Tárgyak kombinálása'});
-    await combine.getByRole('button',{name:'Végrehajtom'}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();
-    const use=page.locator('.adventure-choice').filter({hasText:'Tárgy használata / célpont'});
-    await use.locator('select').selectOption('use:bridge:panel');await use.getByRole('button',{name:'Végrehajtom'}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();
-    await step('Kilépek a folyosóra');await page.reload();
-    check(await page.locator('.adventure-scene h2').textContent()==='02 · A küszöb','location auto-resumes '+role);
-    await page.locator('.adventure-book summary').click();
-    check(await page.locator('.adventure-book article').count()===6,'milestones persist as book pages '+role);
-    check(await page.locator('.adventure-book article').last().innerText().then(text=>text.includes('Kiléptem a körfolyosóra')),'book is narrative, not command log '+role);
-    if(role==='owner'&&process.env.ADVENTURE_SCREENSHOT_DIR){await page.setViewportSize({width:1440,height:900});await page.locator('.adventure-book').screenshot({path:join(process.env.ADVENTURE_SCREENSHOT_DIR,'nullpont-storybook.png')});}
-    const resumed=await context.newPage();await resumed.goto(origin+'/adventure');check(await resumed.locator('.adventure-scene h2').textContent()==='02 · A küszöb','new tab resumes '+role);await resumed.close();
-    await step('Visszamegyek a szobába');check(await page.getByRole('button',{name:'Kilépek a folyosóra',exact:true}).count()===1,'return has no soft lock '+role);
+    check(await page.locator('h1').textContent()==='A NULLPONT külön költözik','legacy game route is migration notice '+role);
+    check(await page.locator('nav a[href="/adventure"]').count()===0,'no embedded game menu '+role);
+    check(await page.locator('.game-grid,.adventure-layout').count()===0,'dashboard does not serve game UI '+role);
     check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls '+role);await context.close();
   }
   console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,1101,1024,390,320]}));
