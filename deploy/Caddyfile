@@ -15,6 +15,11 @@ wydrian.hu {
     encode zstd gzip
     header Strict-Transport-Security "max-age=31536000"
     @backupInfo path /backup-info.html /backup-privacy.html
+    # Independent NULLPONT service; preserve the base path (do not use handle_path).
+    @nullpont path /nullpont /nullpont/*
+    handle @nullpont {
+        reverse_proxy 127.0.0.1:3100
+    }
     handle @backupInfo {
         root * deploy/backup-public
         file_server
