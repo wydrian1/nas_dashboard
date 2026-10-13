@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
+import { basePath } from './lib/paths';
 const config: NextConfig = {
+  basePath: basePath(),
   distDir: process.env.DASHBOARD_BUILD_DIR || '.next',
   serverExternalPackages: ['node:sqlite'],
   turbopack: { root: process.cwd() },
