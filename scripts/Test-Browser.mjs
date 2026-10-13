@@ -55,7 +55,7 @@ try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Fixture startup timed out')),30000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Fixture server exited'));});child.stdout.on('data',()=>{if(log.includes('Ready in')){clearTimeout(timer);resolve();}});});
   const cookies={};for(const [role,email]of Object.entries({owner,reader,info,admin}))cookies[role]='authjs.session-token='+await encode({secret,salt:'authjs.session-token',maxAge:900,token:{email,name:'Synthetic browser check'}});
   const call=(path,role)=>fetch(origin+path,{redirect:'manual',headers:role?{cookie:cookies[role]}:{},signal:AbortSignal.timeout(20000)});
-  for(const path of ['/search','/system','/notifications','/files']){const response=await call(path);check(response.status===307&&response.headers.get('location')==='/','anonymous denied '+path);await response.body?.cancel();}
+  for(const path of ['/search','/system','/notifications','/files','/adventure']){const response=await call(path);check(response.status===307&&response.headers.get('location')==='/','anonymous denied '+path);await response.body?.cancel();}
   for(const role of [null,'reader','info','admin']){const response=await call('/api/operations',role);check(response.status===(role?403:401),'owner-only operations API '+role);await response.body?.cancel();}
   let response=await call('/api/operations','owner');check(response.status===200,'owner operations API');const health=await response.json();check(health.backup.state==='unknown','missing backup is unknown');check(health.shops.find(item=>item.id==='grandline').stale,'stale shop metadata');check(!JSON.stringify(health).includes('synthetic-fcm-token'),'no token exposure');
   response=await call('/timeline');check(response.status===404,'timeline remains off the NAS');await response.body?.cancel();
@@ -170,6 +170,38 @@ try{
       }
       for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'populated finance no overflow '+width);}
     }
+    await page.goto(origin+'/adventure');
+    check(await page.locator('h1').textContent()==='NULLPONT','adventure accessible '+role);
+    check(await page.locator('nav a[href="/adventure"][aria-current=page]').count()===1,'adventure active menu '+role);
+    check(await page.locator('.adventure-story').innerText().then(text=>text.includes('Hideg padlón ébredsz')),'new account has independent opening '+role);
+    for(const width of [1440,390,320]){
+      await page.setViewportSize({width,height:900});
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'adventure no page overflow '+role+' '+width);
+      if(role==='owner'&&process.env.ADVENTURE_SCREENSHOT_DIR&&width!==320)await page.screenshot({path:join(process.env.ADVENTURE_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});
+    }
+    let turns=0;
+    const step=async label=>{await page.getByRole('button',{name:label,exact:true}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();};
+    const other=await context.newPage();await other.goto(origin+'/adventure');
+    await step('Megvizsgálom a fekvőlapot');
+    await other.getByRole('button',{name:'Megvizsgálom a falpanelt',exact:true}).click();
+    await other.getByRole('alert').filter({hasText:'másik böngészőfülben'}).waitFor();
+    check(await other.getByRole('status').textContent().then(text=>text.includes('1. lépés')),'stale tab cannot overwrite '+role);
+    await other.close();
+    await step('Felveszem a fóliát');await step('Megvizsgálom a falpanelt');await step('Felveszem a huzalt');
+    await page.reload();check(await page.locator('.adventure-notebook').innerText().then(text=>text.includes('Vezető fólia')&&text.includes('Szigetelt huzal')),'inventory reload '+role);
+    await step('Megszólítom a hangot');await step('Megkérdezem, ki vagyok');await step('Megütöm a hangszóró burkolatát');
+    const combine=page.locator('.adventure-choice').filter({hasText:'Tárgyak kombinálása'});
+    await combine.getByRole('button',{name:'Végrehajtom'}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();
+    const use=page.locator('.adventure-choice').filter({hasText:'Tárgy használata / célpont'});
+    await use.locator('select').selectOption('use:bridge:panel');await use.getByRole('button',{name:'Végrehajtom'}).click();turns++;await page.getByRole('status').filter({hasText:`· ${turns}. lépés`}).waitFor();
+    await step('Kilépek a folyosóra');await page.reload();
+    check(await page.locator('.adventure-scene h2').textContent()==='02 · A küszöb','location auto-resumes '+role);
+    await page.locator('.adventure-book summary').click();
+    check(await page.locator('.adventure-book article').count()===6,'milestones persist as book pages '+role);
+    check(await page.locator('.adventure-book article').last().innerText().then(text=>text.includes('Kiléptem a körfolyosóra')),'book is narrative, not command log '+role);
+    if(role==='owner'&&process.env.ADVENTURE_SCREENSHOT_DIR){await page.setViewportSize({width:1440,height:900});await page.locator('.adventure-book').screenshot({path:join(process.env.ADVENTURE_SCREENSHOT_DIR,'nullpont-storybook.png')});}
+    const resumed=await context.newPage();await resumed.goto(origin+'/adventure');check(await resumed.locator('.adventure-scene h2').textContent()==='02 · A küszöb','new tab resumes '+role);await resumed.close();
+    await step('Visszamegyek a szobába');check(await page.getByRole('button',{name:'Kilépek a folyosóra',exact:true}).count()===1,'return has no soft lock '+role);
     check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls '+role);await context.close();
   }
   console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,1101,1024,390,320]}));
