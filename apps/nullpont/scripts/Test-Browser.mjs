@@ -4,34 +4,53 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
+import { createServer as httpServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { encode } from 'next-auth/jwt';
+import { sessionToken } from '../lib/session.ts';
 import { initializeDatabase } from '../lib/schema.ts';
 const root=process.cwd(),temporary=process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir();mkdirSync(temporary,{recursive:true});
 const fixture=mkdtempSync(join(temporary,'nullpont-browser-'));
 const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
 const origin='http://127.0.0.1:'+port,secret=randomBytes(32).toString('base64url'),owner='one@example.test',other='two@example.test';
+const bridgeSecret=randomBytes(32).toString('base64url'),codes=new Map();let exchanges=0;
+const dashboard=httpServer(async(request,response)=>{
+  const url=new URL(request.url,'http://127.0.0.1');
+  if(url.pathname==='/api/nullpont/authorize'){
+    const code=randomBytes(32).toString('base64url');codes.set(code,url.searchParams.get('challenge'));
+    const callback=new URL('/api/sso/callback',origin);callback.searchParams.set('state',url.searchParams.get('state'));callback.searchParams.set('code',code);
+    response.writeHead(303,{Location:callback.href});response.end();return;
+  }
+  if(url.pathname==='/api/nullpont/redeem'&&request.method==='POST'&&request.headers.authorization==='Bearer '+bridgeSecret){
+    let body='';for await(const chunk of request)body+=chunk;
+    const {code,verifier}=JSON.parse(body);
+    if(codes.get(code)===createHash('sha256').update(verifier).digest('base64url')){codes.delete(code);exchanges++;response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify({email:owner}));return;}
+  }
+  response.writeHead(401);response.end();
+});await new Promise(resolve=>dashboard.listen(0,'127.0.0.1',resolve));const dashboardOrigin='http://127.0.0.1:'+dashboard.address().port;
 cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:path=>path!==join(root,'.next-staging','cache')});
 symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
 writeFileSync(join(fixture,'package.json'),' {"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next"}');mkdirSync(join(fixture,'data'));
 const database=new DatabaseSync(join(fixture,'data/nullpont.sqlite'));initializeDatabase(database);database.exec('PRAGMA journal_mode=WAL');
 for(const email of [owner,other])database.prepare('INSERT INTO players VALUES(?,1)').run(email);
-const child=spawn(process.execPath,[join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_URL:origin,AUTH_SECRET:secret,NULLPONT_DATA_DIR:join(fixture,'data'),NULLPONT_ALLOWED_EMAILS:'',NEXT_TELEMETRY_DISABLED:'1',DASHBOARD_BUILD_DIR:''}});
+const child=spawn(process.execPath,[join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_URL:origin,AUTH_SECRET:secret,NULLPONT_DASHBOARD_URL:dashboardOrigin,NULLPONT_SSO_SECRET:bridgeSecret,NULLPONT_DATA_DIR:join(fixture,'data'),NULLPONT_ALLOWED_EMAILS:'',NEXT_TELEMETRY_DISABLED:'1',DASHBOARD_BUILD_DIR:''}});
 let log='',browser,checks=0;for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{log+=chunk;});
 const check=(value,message)=>{assert.ok(value,message);checks++;};
 try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Fixture startup timeout')),30000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Fixture exited'));});child.stdout.on('data',()=>{if(log.includes('Ready in')){clearTimeout(timer);resolve();}});});
   browser=await chromium.launch({headless:true});
-  const token=async email=>encode({secret,salt:'nullpont.session-token',maxAge:900,token:{email,name:'Synthetic player'}});
+  const token=async email=>sessionToken(email,secret);
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
-  await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
+  await context.route('**/*',route=>[origin,dashboardOrigin].some(base=>route.request().url().startsWith(base+'/'))?route.continue():route.abort());
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(origin);check(await page.getByRole('button',{name:'Belépés Google-fiókkal'}).count()===1,'anonymous login required');
-  await context.addCookies([{name:'authjs.session-token',value:await token(owner),url:origin}]);await page.reload();check(await page.getByRole('button',{name:'Belépés Google-fiókkal'}).count()===1,'dashboard cookie cannot log into standalone app');
-  await context.addCookies([{name:'nullpont.session-token',value:await token(owner),url:origin}]);await page.reload();
+  await page.goto(origin+'/?signedout=1');check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'signed out notice has dashboard continuation');
+  await context.addCookies([{name:'authjs.session-token',value:await token(owner),url:origin}]);await page.reload();check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'dashboard cookie cannot log into standalone app');
+  await page.goto(origin);await page.locator('.game-grid').waitFor();check(exchanges===1,'automatic PKCE handoff establishes local session without Google prompt');
+  check(!new URL(page.url()).search,'callback code removed from browser address');
+  const cookie=(await context.cookies()).find(cookie=>cookie.name==='nullpont.session-token');check(cookie?.httpOnly&&cookie?.sameSite==='Lax','local session is HttpOnly SameSite Lax');
+  await page.goto(origin+'/api/sso/callback?state=forged&code='+'a'.repeat(43));await page.waitForURL('**/?sso=failed');check(exchanges===1,'forged callback does not redeem');await page.goto(origin);
   check(await page.locator('.environment button').count()===0,'environment starts undiscovered');check(await page.locator('.movement .choices button').count()===0,'unknown exits hidden');
   check(await page.locator('.actions .verbs button').count()===6,'generic verbs, not solution buttons');
   check(!await page.locator('body').innerText().then(text=>text.includes('Fólia + huzal')),'no recipe spoiler');
@@ -65,4 +84,4 @@ try{
   database.prepare('UPDATE players SET enabled=0 WHERE email=?').run(owner);await page.getByRole('button',{name:'Körülnézek',exact:true}).click();await page.getByRole('alert').filter({hasText:'hozzáférés megszűnt'}).waitFor();check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===before,'revoked session cannot advance game');
   check(errors.length===0,'no browser errors: '+errors.join(', '));await context.close();
   console.log(JSON.stringify({passed:true,checks,independentInstallation:true,syntheticDatabase:true,noProductionChanges:true}));
-}finally{if(browser)await browser.close();database.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});}
+}finally{if(browser)await browser.close();await new Promise(resolve=>dashboard.close(resolve));database.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});}
