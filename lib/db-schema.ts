@@ -54,10 +54,6 @@ export function initializeDatabase(database: DatabaseSync) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,before_html TEXT NOT NULL,after_html TEXT NOT NULL,
       revision INTEGER NOT NULL,occurred_at TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS adventure_saves (
-      owner TEXT PRIMARY KEY, state_json TEXT NOT NULL,
-      revision INTEGER NOT NULL CHECK(revision >= 0), updated_at TEXT NOT NULL
-    );
   `);
   initializePokemon(database);
   initializeMobile(database);
