@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { initializeDatabase } from '../lib/db-schema.ts';
 test('dashboard link is external and validated; legacy bookmarks redirect without loading game data', () => {
   assert.equal(nullpontUrl('https://game.example.test/'),'https://game.example.test/');
+  assert.equal(nullpontUrl('https://wydrian.hu/nullpont'),'https://wydrian.hu/nullpont');
   for (const value of ['', 'javascript:alert(1)', 'http://game.example.test', 'https://nas.wydrian.hu/adventure', 'https://wydrian.hu/adventure', 'https://user:password@game.example.test', 'https://game.example.test/?token=private']) assert.equal(nullpontUrl(value),null);
   const page=readFileSync(new URL('../app/adventure/page.tsx',import.meta.url),'utf8');
   assert.match(page,/redirect\(destination\)/);assert.doesNotMatch(page,/loadGame|advanceGame|lib\/game/);
