@@ -39,6 +39,7 @@
     ".next-staging/dev/types/**/*.ts"
   ],
   "exclude": [
+    "apps/nullpont",
     "node_modules",
     ".runtime",
     ".next-previous",
