@@ -3,8 +3,10 @@
 A játék önálló alkalmazás: **[`apps/nullpont`](../apps/nullpont/README.md)**.
 A teljes telepítési, mentésimport-, jogosultság-, release- és rollback-leírás ott van.
 Ez a könyvtár a dashboard nélkül is másolható és telepíthető: saját package-lock,
-saját Google-belépés/süti, saját `nullpont.sqlite`, saját build és saját 3100-as port.
+dashboardból átvett azonosítással, saját sütivel, `nullpont.sqlite`-tal, builddel és 3100-as porttal.
 Sem a játékmotor, sem a futó alkalmazás nem importál dashboard-modult.
+Új Google OAuth-kliens nem kell: a meglévő dashboard-belépés egyszer használható,
+PKCE-hez kötött kóddal adható át. A játék csak a saját munkamenetét kezeli.
 
 ## Felület
 
@@ -18,8 +20,10 @@ Sem a játékmotor, sem a futó alkalmazás nem importál dashboard-modult.
 
 ## A dashboard kapcsolata
 
-A dashboard nem futtat játékot és nem ír játékállást. Opcionális `NULLPONT_URL`
-csak egy HTTPS-hivatkozást ad az önálló alkalmazásra. Régi `/adventure` bookmark
+A dashboard nem futtat játékot és nem ír játékállást. A `NULLPONT_URL`
+HTTPS-hivatkozást és fix belépési callback hostot ad az önálló alkalmazásra.
+Az `/api/nullpont/authorize` és `/api/nullpont/redeem` csak azonosítást ad át;
+a rövid életű kódok saját, a mentésektől külön táblában vannak. Régi `/adventure` bookmark
 hitelesítés után oda irányít; beállított új cím nélkül költözési tájékoztatót mutat.
 A régi `adventure_saves` táblát nem töröljük, nem módosítjuk és nem olvassuk az
 alkalmazásból. A külön import parancs kizárólag egy konzisztens backupot olvas.
