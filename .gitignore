@@ -1,6 +1,9 @@
 node_modules/
 .next/
 .next-staging/
+apps/nullpont/.next*/
+apps/nullpont/.runtime/
+apps/nullpont/data/
 .timeline-pages/
 .next-previous/
 .next-backup-*/

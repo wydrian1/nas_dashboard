@@ -6,8 +6,14 @@ const description = 'A hideg fényben egy fekvőlap, egy zárt ajtó és egy fal
 export const awakening: Chapter = {
   id: 'awakening', title: 'I. Az ébredés',
   items: { foil: 'Vezető fólia', wire: 'Szigetelt huzal', bridge: 'Áthidaló hurok' },
+  itemDescriptions: { foil: 'A fólia vékony és puha. Apró, szabályos bemélyedések futnak a felületén, mint egy hang hullámai.', wire: 'Rövid, hajlítható huzal. A szigetelés ép, csak a két végén látszik csupasz fém.', bridge: 'A kész hurok könnyedén elfér a tenyeredben. A fólián lévő mintázat most szabályos körbe zárul.' },
   scenes: {
-    chamber: { title: '01 · Az üres szoba', description, art: `        __________________________________
+    chamber: { title: '01 · Az üres szoba', description,
+      environment: [{ id: 'bed', label: 'Fekvőlap' }, { id: 'panel', label: 'Falpanel' }, { id: 'door', label: 'Ajtó' }, { id: 'speaker', label: 'Hangszóró' },
+        { id: 'loose-foil', label: 'Fóliadarab', requires: { withoutItems: ['foil', 'bridge'] } }, { id: 'loose-wire', label: 'Huzaldarab', requires: { withoutItems: ['wire', 'bridge'] } }],
+      exits: [{ id: 'door', label: 'Az ajtó felé', requires: { discoveries: ['door'] } }],
+      topics: [{ id: 'identity', label: 'Ki vagyok?', target: 'speaker', requires: { flags: ['voice-heard'] } }, { id: 'help', label: 'A kijutásról', target: 'speaker', requires: { flags: ['voice-heard'] } }],
+      art: `        __________________________________
        /                                 /|
       /_________________________________/ |
       |                    __________   | |
@@ -19,7 +25,7 @@ export const awakening: Chapter = {
       |  |_________|/          [::]     /
       |________________________________/
                   EBRESZTES / 7314`, rules: [
-      { id: 'look:room', label: 'Körülnézek', kind: 'look', message: description + ' A fekvőlap pereme felpúposodott. A panel két üres érintkezője között nem világít a jelzőfény.' },
+      { id: 'look:room', label: 'Körülnézek', kind: 'look', discover: ['bed', 'panel', 'door', 'speaker'], message: description + ' A fekvőlap pereme felpúposodott. A panel felől gyenge zúgás hallatszik.' },
       { id: 'look:bed', label: 'Megvizsgálom a fekvőlapot', kind: 'look', addFlags: ['bed-seen'], message: 'A fekvőlap nem ágy, hanem vizsgálóasztal. A perem alatti mélyedésben fólia helye látszik. A karcolás: „A zár nem kulcsot kér. Visszhangot.”', notes: ['A fekvőlapba karcolva: „A zár nem kulcsot kér. Visszhangot.”'] },
       { id: 'look:panel', label: 'Megvizsgálom a falpanelt', kind: 'look', addFlags: ['panel-seen'], message: 'A panel nem billentyűzet. Két érintkező: VISSZA és HANG. Köztük hiányzik az összeköttetés. A burkolat résében egy huzalnak kialakított vájat látszik. A figyelmeztetés: „Csak hajlékony, bevont hurokkal zárható. Puszta fémre az érzékelő nem reagál.”', notes: ['A panel két érintkezőjét hajlékony, bevont hurokkal kell összekötni.'] },
       { id: 'look:door', label: 'Megvizsgálom az ajtót', kind: 'look', message: 'Az ajtón nincs kilincs. A paneltől egy kábel vezet a zárhoz. A szám alatt pici betűk: „BELSŐ KARANTÉN / ÖNKÉNTES”. Önkéntes?', notes: ['A szoba ajtaján: „Belső karantén / önkéntes”.'] },
@@ -38,7 +44,8 @@ export const awakening: Chapter = {
       { id: 'move:blocked', label: 'Megpróbálok kimenni', kind: 'move', requires: { withoutFlags: ['door-open'] }, message: 'Az ajtó zárva marad. A megoldás valahol a szobában van. Nézd meg a tárgyakat és a falpanelt; ŐR–0 is adhat támpontot.' },
       { id: 'move:threshold', label: 'Kilépek a folyosóra', kind: 'move', requires: { flags: ['door-open'] }, moveTo: 'threshold', message: 'Kilépsz. Tizenkét ajtó, tizenkét azonos szoba. Mindegyikben a te hangod beszél, egy másodperc eltéréssel. A kijelzőn: „EGYETLEN SZEMÉLYZETI TAG AKTÍV.” Itt tart most a történet; a folytatás még készül. Az eddigi haladásod megmarad.', notes: ['Tizenkét szobából a saját hangom hallatszik. A rendszer mégis egyetlen személyt lát.'], milestone: { id: 'awakening:threshold', title: 'Tizenkét hang, egyetlen ember', text: 'Kiléptem a körfolyosóra. Tizenkét szobából hallottam a saját hangomat, mindegyikből egy másodperc késéssel. A rendszer egyetlen aktív személyzeti tagról tudott. Visszanéztem az ajtómra: kívülről 90-es számot viselt, nem 09-est. A válaszok helyett egy nagyobb rejtélybe jutottam. A folyosó végén valami lassan mozdult az üveg mögött.' } },
     ] },
-    threshold: { title: '02 · A küszöb', description: 'A nyitott ajtón túl egy körfolyosó vár. Innen újabb fejezetek nyílhatnak; a szobába bármikor visszatérhetsz.', requires: { flags: ['door-open'] }, art: `       ___________________________________
+    threshold: { title: '02 · A küszöb', description: 'A nyitott ajtón túl egy körfolyosó vár. Innen újabb fejezetek nyílhatnak; a szobába bármikor visszatérhetsz.', requires: { flags: ['door-open'] },
+      environment: [{ id: 'hall-window', label: 'Folyosó ablaka' }], exits: [{ id: 'chamber', label: 'Vissza a szobába' }], art: `       ___________________________________
       |      |      |      |      |      |
       |  07  |  08  |  09  |  10  |  11  |
       |______|______|  /   |______|______|
@@ -53,3 +60,31 @@ export const awakening: Chapter = {
     ] },
   },
 };
+
+// Interaction metadata is content, not a list of suggested solutions in the UI.
+for (const scene of Object.values(awakening.scenes)) for (const rule of scene.rules) {
+  const [verb, first, second] = rule.id.split(':');
+  if (rule.id === 'look:room') { rule.interaction = { verb: 'look' }; continue; }
+  if (verb === 'look') {
+    rule.interaction = { verb: 'look', target: { kind: 'environment', id: first === 'hall' ? 'hall-window' : first } };
+    rule.requires = { ...rule.requires, discoveries: [first === 'hall' ? 'hall-window' : first] };
+    if (first === 'bed') { rule.discover = ['loose-foil']; rule.message = 'A fekvőlap pereme alá nézel. Egy vékony fóliadarab akad a kezedbe. Alatta karcolás: „A zár nem kulcsot kér. Visszhangot.”'; }
+    if (first === 'panel') { rule.discover = ['loose-wire']; rule.message = 'A burkolat résében rövid huzalt találsz. A panelen két érintkező: VISSZA és HANG. Az egyik túl keskeny ahhoz, hogy puszta drótot fogjon. Az elhalványult felirat csak ennyit mond: „A jelnek vissza kell térnie.”'; }
+  } else if (verb === 'take') {
+    rule.interaction = { verb: 'take', target: { kind: 'environment', id: 'loose-' + first } };
+    rule.requires = { ...rule.requires, discoveries: ['loose-' + first] };
+  } else if (verb === 'use') {
+    rule.interaction = { verb: 'use', item: first, target: { kind: 'environment', id: second } };
+    rule.requires = { ...rule.requires, discoveries: [second] };
+  } else if (verb === 'combine') {
+    rule.interaction = { verb: 'combine', item: first, target: { kind: 'item', id: second } };
+    rule.label = 'Kombinálás';
+  } else if (verb === 'talk' || verb === 'attack') {
+    rule.interaction = { verb, target: { kind: 'environment', id: 'speaker' }, ...(first === 'identity' || first === 'help' ? { topic: first } : {}) };
+    rule.requires = { ...rule.requires, discoveries: ['speaker'] };
+  } else if (verb === 'move') {
+    rule.interaction = { verb: 'move', target: { kind: 'exit', id: first === 'chamber' ? 'chamber' : 'door' } };
+    if (first !== 'chamber') rule.requires = { ...rule.requires, discoveries: ['door'] };
+    if (first === 'threshold') rule.discover = ['hall-window'];
+  }
+}
