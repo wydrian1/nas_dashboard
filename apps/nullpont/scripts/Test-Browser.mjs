@@ -14,13 +14,13 @@ import { initializeDatabase } from '../lib/schema.ts';
 const root=process.cwd(),temporary=process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir();mkdirSync(temporary,{recursive:true});
 const fixture=mkdtempSync(join(temporary,'nullpont-browser-'));
 const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
-const origin='http://127.0.0.1:'+port,secret=randomBytes(32).toString('base64url'),owner='one@example.test',other='two@example.test';
+const basePath=process.env.NULLPONT_BASE_PATH||'',origin='http://127.0.0.1:'+port+basePath,secret=randomBytes(32).toString('base64url'),owner='one@example.test',other='two@example.test';
 const bridgeSecret=randomBytes(32).toString('base64url'),codes=new Map();let exchanges=0;
 const dashboard=httpServer(async(request,response)=>{
   const url=new URL(request.url,'http://127.0.0.1');
   if(url.pathname==='/api/nullpont/authorize'){
     const code=randomBytes(32).toString('base64url');codes.set(code,url.searchParams.get('challenge'));
-    const callback=new URL('/api/sso/callback',origin);callback.searchParams.set('state',url.searchParams.get('state'));callback.searchParams.set('code',code);
+    const callback=new URL(origin+'/api/sso/callback');callback.searchParams.set('state',url.searchParams.get('state'));callback.searchParams.set('code',code);
     response.writeHead(303,{Location:callback.href});response.end();return;
   }
   if(url.pathname==='/api/nullpont/redeem'&&request.method==='POST'&&request.headers.authorization==='Bearer '+bridgeSecret){
@@ -32,7 +32,7 @@ const dashboard=httpServer(async(request,response)=>{
 });await new Promise(resolve=>dashboard.listen(0,'127.0.0.1',resolve));const dashboardOrigin='http://127.0.0.1:'+dashboard.address().port;
 cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:path=>path!==join(root,'.next-staging','cache')});
 symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
-writeFileSync(join(fixture,'package.json'),' {"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next"}');mkdirSync(join(fixture,'data'));
+writeFileSync(join(fixture,'package.json'),' {"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next",basePath:'+JSON.stringify(basePath)+'}');mkdirSync(join(fixture,'data'));
 const database=new DatabaseSync(join(fixture,'data/nullpont.sqlite'));initializeDatabase(database);database.exec('PRAGMA journal_mode=WAL');
 for(const email of [owner,other])database.prepare('INSERT INTO players VALUES(?,1)').run(email);
 const child=spawn(process.execPath,[join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_URL:origin,AUTH_SECRET:secret,NULLPONT_DASHBOARD_URL:dashboardOrigin,NULLPONT_SSO_SECRET:bridgeSecret,NULLPONT_DATA_DIR:join(fixture,'data'),NULLPONT_ALLOWED_EMAILS:'',NEXT_TELEMETRY_DISABLED:'1',DASHBOARD_BUILD_DIR:''}});
@@ -43,14 +43,14 @@ try{
   browser=await chromium.launch({headless:true});
   const token=async email=>sessionToken(email,secret);
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
-  await context.route('**/*',route=>[origin,dashboardOrigin].some(base=>route.request().url().startsWith(base+'/'))?route.continue():route.abort());
+  await context.route('**/*',route=>[origin,dashboardOrigin].some(base=>{const value=route.request().url();return value===base||value.startsWith(base+'/')||value.startsWith(base+'?');})?route.continue():route.abort());
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(origin+'/?signedout=1');check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'signed out notice has dashboard continuation');
   await context.addCookies([{name:'authjs.session-token',value:await token(owner),url:origin}]);await page.reload();check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'dashboard cookie cannot log into standalone app');
-  await page.goto(origin);await page.locator('.game-grid').waitFor();check(exchanges===1,'automatic PKCE handoff establishes local session without Google prompt');
+  await page.goto(origin);await page.locator('.game-grid').waitFor().catch(()=>{throw new Error('Handoff failed at '+new URL(page.url()).pathname+'; '+log.slice(-1600));});check(exchanges===1,'automatic PKCE handoff establishes local session without Google prompt');
   check(!new URL(page.url()).search,'callback code removed from browser address');
-  const cookie=(await context.cookies()).find(cookie=>cookie.name==='nullpont.session-token');check(cookie?.httpOnly&&cookie?.sameSite==='Lax','local session is HttpOnly SameSite Lax');
-  await page.goto(origin+'/api/sso/callback?state=forged&code='+'a'.repeat(43));await page.waitForURL('**/?sso=failed');check(exchanges===1,'forged callback does not redeem');await page.goto(origin);
+  const cookie=(await context.cookies()).find(cookie=>cookie.name==='nullpont.session-token');check(cookie?.httpOnly&&cookie?.sameSite==='Lax'&&cookie?.path===(basePath||'/'),'local session is HttpOnly SameSite Lax and path scoped');
+  await page.goto(origin+'/api/sso/callback?state=forged&code='+'a'.repeat(43));await page.waitForURL(url=>url.searchParams.get('sso')==='failed');check(exchanges===1,'forged callback does not redeem');await page.goto(origin);
   check(await page.locator('.environment button').count()===0,'environment starts undiscovered');check(await page.locator('.movement .choices button').count()===0,'unknown exits hidden');
   check(await page.locator('.actions .verbs button').count()===6,'generic verbs, not solution buttons');
   check(!await page.locator('body').innerText().then(text=>text.includes('Fólia + huzal')),'no recipe spoiler');
