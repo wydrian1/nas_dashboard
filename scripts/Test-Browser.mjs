@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:net';
 import {spawn} from 'node:child_process';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
@@ -18,6 +18,7 @@ const owner='owner@example.test',reader='reader@example.test',info='info@example
 process.env.ALLOWED_EMAIL=owner;
 const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
 const origin='http://127.0.0.1:'+port;
+const bridgeSecret=randomBytes(32).toString('base64url'),gameOrigin='https://game.example.test';
 // Runtime route caches must never mutate the build that will be sealed/published.
 cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:path=>path!==join(root,'.next-staging','cache')&&path!==join(root,'.next-staging','server','route-cache')});
 symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
@@ -48,13 +49,29 @@ db.prepare("INSERT INTO pokemon_worker VALUES(1,?,'running')").run(now);
 db.prepare("INSERT INTO mobile_devices(id,label,email,secret_hash,created_at,expires_at,last_seen,push_enabled,fcm_token) VALUES('fixture-device','Synthetic phone',?,'synthetic-secret-hash',?,?,?,1,'synthetic-fcm-token')").run(owner,now,now+86400000,now);
 db.prepare("INSERT INTO mobile_push_outbox(id,device_id,payload,state,created_at,expires_at) VALUES('fixture-push','fixture-device','{}','sent',?,?)").run(now,now+10000);
 assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);db.close();
-const child=spawn(process.execPath,['--import',pathToFileURL(join(fixture,'block-service-probes.mjs')).href,join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_SECRET:secret,AUTH_URL:origin,AUTH_MULTI_DOMAIN:'false',AUTH_TRUST_HOST:'true',ALLOWED_EMAIL:owner,FINANCE_ETORO_ENABLED:'false',FINANCE_EXTERNAL_FETCH_ENABLED:'false',SERVICE_PROBES_ENABLED:'false',ADMIN_HELPER_ENABLED:'false',OPENCODE_WEB_ENABLED:'false',NEXT_TELEMETRY_DISABLED:'1'}});
+const child=spawn(process.execPath,['--import',pathToFileURL(join(fixture,'block-service-probes.mjs')).href,join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_SECRET:secret,AUTH_URL:origin,NULLPONT_URL:gameOrigin,NULLPONT_SSO_SECRET:bridgeSecret,AUTH_MULTI_DOMAIN:'false',AUTH_TRUST_HOST:'true',ALLOWED_EMAIL:owner,FINANCE_ETORO_ENABLED:'false',FINANCE_EXTERNAL_FETCH_ENABLED:'false',SERVICE_PROBES_ENABLED:'false',ADMIN_HELPER_ENABLED:'false',OPENCODE_WEB_ENABLED:'false',NEXT_TELEMETRY_DISABLED:'1'}});
 let log='',browser,checks=0;const check=(value,message)=>{assert.ok(value,message);checks++;};
 for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{log+=chunk;writeFileSync(join(fixture,'server.log'),log);});
 try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Fixture startup timed out')),30000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Fixture server exited'));});child.stdout.on('data',()=>{if(log.includes('Ready in')){clearTimeout(timer);resolve();}});});
   const cookies={};for(const [role,email]of Object.entries({owner,reader,info,admin}))cookies[role]='authjs.session-token='+await encode({secret,salt:'authjs.session-token',maxAge:900,token:{email,name:'Synthetic browser check'}});
   const call=(path,role)=>fetch(origin+path,{redirect:'manual',headers:role?{cookie:cookies[role]}:{},signal:AbortSignal.timeout(20000)});
+  const state=randomBytes(32).toString('base64url'),verifier=randomBytes(32).toString('base64url'),challenge=createHash('sha256').update(verifier).digest('base64url');
+  const authorization='/api/nullpont/authorize?state='+state+'&challenge='+challenge+'&redirect_uri=https://evil.example.test';
+  const unauth=await call(authorization);check(unauth.status===303&&unauth.headers.get('location')==='/','anonymous handoff requires dashboard login');await unauth.body?.cancel();
+  const redeem=async(code,key=bridgeSecret,proof=verifier)=>fetch(origin+'/api/nullpont/redeem',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({code,verifier:proof}),signal:AbortSignal.timeout(10000)});
+  for(const role of ['owner','reader','info']){
+    const response=await call(authorization,role),callback=new URL(response.headers.get('location'));await response.body?.cancel();
+    check(response.status===303&&callback.origin===gameOrigin&&callback.pathname==='/api/sso/callback','fixed callback ignores arbitrary redirect '+role);
+    check(callback.searchParams.get('state')===state&&!callback.href.includes('@'),'opaque browser handoff '+role);
+    const code=callback.searchParams.get('code');let result=await redeem(code,'wrong-secret');check(result.status===401,'bridge rejects wrong key '+role);await result.body?.cancel();
+    result=await redeem(code,bridgeSecret,'a'.repeat(43));check(result.status===401,'bridge rejects wrong PKCE '+role);await result.body?.cancel();
+    result=await redeem(code);check(result.status===200&&(await result.json()).email===({owner,reader,info})[role],'existing dashboard identity transferred '+role);
+    result=await redeem(code);check(result.status===401,'code cannot be replayed '+role);await result.body?.cancel();
+  }
+  const pending=await call(authorization,'reader'),pendingCode=new URL(pending.headers.get('location')).searchParams.get('code');await pending.body?.cancel();
+  const membership=new DatabaseSync(join(fixture,'data/dashboard.sqlite'));membership.prepare('UPDATE dashboard_users SET active=0 WHERE email=?').run(reader);
+  const denied=await redeem(pendingCode);check(denied.status===401,'dashboard membership rechecked at redemption');await denied.body?.cancel();membership.prepare('UPDATE dashboard_users SET active=1 WHERE email=?').run(reader);membership.close();
   for(const path of ['/search','/system','/notifications','/files','/adventure']){const response=await call(path);check(response.status===307&&response.headers.get('location')==='/','anonymous denied '+path);await response.body?.cancel();}
   for(const role of [null,'reader','info','admin']){const response=await call('/api/operations',role);check(response.status===(role?403:401),'owner-only operations API '+role);await response.body?.cancel();}
   let response=await call('/api/operations','owner');check(response.status===200,'owner operations API');const health=await response.json();check(health.backup.state==='unknown','missing backup is unknown');check(health.shops.find(item=>item.id==='grandline').stale,'stale shop metadata');check(!JSON.stringify(health).includes('synthetic-fcm-token'),'no token exposure');
@@ -170,8 +187,7 @@ try{
       }
       for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'populated finance no overflow '+width);}
     }
-    await page.goto(origin+'/adventure');
-    check(await page.locator('h1').textContent()==='A NULLPONT külön költözik','legacy game route is migration notice '+role);
+    const legacy=await call('/adventure',role);check(legacy.status===307&&legacy.headers.get('location')===gameOrigin+'/','legacy route redirects to standalone '+role);await legacy.body?.cancel();
     check(await page.locator('nav a[href="/adventure"]').count()===0,'no embedded game menu '+role);
     check(await page.locator('.game-grid,.adventure-layout').count()===0,'dashboard does not serve game UI '+role);
     check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls '+role);await context.close();
