@@ -96,7 +96,14 @@ A nagyítható ASCII-jeleneten jelölsz ki környezeti elemet; a kijáratra katt
 mozogsz. Érkezéskor az alap környezet már látható, külön körülnézési lépés nélkül.
 A közelebbi vizsgálat további részleteket fedhet fel, és minden nyitófejezeti célpont
 érdemi leírást ad. Nincs külön környezet-, mozgás- vagy akciódoboz, látható
-mentés/lépésszámláló vagy állandó oktatófelirat. A célpont címkéje
+mentés/lépésszámláló vagy állandó oktatófelirat.
+Az egymásba ágyazott közelnézetek saját ASCII-képet kapnak; a helyzetjelző mutatja
+a fizikai helyszínt és a részletek útvonalát. Visszaléphetsz egy szinttel vagy a
+helyzetjelző korábbi elemére kattintva. A közelnézet mentés és újratöltés után is
+megmarad. A megfelelő környezeti célpont címkéjében szöveges/számzáras bevitel is
+megjelenhet; a megoldások nem kerülnek a böngészőnek küldött játékadatokba.
+
+A célpont címkéje
 rámutatásra, fókuszra vagy érintésre mutatja a nevét és a kompakt műveletikonokat;
 az ikonok hozzáférhető neve és tooltipje megmarad.
 Billentyűzettel a lefelé nyíl a címke műveleteire lép, Escape bezárja azt.

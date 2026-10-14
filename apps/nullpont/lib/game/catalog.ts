@@ -1,8 +1,9 @@
 import { awakening } from './chapters/awakening.ts';
+import { archive } from './chapters/archive.ts';
 import type { Chapter, Requirement, GameState } from './types.ts';
 
 // Append AI-authored chapters here; never replace published IDs or old chapters.
-export const CHAPTERS: Chapter[] = [awakening];
+export const CHAPTERS: Chapter[] = [awakening, archive];
 export function createCatalog(chapters: Chapter[]) {
   const scenes: Chapter['scenes'] = {}, items: Record<string, string> = {}, itemDescriptions: Record<string, string> = {}, itemArt: Record<string, string> = {}, owners: Record<string, string> = {}, ruleOwners: Record<string, string> = {};
   const chapterIds = new Set<string>();
@@ -49,6 +50,32 @@ export function createCatalog(chapters: Chapter[]) {
     discoveries.add(entity.id);
   }
   const milestoneIds = new Set<string>(['awakening:wake']);
+  for (const [id, scene] of Object.entries(scenes)) {
+    const seen = new Set<string>([id]);
+    let parent = scene.detailOf;
+    while (parent) {
+      if (!Object.hasOwn(scenes, parent) || seen.has(parent)) throw new Error('Ismeretlen vagy ciklikus részlethelyszín.');
+      seen.add(parent); parent = scenes[parent].detailOf;
+      if (seen.size > 33) throw new Error('Túl mély részlethelyszín.');
+    }
+    if (scene.detailOf && (!scene.art || !scene.artSpots?.length)) throw new Error('Hiányzó részletrajz vagy ASCII-célpont.');
+    if (scene.detailOf && !scenes[scene.detailOf].rules.some(rule => rule.focusTo === id)) throw new Error('Árva részlethelyszín.');
+    const inputIds = new Set<string>();
+    for (const input of scene.inputs ?? []) {
+      if (inputIds.has(input.id) || !(scene.environment ?? []).some(entity => entity.id === input.id) || !input.label || !input.prompt || (input.maxLength !== undefined && (!Number.isSafeInteger(input.maxLength) || input.maxLength < 1 || input.maxLength > 256)) || (input.format !== undefined && !['digits','text'].includes(input.format))) throw new Error('Érvénytelen jelenetbevitel.');
+      inputIds.add(input.id);
+    }
+    for (const rule of scene.rules) {
+      if (rule.focusTo && (!Object.hasOwn(scenes, rule.focusTo) || scenes[rule.focusTo].detailOf !== id || rule.moveTo || rule.interaction?.verb !== 'look' || rule.interaction.target?.kind !== 'environment')) throw new Error('Érvénytelen részletcélpont.');
+      if (rule.focusTo && !(scene.environment ?? []).some(entity => entity.id === rule.interaction?.target?.id)) throw new Error('Ismeretlen részletobjektum.');
+      if (rule.moveTo && scenes[rule.moveTo]?.detailOf) throw new Error('Részlet nem lehet fizikai célhelyszín.');
+      if (rule.interaction?.verb === 'submit') {
+        const input = scene.inputs?.find(input => input.id === rule.interaction?.target?.id);
+        const answer = rule.interaction.input;
+        if (rule.kind !== 'submit' || rule.interaction.target?.kind !== 'environment' || !input || typeof answer !== 'string' || !answer || answer !== answer.trim() || answer.length > (input.maxLength ?? 80) || /[\x00-\x1f\x7f]/.test(answer) || (input.format === 'digits' && !/^\d+$/.test(answer))) throw new Error('Érvénytelen bevitelművelet.');
+      } else if (rule.interaction?.input !== undefined || rule.kind === 'submit') throw new Error('Érvénytelen bevitelművelet.');
+    }
+  }
   for (const scene of Object.values(scenes)) {
     if (scene.arrivalDiscoveries && (new Set(scene.arrivalDiscoveries).size !== scene.arrivalDiscoveries.length || scene.arrivalDiscoveries.some(id => !(scene.environment ?? []).some(entity => entity.id === id)))) throw new Error('Érvénytelen érkezési felfedezés.');
     if (scene.artSpots) {
@@ -66,7 +93,7 @@ export function createCatalog(chapters: Chapter[]) {
     for (const rule of scene.rules) {
       if (rule.moveTo && !Object.hasOwn(scenes, rule.moveTo)) throw new Error('Ismeretlen célhelyszín.');
       for (const item of [...rule.addItems ?? [], ...rule.removeItems ?? [], ...rule.requires?.items ?? [], ...rule.requires?.withoutItems ?? []]) if (!(item in items)) throw new Error('Ismeretlen tárgy.');
-      for (const flag of [...rule.addFlags ?? [], ...rule.requires?.flags ?? [], ...rule.requires?.withoutFlags ?? []]) flags.add(flag);
+      for (const flag of [...rule.addFlags ?? [], ...rule.removeFlags ?? [], ...rule.requires?.flags ?? [], ...rule.requires?.withoutFlags ?? []]) flags.add(flag);
       for (const entity of [...rule.discover ?? [], ...rule.requires?.discoveries ?? []]) if (!discoveries.has(entity)) throw new Error('Ismeretlen felfedezés.');
       if (rule.milestone) {
         if (milestoneIds.has(rule.milestone.id)) throw new Error('Duplikált mérföldkő.');
@@ -74,7 +101,7 @@ export function createCatalog(chapters: Chapter[]) {
       }
     }
     for (const flag of [...scene.requires?.flags ?? [], ...scene.requires?.withoutFlags ?? []]) flags.add(flag);
-    for (const entity of [...scene.environment ?? [], ...scene.exits ?? [], ...scene.topics ?? []]) {
+    for (const entity of [...scene.environment ?? [], ...scene.exits ?? [], ...scene.topics ?? [], ...scene.inputs ?? []]) {
       for (const flag of [...entity.requires?.flags ?? [], ...entity.requires?.withoutFlags ?? []]) flags.add(flag);
       for (const id of entity.requires?.discoveries ?? []) if (!discoveries.has(id)) throw new Error('Ismeretlen nézetfeltétel.');
       for (const item of [...entity.requires?.items ?? [], ...entity.requires?.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen nézettárgy.');

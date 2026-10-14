@@ -26,6 +26,7 @@ test('steward shell operations use one bounded runner without recurring approval
   // an unsplit compound string; split additional commands hit the broad deny.
   for(const command of [prefix+'inputs; '+prefix+'timestamp',prefix+'inputs && '+prefix+'timestamp',prefix+'inputs extra','node -e "1"',prefix+'storyboard-hash other-file','$env:PATH="other"; '+prefix+'inputs'])assert.ok(!resources.includes(command));
   const runner=fileURLToPath(new URL('../.opencode/scripts/story-steward.mjs',import.meta.url));
+  const runnerSource=readFileSync(runner,'utf8');assert.match(runnerSource,/readdirSync\(folder\).*endsWith\('\.test\.ts'\)/);assert.match(runnerSource,/Unsafe game test input/);
   const run=(...args:string[])=>spawnSync(process.execPath,[runner,...args],{encoding:'utf8',timeout:10000});
   const inputs=run('inputs');assert.equal(inputs.status,0);assert.ok(JSON.parse(inputs.stdout).chapters.length>=1);
   const checked=run('check');assert.equal(checked.status,0);assert.equal(JSON.parse(checked.stdout).passed,true);
