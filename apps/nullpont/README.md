@@ -87,11 +87,25 @@ fiók nem kaphat új játék-munkamenetet. A már kiadott játék-munkamenet max
 
 ## Játék és folytatás
 
-Mozgás, akció, felfedezett környezet, inventory. Kijelölsz egy tárgyat, majd
-egy környezeti elemet vagy másik tárgyat, és választasz egy általános igét.
-Nincs előre megjelenített kombinációs recept vagy nyerő műveletlista.
-A környezeti elemek csak a tényleges felfedezésük után kerülnek a panelre;
-a felvett tárgy onnan az inventoryba kerül. Sikertelen kísérlet nem pusztít tárgyat.
+Minden új/átírt történetmodult a **nullpont-story-steward** agent validál az elfogadás
+előtt. Privát storyboardja nem kerül a játékba vagy Gitbe. Az exact-byte narratív
+jóváhagyást a `npm run check:story` kapu ellenőrzi, a kiadási csomag is megköveteli.
+Munkafolyamat: [történetellenőrzés](../../docs/nullpont-story-review.md).
+
+A nagyítható ASCII-jeleneten jelölsz ki környezeti elemet; a kijáratra kattintva
+mozogsz. Nincs külön környezet- vagy mozgásmenü. A felfedezett célpont címkéje
+rámutatásra, fókuszra vagy érintésre mutatja a nevét és az általános műveleteket.
+Billentyűzettel a lefelé nyíl a címke műveleteire lép, Escape bezárja azt.
+Az inventory tárgyrajzokat mutat: a címkén a Használom után a jelenet célpontjára,
+a Kombinálom után a másik inventorytárgyra kattints. Nincs előre megjelenített
+kombinációs recept vagy nyerő műveletlista. Csak a ténylegesen felfedezett elemek
+kattinthatók; a felvett tárgy rajza eltűnik a jelenetről. Sikertelen kísérlet nem
+pusztít tárgyat. Keskeny képernyőn a rajz külön, oldalra görgethető.
+
+A Játék újrakezdése külön megerősítéssel a saját mentést állítja nyitóállapotra,
+beleértve az inventoryt, felfedezéseket, naplót és történetkönyvet. Más fiókhoz
+nem nyúl. A mentés revíziója tovább nő; elavult böngészőfül nem törölhet frissebb
+haladást, és újrakezdés után sem írhatja vissza a régi állapotot.
 
 Új fejezet: `lib/game/chapters/<nev>.ts`, regisztráció `lib/game/catalog.ts`-ben.
 A `connections` régi helyszínhez adhat új kijáratot. A fejezet adja a környezeti
@@ -100,6 +114,17 @@ A kliens csak az aktuális, felfedezett világ nézetét kapja, nem recepteket v
 jövőbeli tartalmat. Régi azonosítót és megszerzett könyvlapot nem írunk át.
 Nincs tervezett vég, és minden új fejezet minden elérhető állapota folytatható legyen.
 Az AI fejlesztéskor írja a történeteket; nincs új fizetős futásidejű modellintegráció.
+
+Új modulhoz minden környezeti elem és kijárat kapjon `artSpots` téglalapot
+(nullától számozott sor/oszlop és méret); az `itemArt` adja az inventoryrajzot.
+A `connections.artSpots` régi jelenethez adhat új célpontot. A katalógus ellenőrzi
+a koordinátákat és a teljes lefedettséget; régi, hotspot nélküli moduloknál a nézet
+kompatibilis ASCII-célpontokat illeszt a rajz alá. A kapcsolódó feltételeket és
+rejtvényrecepteket nem küldi a kliensnek.
+
+ASCII-készítési eszközök és helyi modelllehetőség:
+[tervezési útmutató](../../docs/nullpont-ascii-art.md). Ezek fejlesztési segédeszközök,
+nem új futásidejű függőségek.
 
 ## Mentés / rollback
 

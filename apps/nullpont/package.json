@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "typecheck": "tsc --noEmit",
+    "check:story": "node scripts/Check-Story.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:browser": "node scripts/Test-Browser.mjs",
     "import:dashboard": "node scripts/Import-Dashboard.mjs",
