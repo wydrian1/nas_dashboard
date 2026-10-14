@@ -27,6 +27,11 @@ hogy a játék összes interaktív eleme felismerhető és jó helyen kattinthat
 3. Csak felfedezés után látható részlethez `glyph` használható. A rajz alaprétege
    ne tartalmazzon rejtett tárgyat vagy történeti titkot.
 4. Az `actions` általános igéket kínáljon, ne megoldást vagy kombinációs receptet.
+   A játék ezeket egységes kis ikonokkal mutatja, tooltip/hozzáférhető név mellett.
+   Az `arrivalDiscoveries` adja az érkezéskor látható alap környezetet; rejtett
+   tárgyhoz továbbra is vizsgálati felfedezés tartozzon. A vizsgálat adjon konkrét
+   érzéki/fizikai leírást, ne egy általános sikertelenségi üzenetet vagy megoldási
+   parancsot. A sikertelen kísérlet legyen rövid, ne sorolja a nem történt károkat.
 5. Az inventoryhoz rövid, egyértelmű `itemArt` készüljön. Stabil tárgyazonosítót
    és korábban megszerzett történetkönyvlapot nem szabad átírni.
 6. Ellenőrizd a koordinátákat, keskeny képernyős görgetést, billentyűzetet,
