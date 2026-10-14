@@ -1,5 +1,5 @@
 // Fixed review operations only: no arbitrary commands, paths or script arguments.
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync,lstatSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -14,7 +14,11 @@ if(operation==='check')console.log(JSON.stringify(checkStory(game),null,2));
 if(operation==='timestamp')console.log(new Date().toISOString());
 if(operation==='storyboard-hash')console.log(createHash('sha256').update(readFileSync('D:/!nas/.runtime/nullpont-story/storyboard.md')).digest('hex'));
 if(operation==='test'){
-  run(process.execPath,['--experimental-strip-types','--test','tests/adventure.test.ts','tests/import.test.ts','tests/session.test.ts','tests/story-review.test.ts'],game);
+  const folder=new URL('../../apps/nullpont/tests/',import.meta.url);
+  const tests=readdirSync(folder).filter(name=>name.endsWith('.test.ts')).sort();
+  if(!tests.length)throw Error('Game tests missing');
+  for(const name of tests){const stat=lstatSync(new URL(name,folder));if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw Error('Unsafe game test input');}
+  run(process.execPath,['--experimental-strip-types','--test',...tests.map(name=>'tests/'+name)],game);
   run(process.execPath,['--experimental-strip-types','--test','tests/nullpont-story-steward.test.ts'],root);
 }
 if(operation==='diff')run('D:/!nas/.runtime/git/cmd/git.exe',['diff','--','.opencode','apps/nullpont','docs/nullpont-ascii-art.md','docs/nullpont-story-review.md','tests/nullpont-story-steward.test.ts'],root);
