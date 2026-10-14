@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { sessionToken } from '../lib/session.ts';
 import { initializeDatabase } from '../lib/schema.ts';
+import { CATALOG, meets } from '../lib/game/catalog.ts';
 const root=process.cwd(),temporary=process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir();mkdirSync(temporary,{recursive:true});
 const fixture=mkdtempSync(join(temporary,'nullpont-browser-'));
 const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
@@ -63,6 +64,8 @@ try{
   const step=async action=>{await action();revision++;await saved(page,revision);};
   const object=label=>page.locator('.ascii-canvas').getByRole('button',{name:label,exact:true});
   const action=async(label,verb)=>{if(await object(label).getAttribute('data-exit')){await page.locator('.scene h2').hover();await object(label).hover();}else await object(label).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
+  const inspectEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="${id}"]`).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom',exact:true}).click());};
+  const back=async()=>step(()=>page.getByRole('button',{name:'Vissza egy szinttel',exact:true}).click());
   const arm=async(label,verb)=>{await page.locator('.inventory').getByRole('button',{name:label,exact:true}).click();await page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click();};
   const stale=await context.newPage();await stale.goto(origin);
   const sent=page.waitForRequest(request=>request.method()==='POST'&&!!request.headers()['next-action']);
@@ -72,11 +75,16 @@ try{
   await object('Fekvőlap').hover();await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).waitFor();check(await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).count()===1,'mouseover shows object name and actions');
   check(await page.locator('.context-popup .popup-actions button').evaluateAll(buttons=>buttons.every(button=>button.querySelector('svg')&&!button.textContent.trim()&&button.getAttribute('aria-label')&&button.getAttribute('title'))),'compact icon actions keep accessible names and tooltips');
   await object('Fekvőlap').focus();await page.keyboard.press('ArrowDown');await page.waitForFunction(()=>document.activeElement?.matches('.context-popup button'));check(await page.locator('.context-popup').getByRole('button').first().evaluate(element=>document.activeElement===element),'keyboard can enter popup actions');await page.keyboard.press('Escape');await page.locator('.context-popup').waitFor({state:'detached'});check(await page.locator('.context-popup').count()===0,'Escape closes popup without reopening on focus');
-  await action('Fekvőlap','Megvizsgálom');check(await object('Fóliadarab').count()===1,'examining reveals item glyph/hotspot');
+  await action('Fekvőlap','Megvizsgálom');check(await object('Fóliadarab').count()===0,'first detail does not leak deeper pickup');check(await page.locator('.scene-path li').count()===2,'first detail shows physical room and detail breadcrumb');
+  await inspectEnvironment('awakening:bed-rim-edge');check(await object('Fóliadarab').count()===1,'second-level inspection reveals item glyph/hotspot');check(await page.locator('.scene-path li').count()===3,'nested detail shows complete orientation');
+  await page.reload();check(await page.locator('.scene-path li').count()===3&&await object('Fóliadarab').count()===1,'nested detail and breadcrumbs persist on reload');check(await object('Falpanel').count()===0,'root objects cannot be targeted in nested detail');
   await action('Fóliadarab','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('barázdák')),'loose item examination gives meaningful description');
   await action('Fóliadarab','Felveszem');check(await object('Fóliadarab').count()===0,'taken glyph disappears from scene');
+  await back();check(await page.locator('.scene-path li').count()===2,'back pops exactly one level');await back();check(await page.locator('.scene-path li').count()===1,'second back returns physical room');
+  await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');await step(()=>page.locator('.scene-path li').first().getByRole('button').click());check(await page.locator('.scene-path li').count()===1&&await object('Falpanel').count()===1,'root breadcrumb safely returns several focus levels');
   await action('Falpanel','Megvizsgálom');await action('Huzaldarab','Felveszem');
   await page.reload();check(await page.locator('.inventory button').count()===2,'inventory and discoveries resume');
+  await back();
   check(await page.locator('.inventory-item').first().innerText().then(text=>!text.includes('fólia')),'inventory displays ASCII objects rather than permanent name labels');
   await page.locator('.inventory').getByRole('button',{name:'Vezető fólia',exact:true}).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click());check(await page.locator('.story').innerText().then(text=>text.includes('hang hullámai')),'inventory examination has meaningful description');
   await arm('Vezető fólia','Használom');await step(()=>object('Hangszóró').click());check(await page.locator('.inventory button').count()===2,'failed targeted use consumes nothing');
@@ -88,6 +96,30 @@ try{
   await step(()=>object('Ajtó').click());await page.reload();check(await page.locator('.scene h2').textContent()==='02 · A küszöb','direct ASCII movement resumes across reload');
   check(await object('Folyosó ablaka').count()===1,'next room baseline appears without looking around');
   await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
+  // Author-owned archive is exercised through its registered public entities;
+  // answers are read only here on the fixture server, never from a browser payload.
+  const archiveEntry=CATALOG.scenes.threshold.rules.find(rule=>rule.moveTo&&CATALOG.scenes[rule.moveTo]?.detailOf===undefined&&rule.moveTo.startsWith('archive:'));
+  check(!!archiveEntry?.interaction?.target,'archive chapter registered for real browser coverage');
+  await step(()=>page.locator(`.ascii-hotspot[data-exit="${archiveEntry.interaction.target.id}"]`).click());
+  let testedInputs=0,testedNested=false;const visited=new Set();
+  const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
+  async function exploreArchive(){
+    const state=currentState(),id=state.focus?.at(-1)??state.room,scene=CATALOG.scenes[id];visited.add(id);
+    if(state.focus?.length>=2){testedNested=true;await page.reload();check(await page.locator('.scene-path li').count()===state.focus.length+1,'archive nested focus survives reload');}
+    for(const input of scene.inputs??[]){
+      if(!meets(currentState(),input.requires)||await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).count()===0)continue;
+      const answer=scene.rules.find(rule=>rule.interaction?.verb==='submit'&&rule.interaction.target?.id===input.id&&meets(currentState(),rule.requires))?.interaction.input;
+      check(typeof answer==='string','visible archive keypad has server rule');
+      const before=currentState();await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).click();const field=page.locator('.scene-input input');await field.fill(answer==='0'?'1':'0');await step(()=>page.locator('.scene-input button[type=submit]').click());check(JSON.stringify(currentState().inventory)===JSON.stringify(before.inventory)&&JSON.stringify(currentState().flags)===JSON.stringify(before.flags),'wrong keypad input changes no items or flags');
+      await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).click();await page.locator('.scene-input input').fill(answer);await step(()=>page.locator('.scene-input input').press('Enter'));check(currentState().turns===before.turns+1,'correct keyboard submission executes exactly once');testedInputs++;
+    }
+    for(const rule of scene.rules.filter(rule=>rule.focusTo&&rule.interaction?.target)){
+      if(visited.has(rule.focusTo)||!meets(currentState(),rule.requires)||await page.locator(`.ascii-hotspot[data-environment="${rule.interaction.target.id}"]`).count()===0)continue;
+      await inspectEnvironment(rule.interaction.target.id);await exploreArchive();await back();
+    }
+  }
+  await exploreArchive();check(testedNested,'archive has real two-level inspect coverage');check(testedInputs>0,'archive keypad wrong and correct submissions covered');
+  const archiveState=currentState(),archiveScene=CATALOG.scenes[archiveState.room],returnRule=archiveScene.rules.find(rule=>rule.moveTo==='threshold'&&meets(archiveState,rule.requires));check(!!returnRule?.interaction?.target,'archive return exit remains available');await step(()=>page.locator(`.ascii-hotspot[data-exit="${returnRule.interaction.target.id}"]`).click());
   await step(()=>object('Vissza a szobába').click());check(await page.locator('.ascii-hotspot').count()===4,'discovered hotspots survive travel');
   const anonymous=await browser.newContext({hasTouch:true,viewport:{width:390,height:900}}),isolated=await anonymous.newPage();await anonymous.addCookies([{name:'nullpont.session-token',value:await token(other),url:origin}]);await isolated.goto(origin);check(await isolated.locator('.ascii-hotspot').count()===4&&await isolated.locator('.inventory-item').count()===0,'second account has independent progress with automatic baseline');
   await isolated.locator('.ascii-canvas').getByRole('button',{name:'Fekvőlap',exact:true}).tap();check(await isolated.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).isVisible(),'touch reveals icon actions without hover');await isolated.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).tap();await saved(isolated,1);
