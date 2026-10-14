@@ -4,6 +4,24 @@ Agent: **`nullpont-story-steward`**, definition:
 `.opencode/agents/nullpont-story-steward.md` (OpenCode V2 Markdown subagent).
 No pinned model: it inherits the invoking session's configured model.
 
+## Bounded review commands (no recurring approval prompts)
+
+The profile denies arbitrary shell operations and allows seven exact commands (no
+argument-prefix wildcard) for the project-local
+`.opencode/scripts/story-steward.mjs` runner using the installed Node executable.
+Run one operation at a time from the repository root: `inputs`, `check`, `test`,
+`timestamp`, `storyboard-hash`, `diff`, or `status`. The runner rejects arbitrary
+paths, commands and additional arguments. Receipt/private-workspace edit scopes
+remain narrow; unsupported shell commands are blocked rather than repeatedly asking.
+The global and project agent profiles use the same policy. A missing runner blocks
+review on another checkout until the versioned project tooling is present.
+
+The runner delegates to the same unchanged story gate and test suite; it cannot
+approve a chapter or write the receipt. It outputs only an opaque storyboard hash
+for the fingerprint operation, never private memory text. Like any local script,
+it requires trusted/reviewed source; permissions are not an OS execution sandbox.
+The runner is development tooling under `.opencode`, excluded from game packaging.
+
 The agent independently assesses canon, chronology, relevance, character agency,
 interest/pacing, fair reveal timing, playable narrative, storybook accuracy and
 append-only extension. It maintains a high-level private narrative architecture
