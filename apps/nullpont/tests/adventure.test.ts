@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { applyAction, applyCommand, availableActions, initialState, parseState, type GameState } from '../lib/game/engine.ts';
-import { advanceGame, loadGame } from '../lib/game/store.ts';
+import { advanceGame, loadGame, resetGame } from '../lib/game/store.ts';
 import { initializeDatabase } from '../lib/schema.ts';
 import { CHAPTERS, createCatalog } from '../lib/game/catalog.ts';
 import type { Chapter } from '../lib/game/types.ts';
@@ -105,25 +105,53 @@ test('story book writes narrative once at milestones, not after ordinary clicks,
 });
 test('new chapters attach exits without editing the engine or invalidating existing saves and story pages', () => {
   const next: Chapter = { id: 'garden', title: 'II. A kert', items: {}, scenes: {
-    'garden:entry': { title: 'A kert', description: 'Kert.', art: '[kert]', environment: [{ id: 'garden:tree', label: 'Fa' }], rules: [{ id: 'garden:look', label: 'Körülnézek', kind: 'look', interaction: { verb: 'look' }, discover: ['garden:tree'], message: 'Egy fa a kertben.' }, { id: 'garden:return', label: 'Vissza', kind: 'move', moveTo: 'threshold', message: 'Visszatérsz.' }] },
-  }, connections: [{ from: 'threshold', exits: [{ id: 'garden', label: 'A kert felé' }], rules: [{ id: 'garden:enter', label: 'Belépek a kertbe', kind: 'move', moveTo: 'garden:entry', interaction: { verb: 'move', target: { kind: 'exit', id: 'garden' } }, message: 'Egy kert!', milestone: { id: 'garden:arrival', title: 'A kert', text: 'Egy elfeledett kertbe érkeztem. A történetem új irányt vett.' } }] }] };
+    'garden:entry': { title: 'A kert', description: 'Kert.', art: '[kert]', environment: [{ id: 'garden:tree', label: 'Fa' }], exits:[{id:'return',label:'Vissza'}], rules: [{ id: 'garden:look', label: 'Körülnézek', kind: 'look', interaction: { verb: 'look' }, discover: ['garden:tree'], message: 'Egy fa a kertben.' }, { id: 'garden:return', label: 'Vissza', kind: 'move', moveTo: 'threshold', interaction:{verb:'move',target:{kind:'exit',id:'return'}}, message: 'Visszatérsz.' }] },
+  }, connections: [{ from: 'threshold', exits: [{ id: 'garden', label: 'A kert felé' }], artSpots:[{id:'garden:exit',exit:'garden',row:22,col:50,width:16,height:3,glyph:'[ >> ]'}], rules: [{ id: 'garden:enter', label: 'Belépek a kertbe', kind: 'move', moveTo: 'garden:entry', interaction: { verb: 'move', target: { kind: 'exit', id: 'garden' } }, message: 'Egy kert!', milestone: { id: 'garden:arrival', title: 'A kert', text: 'Egy elfeledett kertbe érkeztem. A történetem új irányt vett.' } }] }] };
   const catalog = createCatalog([...CHAPTERS, next]);
   const oldSave = escape(initialState());
   assert.deepEqual(parseState(JSON.stringify(oldSave), catalog), oldSave);
   assert.equal(availableActions(oldSave).some(action => action.id === 'garden:enter'), false, 'original catalog stays immutable');
   assert.ok(availableActions(oldSave, catalog).some(action => action.id === 'garden:enter'));
   assert.ok(catalog.scenes.threshold.exits!.some(exit => exit.id === 'garden'));
+  assert.ok(gameView({state:oldSave,revision:0,updatedAt:'now'},catalog).scene.spots.some(spot=>spot.exit?.id==='garden'));
   let continued = applyCommand(oldSave, { verb: 'move', target: { kind: 'exit', id: 'garden' } }, catalog);
   assert.equal(continued.room, 'garden:entry');
   assert.deepEqual(continued.book.slice(0, -1), oldSave.book);
   assert.equal(continued.book.at(-1)!.chapter, next.title);
   continued = applyCommand(continued, { verb: 'look' }, catalog);
   assert.ok(continued.discoveries.includes('garden:tree'), 'generic exploration honors new chapter rules');
+  assert.ok(gameView({state:continued,revision:0,updatedAt:'now'},catalog).scene.spots.some(spot=>spot.environment==='garden:tree'),'legacy-compatible drawing contains discovered objects');
   continued = applyAction(continued, 'garden:return', catalog);
   assert.equal(continued.room, 'threshold');
   assert.deepEqual(parseState(JSON.stringify(continued), catalog), continued);
   assert.throws(() => createCatalog([...CHAPTERS, CHAPTERS[0]]));
   assert.throws(() => createCatalog([...CHAPTERS, { ...next, connections: [{ from: 'missing', rules: [] }] }]));
+});
+test('confirmed restart resets only its owner, keeps revisions monotonic and rejects stale resets/actions',()=>{
+  const database=new DatabaseSync(':memory:');try{
+    initializeDatabase(database);const before=loadGame(database,'one@example.test');
+    const played=advanceGame(database,'one@example.test',before.revision,{verb:'look'}).game;
+    const other=loadGame(database,'other@example.test');
+    const stale=resetGame(database,'one@example.test',before.revision);assert.equal(stale.conflict,true);assert.deepEqual(stale.game,played);
+    const reset=resetGame(database,'ONE@example.test',played.revision);assert.equal(reset.conflict,false);assert.deepEqual(reset.game.state,initialState());assert.equal(reset.game.revision,played.revision+1);
+    assert.equal(advanceGame(database,'one@example.test',played.revision,{verb:'look'}).conflict,true);
+    assert.deepEqual(loadGame(database,'other@example.test'),other);assert.deepEqual(loadGame(database,'one@example.test'),reset.game);
+    assert.throws(()=>resetGame(database,'one@example.test',-1));
+    const action=readFileSync(new URL('../app/actions.ts',import.meta.url),'utf8');assert.match(action,/confirmed !== true/);assert.ok(action.indexOf('await requirePlayer()',action.indexOf('export async function restart'))<action.indexOf('resetGame(db()'));
+  }finally{database.close();}
+});
+test('ASCII scene shows every discovered actionable element and exit, without leaking hidden objects',()=>{
+  let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,0);assert.ok(view.scene.columns>=75);assert.ok(view.scene.rows>=26);
+  state=applyAction(state,'look:room');view=gameView({state,revision:1,updatedAt:'now'});
+  assert.equal(view.scene.spots.length,4);assert.ok(view.scene.spots.some(spot=>spot.exit?.id==='door'));assert.ok(!JSON.stringify(view).includes('loose-foil'));
+  state=applyAction(state,'look:bed');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(view.scene.spots.some(spot=>spot.id==='loose-foil'&&spot.glyph));
+  state=applyAction(state,'take:foil');view=gameView({state,revision:3,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.id==='loose-foil'));assert.ok(view.inventory[0].art.includes('------'));
+  for(const chapter of CHAPTERS)for(const scene of Object.values(chapter.scenes)){
+    for(const entity of scene.environment??[])assert.ok(scene.artSpots!.some(spot=>spot.environment===entity.id));
+    for(const exit of scene.exits??[])assert.ok(scene.artSpots!.some(spot=>spot.exit===exit.id));
+  }
+  const invalid=structuredClone(CHAPTERS[0]);invalid.scenes.chamber.artSpots![0].row=-1;assert.throws(()=>createCatalog([invalid]),/ASCII/);
+  const incomplete=structuredClone(CHAPTERS[0]);incomplete.scenes.chamber.artSpots!.pop();assert.throws(()=>createCatalog([incomplete]),/Hiányzó/);
 });
 test('database initializes idempotently, isolates normalized accounts and reloads exact progress', () => {
   const database = new DatabaseSync(':memory:');
@@ -173,4 +201,20 @@ test('version-one saves migrate without changing progress, revision-independent 
   assert.deepEqual(migrated.book, state.book); assert.deepEqual(migrated.inventory, state.inventory);
   assert.deepEqual(migrated.journal, state.journal); assert.equal(migrated.message, state.message); assert.equal(migrated.turns, state.turns);
   assert.ok(migrated.discoveries.includes('hall-window'));
+});
+test('identity milestone distinguishes testimony from chronology without rewriting previously saved pages', () => {
+  let state = applyAction(initialState(), 'look:room');
+  state = applyAction(state, 'talk:voice');
+  state = applyAction(state, 'talk:identity');
+  const entry = state.book.find(page => page.id === 'awakening:identity')!;
+  assert.match(entry.text, /Azt is állította/);
+  assert.match(entry.text, /nem láttam a kérelmet/);
+  assert.doesNotMatch(entry.text, /Valaki előbb teljesítette|a kérelmet holnapra dátumoztam/);
+  assert.match(state.journal.at(-1)!, /Szerinte/);
+  const historical = 'Valaki előbb teljesítette, mint hogy megírhattam volna.';
+  entry.text = historical;
+  const saved = parseState(JSON.stringify(state));
+  const continued = applyAction(saved, 'talk:identity');
+  assert.equal(continued.book.find(page => page.id === 'awakening:identity')!.text, historical);
+  assert.equal(continued.book.length, saved.book.length);
 });
