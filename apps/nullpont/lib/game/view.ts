@@ -1,6 +1,7 @@
 import { CATALOG, meets, type AdventureCatalog } from './catalog.ts';
 import type { SavedGame } from './store.ts';
 import type { StoryEntry, ArtSpot } from './types.ts';
+import { observeRoom } from './engine.ts';
 export type VisibleSpot = Pick<ArtSpot,'id'|'row'|'col'|'width'|'height'|'glyph'> & { label: string; environment?: string; exit?: {id:string;label:string}; actions: ('look'|'take'|'talk'|'attack')[] };
 export type GameView = {
   revision: number; turns: number; message: string; journal: string[]; book: StoryEntry[];
@@ -10,7 +11,7 @@ export type GameView = {
 };
 // No chapter rules, recipes, future entities or intended solutions cross the client boundary.
 export function gameView(game: SavedGame, catalog: AdventureCatalog = CATALOG): GameView {
-  const { state } = game, scene = catalog.scenes[state.room];
+  const state = observeRoom(game.state, catalog), scene = catalog.scenes[state.room];
   const environment = (scene.environment ?? []).filter(entity => state.discoveries.includes(entity.id) && meets(state, entity.requires)).map(({ id, label }) => ({ id, label }));
   const exits = (scene.exits ?? []).filter(exit => meets(state, exit.requires)).map(({ id, label }) => ({ id, label }));
   const spots: VisibleSpot[] = [];

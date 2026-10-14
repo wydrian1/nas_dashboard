@@ -50,6 +50,7 @@ export function createCatalog(chapters: Chapter[]) {
   }
   const milestoneIds = new Set<string>(['awakening:wake']);
   for (const scene of Object.values(scenes)) {
+    if (scene.arrivalDiscoveries && (new Set(scene.arrivalDiscoveries).size !== scene.arrivalDiscoveries.length || scene.arrivalDiscoveries.some(id => !(scene.environment ?? []).some(entity => entity.id === id)))) throw new Error('Érvénytelen érkezési felfedezés.');
     if (scene.artSpots) {
       const lines = scene.art.split('\n'), columns = Math.max(...lines.map(line => line.length)), ids = new Set<string>();
       for (const spot of scene.artSpots) {
