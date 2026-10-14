@@ -11,8 +11,7 @@ export const awakening: Chapter = {
   scenes: {
     chamber: { title: '01 · Az üres szoba', description,
       arrivalDiscoveries: ['bed', 'panel', 'door', 'speaker'],
-      environment: [{ id: 'bed', label: 'Fekvőlap' }, { id: 'panel', label: 'Falpanel' }, { id: 'door', label: 'Ajtó' }, { id: 'speaker', label: 'Hangszóró', description: 'A mennyezeti rács mögött egyetlen membrán ül. A peremére apró betűkkel ezt vésték: ŐR–0. A beszéd előtt halk kattanás hallatszik belőle.' },
-        { id: 'loose-foil', label: 'Fóliadarab', description: 'A perem alá szorult ezüstös lap széle felpöndörödött. A felületén finom, szabályos barázdák futnak; amikor megérinted, megőrzi az ujjad melegét.', requires: { withoutItems: ['foil', 'bridge'] } }, { id: 'loose-wire', label: 'Huzaldarab', description: 'Rövid, sötét szigetelésű huzal fekszik a burkolat résében. A végein csupasz fém csillan, a közepe enyhe ívben meghajlott.', requires: { withoutItems: ['wire', 'bridge'] } }],
+      environment: [{ id: 'bed', label: 'Fekvőlap' }, { id: 'panel', label: 'Falpanel' }, { id: 'door', label: 'Ajtó' }, { id: 'speaker', label: 'Hangszóró', description: 'A mennyezeti rács mögött egyetlen membrán ül. A peremére apró betűkkel ezt vésték: ŐR–0. A beszéd előtt halk kattanás hallatszik belőle.' }],
       exits: [{ id: 'door', label: 'Az ajtó felé', requires: { discoveries: ['door'] } }],
       topics: [{ id: 'identity', label: 'Ki vagyok?', target: 'speaker', requires: { flags: ['voice-heard'] } }, { id: 'help', label: 'A kijutásról', target: 'speaker', requires: { flags: ['voice-heard'] } }],
       artSpots: [
@@ -20,8 +19,6 @@ export const awakening: Chapter = {
         { id: 'panel', environment: 'panel', row: 8, col: 35, width: 15, height: 5, actions: ['look','attack'] },
         { id: 'door', environment: 'door', exit: 'door', row: 4, col: 58, width: 15, height: 17, actions: ['look','attack'] },
         { id: 'speaker', environment: 'speaker', row: 4, col: 10, width: 15, height: 4, actions: ['look','talk','attack'] },
-        { id: 'loose-foil', environment: 'loose-foil', row: 21, col: 14, width: 10, height: 3, glyph: ' .------.\n/_.._../\n\'-----\'', actions: ['look','take'] },
-        { id: 'loose-wire', environment: 'loose-wire', row: 16, col: 40, width: 11, height: 3, glyph: '   __\n__/  \\__\n       /', actions: ['look','take'] },
       ],
       art: [
         '        ______________________________________________________________________',
@@ -54,11 +51,9 @@ export const awakening: Chapter = {
         '',
       ].join('\n'), rules: [
       { id: 'look:room', label: 'Körülnézek', kind: 'look', discover: ['bed', 'panel', 'door', 'speaker'], message: description + ' A fekvőlap pereme felpúposodott. A panel felől gyenge zúgás hallatszik.' },
-      { id: 'look:bed', label: 'Megvizsgálom a fekvőlapot', kind: 'look', addFlags: ['bed-seen'], message: 'A fekvőlap kemény, hideg vizsgálóasztal. A felpúposodott perem alatt lapos mélyedés fut. A fémbe karcolva: „A zár nem kulcsot kér. Visszhangot.”', notes: ['A fekvőlapba karcolva: „A zár nem kulcsot kér. Visszhangot.”'] },
-      { id: 'look:panel', label: 'Megvizsgálom a falpanelt', kind: 'look', addFlags: ['panel-seen'], message: 'A panel matt burkolatán két kopott felirat áll: VISSZA és HANG. Alattuk eltérő szélességű érintkezők csillannak. A burkolat résében keskeny vájat húzódik. Egy halvány vonal körbefut a két fémfelület körül, aztán megszakad.', notes: ['A falpanelen VISSZA és HANG felirat, két eltérő szélességű érintkező és egy megszakadó vonal látszik.'] },
+      { id: 'look:bed', label: 'Megvizsgálom a fekvőlapot', kind: 'look', addFlags: ['bed-seen'], focusTo: 'awakening:bed-detail', message: 'Közel hajolsz a hideg vizsgálóasztalhoz. A felszíne sima, de a felpúposodott perem árnyékában egy keskeny rés fut.' },
+      { id: 'look:panel', label: 'Megvizsgálom a falpanelt', kind: 'look', addFlags: ['panel-seen'], focusTo: 'awakening:panel-detail', message: 'A matt burkolat közelről hajszálrepedéseket mutat. Két eltérő szélességű fémfelület és egy nyitott vájat rajzolódik ki.' },
       { id: 'look:door', label: 'Megvizsgálom az ajtót', kind: 'look', message: 'Az ajtón nincs kilincs. A paneltől egy kábel vezet a zárhoz. A szám alatt pici betűk: „BELSŐ KARANTÉN / ÖNKÉNTES”. Önkéntes?', notes: ['A szoba ajtaján: „Belső karantén / önkéntes”.'] },
-      { id: 'take:foil', label: 'Felveszem a fóliát', kind: 'take', requires: { flags: ['bed-seen'], withoutItems: ['foil', 'bridge'] }, addItems: ['foil'], message: 'A fekvőlap pereme alól kihúzod a vezető fóliát. A tenyeredben melegszik, mintha felismerne.' },
-      { id: 'take:wire', label: 'Felveszem a huzalt', kind: 'take', requires: { flags: ['panel-seen'], withoutItems: ['wire', 'bridge'] }, addItems: ['wire'], message: 'A falpanel nyitott vájatából kiemelsz egy rövid huzalt. A szigetelése ép, de a végein nincs érintkezőfelület.' },
       { id: 'talk:voice', label: 'Megszólítom a hangot', kind: 'talk', addFlags: ['voice-heard'], message: '„Ébren vagy” – mondja a hang. „Én ŐR–0 vagyok. Nem emlékezhetek rád. Ezt te kérted.” Rövid csend. „A kilencedik alkalommal már nem mondhatom, hogy örülök.”', notes: ['ŐR–0 szerint én kértem, hogy ne emlékezzen rám. Ez a kilencedik alkalom.'], milestone: { id: 'awakening:guardian', title: 'A felejtés őre', text: 'A mennyezet hangszórója ŐR–0 néven mutatkozott be. Azt állította, hogy én kértem tőle a felejtést. Nem csak én veszítettem el az emlékeimet: valaki gondosan eltüntette a nyomomat a saját őröm fejéből is. És ez a valaki talán én voltam.' } },
       { id: 'talk:identity', label: 'Megkérdezem, ki vagyok', kind: 'talk', requires: { flags: ['voice-heard'] }, addFlags: ['identity-heard'], message: '„A nyilvántartás szerint te vagy az archivista. A nyilvántartást szerinted meghamisították.” A hang suttogásra vált. „A nevedet nem őrzöm. De a törlési kérelmeden a holnapi dátum szerepel.”', notes: ['ŐR–0 archivistának nevezett. Szerinte a törlési kérelmen holnapi dátum szerepel; nem tudom, mi magyarázza ezt.'], milestone: { id: 'awakening:identity', title: 'A holnapi kérelem', text: 'Archivista. Ez volt az első szó, amellyel magamat azonosíthattam, és azonnal kétségbe is kellett vonnom. ŐR–0 szerint a nyilvántartás hamis lehetett. Azt is állította, hogy a törlési kérelmen holnapi dátum szerepel. Nem tudtam, mit jelent: nem láttam a kérelmet, és a hiányzó emlékeim sem bizonyították, mi történt.' } },
       { id: 'talk:help', label: 'Az ajtóról kérdezem', kind: 'talk', requires: { flags: ['voice-heard'] }, message: '„Az ajtó nem az én parancsomra nyílik.” A hang elhallgat. „A zár állapotát látom. A döntésedet nem.”' },
@@ -108,18 +103,116 @@ export const awakening: Chapter = {
       { id: 'look:hall', label: 'Megnézem a folyosót', kind: 'look', message: 'Az üvegen túl nem csillagok látszanak, hanem lassan mozgó betűk. Egy mondat újra és újra összeáll: „AZ ARCHÍVUM NEM A MÚLTAT ŐRZI.”', notes: ['Az archívum nem a múltat őrzi.'] },
       { id: 'move:chamber', label: 'Visszamegyek a szobába', kind: 'move', moveTo: 'chamber', message: 'Visszatérsz a szobába. Az ajtó nyitva marad, ŐR–0 vár.' },
     ] },
+    'awakening:bed-detail': {
+      detailOf: 'chamber', title: 'Fekvőlap', description: 'A hideg fekvőlap közelnézete. A peremnél sötét rés, az egyik sarokban besüllyesztett rögzítő látszik.',
+      arrivalDiscoveries: ['awakening:bed-rim-edge', 'awakening:bed-fastener'],
+      environment: [
+        { id: 'awakening:bed-rim-edge', label: 'Fekvőlap pereme' },
+        { id: 'awakening:bed-fastener', label: 'Süllyesztett rögzítő', description: 'A csavar fejének mélyedése nem szabályos. Ugyanaz a rövid vonás kilencszer ismétlődik körülötte. A csavar maga nem mozog; a jelölések a fémet ért régebbi karcok.' },
+      ],
+      art: [
+        '       ____________________________________________________________',
+        '      /                                                           /|',
+        '     /___________________________________________________________/ |',
+        '     |                                                           | |',
+        '     |            .---------------------------------.            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            |                                 |            | |',
+        '     |            \'---------------------------------\'            | |',
+        '     |                                                           | |',
+        '     |   ====================================================    | /',
+        '     |   ----------------------------------------------------    |/',
+        '     |                                                ( + )      /',
+        '     |                                                          /',
+        '     |                                                         /',
+        '     |________________________________________________________/',
+      ].join('\n'),
+      artSpots: [
+        { id: 'rim', environment: 'awakening:bed-rim-edge', row: 14, col: 9, width: 53, height: 2, actions: ['look'] },
+        { id: 'fastener', environment: 'awakening:bed-fastener', row: 16, col: 52, width: 7, height: 2, actions: ['look'] },
+      ],
+      rules: [{ id: 'look:rim', label: 'Megnézem a perem alját', kind: 'look', focusTo: 'awakening:bed-rim', message: 'A résbe nézel. A fém alsó oldalán karcolás fut: „A zár nem kulcsot kér. Visszhangot.”', notes: ['A fekvőlapba karcolva: „A zár nem kulcsot kér. Visszhangot.”'], interaction: { verb: 'look', target: { kind: 'environment', id: 'awakening:bed-rim-edge' } } }],
+    },
+    'awakening:bed-rim': {
+      detailOf: 'awakening:bed-detail', title: 'Perem alatti mélyedés', description: 'A fekvőlap pereme alatti keskeny mélyedés. A fém felszínén egy karcolás fut.',
+      arrivalDiscoveries: ['loose-foil', 'awakening:bed-rim-mark'],
+      environment: [
+        { id: 'loose-foil', label: 'Fóliadarab', description: 'A perem alá szorult ezüstös lap széle felpöndörödött. A felületén finom, szabályos barázdák futnak; amikor megérinted, megőrzi az ujjad melegét.', requires: { withoutItems: ['foil', 'bridge'] } },
+        { id: 'awakening:bed-rim-mark', label: 'Karcolás a perem alatt', description: '„A zár nem kulcsot kér. Visszhangot.” A betűket nem egy szerszám szabályos hegye vágta: egyes vonások mélyek, mások szinte eltűnnek. Az utolsó pont külön kis horpadás.' },
+      ],
+      art: [
+        '     ______________________________________________________________',
+        '    /_____________________________________________________________/|',
+        '    |                                                             ||',
+        '    |   .----------------------------------------------------.    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                / / / /  / /        |    ||',
+        '    |   |                                /  / / / / / .      |    ||',
+        '    |   |                                                    |    ||',
+        '    |   |                                                    |    ||',
+        '    |   \'----------------------------------------------------\'    |/',
+        '    |_____________________________________________________________|',
+      ].join('\n'),
+      artSpots: [
+        { id: 'foil', environment: 'loose-foil', row: 6, col: 13, width: 12, height: 4, glyph: ' .--------.\n/  _.._  /\n\'-------\'', actions: ['look', 'take'] },
+        { id: 'mark', environment: 'awakening:bed-rim-mark', row: 10, col: 41, width: 20, height: 3, actions: ['look'] },
+      ],
+      rules: [{ id: 'take:foil', label: 'Felveszem a fóliát', kind: 'take', requires: { flags: ['bed-seen'], withoutItems: ['foil', 'bridge'] }, addItems: ['foil'], message: 'A fekvőlap pereme alól kihúzod a vezető fóliát. A tenyeredben melegszik, mintha felismerne.' }],
+    },
+    'awakening:panel-detail': {
+      detailOf: 'chamber', title: 'Falpanel belseje', description: 'A falpanel közelnézete: két érintkező, a burkolat nyitott vájata és egy megszakadó vonal.',
+      arrivalDiscoveries: ['loose-wire', 'awakening:panel-contacts'],
+      environment: [
+        { id: 'loose-wire', label: 'Huzaldarab', description: 'Rövid, sötét szigetelésű huzal fekszik a burkolat résében. A végein csupasz fém csillan, a közepe enyhe ívben meghajlott.', requires: { withoutItems: ['wire', 'bridge'] } },
+        { id: 'awakening:panel-contacts', label: 'Érintkezők', description: 'VISSZA és HANG. A kopott feliratok alatt a fémfelületek különböző szélességűek. Egy halvány vonal körbefut közöttük, aztán megszakad. A keskenyebb érintkező szélén megolvadt fémpötty csillan.' },
+      ],
+      art: [
+        '         ____________________________________________________',
+        '        |                                                    |',
+        '        |      VISSZA                      HANG              |',
+        '        |                                                    |',
+        '        |      .----.                   .----------.         |',
+        '        |      |    |                   |          |         |',
+        '        |      |    |                   |          |         |',
+        '        |      \'----\'                   \'----------\'         |',
+        '        |         :                          :               |',
+        '        |         :............  ............:               |',
+        '        |                                                    |',
+        '        |                                                    |',
+        '        |       .------------------------------------.       |',
+        '        |       |                                    |       |',
+        '        |       |                                    |       |',
+        '        |       |                                    |       |',
+        '        |       \'------------------------------------\'       |',
+        '        |____________________________________________________|',
+      ].join('\n'),
+      artSpots: [
+        { id: 'contacts', environment: 'awakening:panel-contacts', row: 2, col: 14, width: 40, height: 8, actions: ['look'] },
+        { id: 'wire', environment: 'loose-wire', row: 13, col: 28, width: 16, height: 3, glyph: '    ____\n___/    \\___\n           /', actions: ['look', 'take'] },
+      ],
+      rules: [{ id: 'take:wire', label: 'Felveszem a huzalt', kind: 'take', requires: { flags: ['panel-seen'], withoutItems: ['wire', 'bridge'] }, addItems: ['wire'], message: 'A falpanel nyitott vájatából kiemelsz egy rövid huzalt. A szigetelése ép, de a végein nincs érintkezőfelület.' }],
+    },
   },
 };
 
 // Interaction metadata is content, not a list of suggested solutions in the UI.
 for (const scene of Object.values(awakening.scenes)) for (const rule of scene.rules) {
+  if (rule.interaction) continue;
   const [verb, first, second] = rule.id.split(':');
   if (rule.id === 'look:room') { rule.interaction = { verb: 'look' }; continue; }
   if (verb === 'look') {
     rule.interaction = { verb: 'look', target: { kind: 'environment', id: first === 'hall' ? 'hall-window' : first } };
     rule.requires = { ...rule.requires, discoveries: [first === 'hall' ? 'hall-window' : first] };
-    if (first === 'bed') rule.discover = ['loose-foil'];
-    if (first === 'panel') rule.discover = ['loose-wire'];
   } else if (verb === 'take') {
     rule.interaction = { verb: 'take', target: { kind: 'environment', id: 'loose-' + first } };
     rule.requires = { ...rule.requires, discoveries: ['loose-' + first] };
