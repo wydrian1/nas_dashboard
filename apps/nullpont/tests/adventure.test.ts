@@ -10,10 +10,18 @@ import { gameView } from '../lib/game/view.ts';
 import { readFileSync } from 'node:fs';
 
 function escape(state: GameState) {
-  for (const id of ['look:room', 'look:bed', 'look:panel', 'take:foil', 'take:wire', 'combine:foil:wire', 'use:bridge:panel', 'move:threshold']) {
-    if (state.room === 'threshold') break;
-    if (availableActions(state).some(action => action.id === id)) state = applyAction(state, id);
+  if (state.focus?.length) state = applyCommand(state,{verb:'back',levels:state.focus.length});
+  if (state.room === 'threshold') return state;
+  if (!state.inventory.includes('foil') && !state.inventory.includes('bridge')) {
+    state = applyAction(applyAction(state,'look:bed'),'look:rim');
+    state = applyAction(state,'take:foil');
+    state = applyCommand(state,{verb:'back',levels:2});
   }
+  if (!state.inventory.includes('wire') && !state.inventory.includes('bridge')) {
+    state = applyAction(applyAction(state,'look:panel'),'take:wire');
+    state = applyCommand(state,{verb:'back'});
+  }
+  for (const id of ['combine:foil:wire','use:bridge:panel','move:threshold']) if (availableActions(state).some(action => action.id === id)) state = applyAction(state,id);
   return state;
 }
 test('opening puzzle supports discovery, taking, combining, use, movement and returning', () => {
@@ -42,7 +50,9 @@ test('NPC conversations, attacks and failed uses are safe and journal entries do
   for (let index = 0; index < 20; index++) state = applyAction(state, 'attack:voice');
   assert.equal(new Set(state.journal).size, state.journal.length);
   state = applyAction(state, 'look:bed');
+  state = applyAction(state, 'look:rim');
   state = applyAction(state, 'take:foil');
+  state = applyCommand(state,{verb:'back',levels:2});
   const before = [...state.inventory];
   state = applyCommand(state, { verb: 'look', target: { kind: 'item', id: 'foil' } });
   assert.match(state.message, /hang hullámai/);
@@ -52,7 +62,7 @@ test('NPC conversations, attacks and failed uses are safe and journal entries do
   assert.equal(escape(state).room, 'threshold');
 });
 test('every reachable opening state can escape: no death or soft lock', () => {
-  const key = (state: GameState) => JSON.stringify([state.room, [...state.inventory].sort(), [...state.flags].sort(), [...state.discoveries].sort()]);
+  const key = (state: GameState) => JSON.stringify([state.room, state.focus, [...state.inventory].sort(), [...state.flags].sort(), [...state.discoveries].sort()]);
   const seen = new Set<string>();
   const queue = [initialState()];
   for (let index = 0; index < queue.length; index++) {
@@ -63,9 +73,10 @@ test('every reachable opening state can escape: no death or soft lock', () => {
     assert.deepEqual(parseState(JSON.stringify(state)), state);
     for (const action of availableActions(state)) {
       const next = applyAction(state, action.id);
-      if (!seen.has(key(next))) queue.push(next);
+      if (['chamber','threshold'].includes(next.room) && !seen.has(key(next))) queue.push(next);
     }
-    assert.ok(seen.size < 1000, 'bounded state graph');
+    if (state.focus?.length) queue.push(applyCommand(state,{verb:'back'}));
+    assert.ok(seen.size < 10000, 'bounded state graph');
   }
   assert.ok(seen.size > 30);
 });
@@ -132,14 +143,14 @@ test('arrival and old-save reads reveal only baseline objects without inspection
   const loaded=parseState(bytes);assert.deepEqual(loaded.discoveries,initial.discoveries);assert.deepEqual(loaded.book,old.book);assert.deepEqual(loaded.journal,old.journal);assert.equal(loaded.turns,7);assert.equal(loaded.message,old.message);assert.deepEqual(old.discoveries,[]);
   const database=new DatabaseSync(':memory:');try{initializeDatabase(database);loadGame(database,'legacy@example.test');database.prepare('UPDATE adventure_saves SET state_json=?,revision=12 WHERE owner=?').run(bytes,'legacy@example.test');const save=loadGame(database,'legacy@example.test');assert.equal(save.revision,12);assert.deepEqual(save.state.discoveries,initial.discoveries);assert.equal(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get('legacy@example.test')!.state_json,bytes);}finally{database.close();}
   const escaped=escape(initial);assert.ok(escaped.discoveries.includes('hall-window'));assert.ok(gameView({state:escaped,revision:1,updatedAt:'now'}).scene.spots.some(spot=>spot.environment==='hall-window'));
-  const module=structuredClone(CHAPTERS[0]);module.scenes.chamber.arrivalDiscoveries!.push('loose-foil');module.scenes.chamber.environment!.find(entity=>entity.id==='loose-foil')!.requires={flags:['bed-seen']};const catalog=createCatalog([module]);assert.ok(!observeRoom(initial,catalog).discoveries.includes('loose-foil'));
+  const module=structuredClone(CHAPTERS[0]);const detail=module.scenes['awakening:bed-rim'];detail.environment!.find(entity=>entity.id==='loose-foil')!.requires={flags:['bed-seen']};const catalog=createCatalog([module]);assert.ok(!observeRoom({...initial,focus:['awakening:bed-detail','awakening:bed-rim']},catalog).discoveries.includes('loose-foil'));
   module.scenes.chamber.arrivalDiscoveries!.push('unknown');assert.throws(()=>createCatalog([module]),/érkezési/);
 });
 test('every opening examine action describes its target, while feedback avoids recipes and safety boilerplate',()=>{
   let state=initialState();const forbidden=/Nem fogyott el|nem sérült|nálad marad|Semmit nem veszített|Talán kombinálni|Kösd össze|Külön egyik sem elég/;
-  for(const id of ['bed','panel','door','speaker']){const result=applyCommand(state,{verb:'look',target:{kind:'environment',id}});assert.ok(result.message.length>60);assert.doesNotMatch(result.message,/Nem történik|nem találsz rajta új részletet/);assert.doesNotMatch(result.message,forbidden);state=result;}
-  for(const id of ['loose-foil','loose-wire']){const examined=applyCommand(state,{verb:'look',target:{kind:'environment',id}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);}
-  state=applyAction(applyAction(state,'take:foil'),'take:wire');
+  for(const id of ['bed','panel','door','speaker']){const result=applyCommand(state,{verb:'look',target:{kind:'environment',id}});assert.ok(result.message.length>60);assert.doesNotMatch(result.message,/Nem történik|nem találsz rajta új részletet/);assert.doesNotMatch(result.message,forbidden);state=result;if(state.focus?.length)state=applyCommand(state,{verb:'back',levels:state.focus.length});}
+  state=applyAction(applyAction(state,'look:bed'),'look:rim');let examined=applyCommand(state,{verb:'look',target:{kind:'environment',id:'loose-foil'}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);state=applyAction(state,'take:foil');state=applyCommand(state,{verb:'back',levels:2});
+  state=applyAction(state,'look:panel');examined=applyCommand(state,{verb:'look',target:{kind:'environment',id:'loose-wire'}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);state=applyAction(state,'take:wire');state=applyCommand(state,{verb:'back'});
   for(const id of ['foil','wire']){const examined=applyCommand(state,{verb:'look',target:{kind:'item',id}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);}
   for(const id of ['foil','wire']){const used=applyCommand(state,{verb:'use',item:id,target:{kind:'environment',id:'panel'}});assert.deepEqual(used.inventory,state.inventory);assert.doesNotMatch(used.message,forbidden);}
   state=applyAction(state,'combine:foil:wire');assert.ok(applyCommand(state,{verb:'look',target:{kind:'item',id:'bridge'}}).message.length>60);
@@ -162,7 +173,7 @@ test('ASCII scene shows every discovered actionable element and exit, without le
    let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,4);assert.ok(view.scene.columns>=75);assert.ok(view.scene.rows>=26);
   state=applyAction(state,'look:room');view=gameView({state,revision:1,updatedAt:'now'});
   assert.equal(view.scene.spots.length,4);assert.ok(view.scene.spots.some(spot=>spot.exit?.id==='door'));assert.ok(!JSON.stringify(view).includes('loose-foil'));
-  state=applyAction(state,'look:bed');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(view.scene.spots.some(spot=>spot.id==='loose-foil'&&spot.glyph));
+  state=applyAction(state,'look:bed');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.environment==='loose-foil'));state=applyAction(state,'look:rim');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(view.scene.spots.some(spot=>spot.environment==='loose-foil'&&spot.glyph));
   state=applyAction(state,'take:foil');view=gameView({state,revision:3,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.id==='loose-foil'));assert.ok(view.inventory[0].art.includes('------'));
   for(const chapter of CHAPTERS)for(const scene of Object.values(chapter.scenes)){
     for(const entity of scene.environment??[])assert.ok(scene.artSpots!.some(spot=>spot.environment===entity.id));
@@ -201,13 +212,17 @@ test('environment grows through exploration, hidden targets cannot be forged and
   assert.equal(view().environment.length, 4);
   assert.ok(!JSON.stringify(view()).includes('combine:foil:wire'));
   state = applyCommand(state, { verb: 'look', target: { kind: 'environment', id: 'bed' } });
+  assert.ok(!view().environment.some(entry => entry.id === 'loose-foil'));
+  assert.throws(()=>applyCommand(state,{verb:'look',target:{kind:'environment',id:'panel'}}));
+  state = applyAction(state,'look:rim');
   assert.ok(view().environment.some(entry => entry.id === 'loose-foil'));
   state = applyCommand(state, { verb: 'take', target: { kind: 'environment', id: 'loose-foil' } });
   assert.ok(!view().environment.some(entry => entry.id === 'loose-foil'));
+  state = applyCommand(state,{verb:'back',levels:2});
   const before = [...state.inventory];
   state = applyCommand(state, { verb: 'use', item: 'foil', target: { kind: 'environment', id: 'speaker' } });
   assert.deepEqual(state.inventory, before); assert.match(state.message, /Nem történik/);
-  state = applyAction(state, 'look:panel'); state = applyAction(state, 'take:wire');
+  state = applyAction(state, 'look:panel'); state = applyAction(state, 'take:wire');state=applyCommand(state,{verb:'back'});
   state = applyCommand(state, { verb: 'combine', item: 'wire', target: { kind: 'item', id: 'foil' } });
   assert.deepEqual(state.inventory, ['bridge']);
 });

@@ -6,7 +6,7 @@ import type { PlayerCommand } from '@/lib/game/types';
 import { play, restart } from './actions';
 
 const LABELS = { look: 'Megvizsgálom', take: 'Felveszem', talk: 'Beszélek', attack: 'Megtámadom' };
-type IconName = keyof typeof LABELS | 'use' | 'combine' | 'move' | 'identity' | 'help' | 'cancel';
+type IconName = keyof typeof LABELS | 'use' | 'combine' | 'move' | 'identity' | 'help' | 'cancel' | 'back';
 const ICONS: Record<IconName,string> = {
   look:'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
   take:'M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5',
@@ -15,6 +15,7 @@ const ICONS: Record<IconName,string> = {
   talk:'M3 4h18v13H9l-6 4V4Z',
   attack:'m14 3 7 7-8 8-7-7 8-8Zm-7 9-4 9 9-4M3 3l3 3',
   move:'M3 12h17m-6-6 6 6-6 6',
+  back:'M21 12H4m6-6-6 6 6 6',
   identity:'M16 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0M4 22v-3a8 8 0 0 1 16 0v3',
   help:'M8 8a4 4 0 1 1 7 3l-3 2v3m0 4v1',
   cancel:'m6 6 12 12M6 18 18 6',
@@ -30,6 +31,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   const item=game.inventory.find(entry=>entry.id===source);
   const spot=popup?.kind==='scene'?game.scene.spots.find(entry=>entry.id===popup.id):undefined;
   const inventory=popup?.kind==='item'?game.inventory.find(entry=>entry.id===popup.id):undefined;
+  const input=spot?.environment?game.inputs.find(entry=>entry.id===spot.environment):undefined;
   useEffect(()=>()=>{if(closeTimer.current)clearTimeout(closeTimer.current);},[]);
   useEffect(()=>{if(resetOpen)dialog.current?.showModal();else dialog.current?.close();},[resetOpen]);
   function clearSelection(){setSource(null);setMode(null);setTarget(null);setPopup(null);}
@@ -70,6 +72,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   return <div className="game-grid" data-revision={game.revision} aria-busy={busy}>
     <section className="scene panel" aria-label="Kattintható ASCII-jelenet">
       <div className="scene-heading"><h2>{game.scene.title}</h2><div className="map-zoom"><button aria-label="ASCII kicsinyítése" title="Kicsinyítés" disabled={zoom<=10} onClick={()=>setZoom(value=>value-1)}>−</button><button aria-label="ASCII nagyítása" title="Nagyítás" disabled={zoom>=20} onClick={()=>setZoom(value=>value+1)}>+</button></div></div>
+      <nav className="scene-path" aria-label="Helyzet"><button className="icon-action quiet" aria-label="Vissza egy szinttel" title="Vissza" disabled={busy||game.breadcrumbs.length<2} onClick={()=>void send({verb:'back'})}><ActionIcon name="back"/></button><ol>{game.breadcrumbs.map((entry,index)=><li key={entry.id}>{index>0&&<span aria-hidden="true">›</span>}{index===game.breadcrumbs.length-1?<span aria-current="location">{entry.title}</span>:<button disabled={busy} onClick={()=>void send({verb:'back',levels:game.breadcrumbs.length-1-index})}>{entry.title}</button>}</li>)}</ol></nav>
       <div className="ascii-scroll" onScroll={()=>{if(popup&&anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);}}>
         <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows*1.45}em`}}>
           <pre aria-hidden="true">{game.scene.art}</pre>
@@ -103,6 +106,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
         {spot.environment&&spot.actions.map(verb=><button className="icon-action" key={verb} aria-label={LABELS[verb]} title={LABELS[verb]} disabled={busy} onClick={()=>void send({verb,target:{kind:'environment',id:spot.environment!}})}><ActionIcon name={verb}/></button>)}
         {spot.environment&&game.topics.filter(topic=>topic.target===spot.environment).map(topic=><button className="icon-action" key={topic.id} aria-label={topic.label} title={topic.label} disabled={busy} onClick={()=>void send({verb:'talk',target:{kind:'environment',id:spot.environment!},topic:topic.id})}><ActionIcon name={topic.id==='identity'?'identity':topic.id==='help'?'help':'talk'}/></button>)}
       </div></>}
+      {input&&<form key={input.id} className="scene-input" onSubmit={event=>{event.preventDefault();const value=new FormData(event.currentTarget).get('input');if(typeof value==='string')void send({verb:'submit',target:{kind:'environment',id:input.id},input:value});}} onFocus={()=>{stopClose();setPopup(current=>current?{...current,pinned:true}:current);}}><label htmlFor={`input-${input.id}`}>{input.label}</label><small id={`prompt-${input.id}`}>{input.prompt}</small><div><input id={`input-${input.id}`} name="input" type="text" inputMode={input.format==='digits'?'numeric':'text'} pattern={input.format==='digits'?'[0-9]+':undefined} maxLength={input.maxLength} aria-describedby={`prompt-${input.id}`} autoComplete="off" required disabled={busy}/><button className="icon-action" type="submit" aria-label="Bevitel elküldése" title="Elküldés" disabled={busy}><ActionIcon name="move"/></button></div></form>}
       {inventory&&<div className="popup-actions"><button className="icon-action" aria-label="Megvizsgálom" title="Megvizsgálom" disabled={busy} onClick={()=>void send({verb:'look',target:{kind:'item',id:inventory.id}})}><ActionIcon name="look"/></button><button className="icon-action" aria-label="Használom" title="Használom" disabled={busy} onClick={()=>arm(inventory.id,'use')}><ActionIcon name="use"/></button><button className="icon-action" aria-label="Kombinálom" title="Kombinálom" disabled={busy} onClick={()=>arm(inventory.id,'combine')}><ActionIcon name="combine"/></button></div>}
     </aside>,document.body)}
   </div>;
