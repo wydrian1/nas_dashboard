@@ -24,3 +24,12 @@ export function advanceGame(database: DatabaseSync, email: string, revision: num
   if (result.changes !== 1) return { game: loadGame(database, email), conflict: true };
   return { game: { state, revision: revision + 1, updatedAt }, conflict: false };
 }
+export function resetGame(database: DatabaseSync, email: string, revision: number): { game: SavedGame; conflict: boolean } {
+  if (!Number.isSafeInteger(revision) || revision < 0) throw new Error('Érvénytelen újrakezdési kérés.');
+  const current = loadGame(database, email);
+  if (current.revision !== revision) return { game: current, conflict: true };
+  const state = initialState(), updatedAt = new Date().toISOString();
+  const result = database.prepare('UPDATE adventure_saves SET state_json=?,revision=revision+1,updated_at=? WHERE owner=? AND revision=?').run(JSON.stringify(state),updatedAt,ownerKey(email),revision);
+  if (result.changes !== 1) return { game: loadGame(database,email), conflict: true };
+  return { game: {state,revision:revision+1,updatedAt}, conflict:false };
+}

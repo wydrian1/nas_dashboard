@@ -6,6 +6,7 @@ export type GameState = {
 export type GameAction = { id: string; label: string; kind: 'look' | 'take' | 'use' | 'combine' | 'talk' | 'attack' | 'move' };
 export type Target = { kind: 'environment' | 'item' | 'exit'; id: string };
 export type PlayerCommand = { verb: GameAction['kind']; target?: Target; item?: string; topic?: string };
+export type ArtSpot = { id: string; environment?: string; exit?: string; row: number; col: number; width: number; height: number; glyph?: string; actions?: ('look' | 'take' | 'talk' | 'attack')[] };
 export type Requirement = { flags?: string[]; withoutFlags?: string[]; items?: string[]; withoutItems?: string[]; discoveries?: string[] };
 export type Rule = GameAction & {
   requires?: Requirement; message: string; addFlags?: string[];
@@ -16,10 +17,12 @@ export type Rule = GameAction & {
 export type Chapter = {
   id: string; title: string; items: Record<string, string>;
   itemDescriptions?: Record<string, string>;
+  itemArt?: Record<string, string>;
   scenes: Record<string, { title: string; description: string; art: string; requires?: Requirement; rules: Rule[];
+    artSpots?: ArtSpot[];
     environment?: { id: string; label: string; requires?: Requirement }[];
     exits?: { id: string; label: string; requires?: Requirement }[];
     topics?: { id: string; label: string; target: string; requires?: Requirement }[];
   }>;
-  connections?: { from: string; rules: Rule[]; exits?: { id: string; label: string; requires?: Requirement }[] }[];
+  connections?: { from: string; rules: Rule[]; exits?: { id: string; label: string; requires?: Requirement }[]; artSpots?: ArtSpot[] }[];
 };
