@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { applyAction, applyCommand, availableActions, initialState, parseState, type GameState } from '../lib/game/engine.ts';
+import { applyAction, applyCommand, availableActions, initialState, observeRoom, parseState, type GameState } from '../lib/game/engine.ts';
 import { advanceGame, loadGame, resetGame } from '../lib/game/store.ts';
 import { initializeDatabase } from '../lib/schema.ts';
 import { CHAPTERS, createCatalog } from '../lib/game/catalog.ts';
@@ -27,7 +27,7 @@ test('opening puzzle supports discovery, taking, combining, use, movement and re
   assert.equal(state.room, 'threshold');
   assert.deepEqual(state.inventory, ['bridge']);
   assert.ok(state.flags.includes('door-open'));
-  assert.match(state.message, /folytatás még készül/);
+  assert.match(state.message, /EGYETLEN SZEMÉLYZETI TAG/);
   state = applyAction(state, 'move:chamber');
   assert.ok(state.flags.includes('door-open'));
   assert.equal(applyAction(state, 'move:threshold').room, 'threshold');
@@ -38,7 +38,7 @@ test('NPC conversations, attacks and failed uses are safe and journal entries do
   state = applyAction(state, 'talk:identity');
   assert.match(state.message, /holnapi dátum/);
   state = applyAction(state, 'talk:help');
-  assert.match(state.message, /fólia/);
+  assert.doesNotMatch(state.message, /Kösd össze|fólia|huzal|kombinál/);
   for (let index = 0; index < 20; index++) state = applyAction(state, 'attack:voice');
   assert.equal(new Set(state.journal).size, state.journal.length);
   state = applyAction(state, 'look:bed');
@@ -118,14 +118,32 @@ test('new chapters attach exits without editing the engine or invalidating exist
   assert.equal(continued.room, 'garden:entry');
   assert.deepEqual(continued.book.slice(0, -1), oldSave.book);
   assert.equal(continued.book.at(-1)!.chapter, next.title);
-  continued = applyCommand(continued, { verb: 'look' }, catalog);
-  assert.ok(continued.discoveries.includes('garden:tree'), 'generic exploration honors new chapter rules');
+   assert.ok(continued.discoveries.includes('garden:tree'), 'arrival honors legacy generic exploration without an extra command');
   assert.ok(gameView({state:continued,revision:0,updatedAt:'now'},catalog).scene.spots.some(spot=>spot.environment==='garden:tree'),'legacy-compatible drawing contains discovered objects');
   continued = applyAction(continued, 'garden:return', catalog);
   assert.equal(continued.room, 'threshold');
   assert.deepEqual(parseState(JSON.stringify(continued), catalog), continued);
   assert.throws(() => createCatalog([...CHAPTERS, CHAPTERS[0]]));
   assert.throws(() => createCatalog([...CHAPTERS, { ...next, connections: [{ from: 'missing', rules: [] }] }]));
+});
+test('arrival and old-save reads reveal only baseline objects without inspection side effects or rewriting history',()=>{
+  const initial=initialState();assert.deepEqual(initial.discoveries,['bed','panel','door','speaker']);assert.equal(initial.turns,0);assert.deepEqual(initial.flags,[]);assert.equal(initial.book.length,1);assert.equal(initial.journal.length,1);
+  const old={...initial,discoveries:[],turns:7,message:'Korábbi üzenet.',journal:['Korábbi emlék.']};const bytes=JSON.stringify(old);
+  const loaded=parseState(bytes);assert.deepEqual(loaded.discoveries,initial.discoveries);assert.deepEqual(loaded.book,old.book);assert.deepEqual(loaded.journal,old.journal);assert.equal(loaded.turns,7);assert.equal(loaded.message,old.message);assert.deepEqual(old.discoveries,[]);
+  const database=new DatabaseSync(':memory:');try{initializeDatabase(database);loadGame(database,'legacy@example.test');database.prepare('UPDATE adventure_saves SET state_json=?,revision=12 WHERE owner=?').run(bytes,'legacy@example.test');const save=loadGame(database,'legacy@example.test');assert.equal(save.revision,12);assert.deepEqual(save.state.discoveries,initial.discoveries);assert.equal(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get('legacy@example.test')!.state_json,bytes);}finally{database.close();}
+  const escaped=escape(initial);assert.ok(escaped.discoveries.includes('hall-window'));assert.ok(gameView({state:escaped,revision:1,updatedAt:'now'}).scene.spots.some(spot=>spot.environment==='hall-window'));
+  const module=structuredClone(CHAPTERS[0]);module.scenes.chamber.arrivalDiscoveries!.push('loose-foil');module.scenes.chamber.environment!.find(entity=>entity.id==='loose-foil')!.requires={flags:['bed-seen']};const catalog=createCatalog([module]);assert.ok(!observeRoom(initial,catalog).discoveries.includes('loose-foil'));
+  module.scenes.chamber.arrivalDiscoveries!.push('unknown');assert.throws(()=>createCatalog([module]),/érkezési/);
+});
+test('every opening examine action describes its target, while feedback avoids recipes and safety boilerplate',()=>{
+  let state=initialState();const forbidden=/Nem fogyott el|nem sérült|nálad marad|Semmit nem veszített|Talán kombinálni|Kösd össze|Külön egyik sem elég/;
+  for(const id of ['bed','panel','door','speaker']){const result=applyCommand(state,{verb:'look',target:{kind:'environment',id}});assert.ok(result.message.length>60);assert.doesNotMatch(result.message,/Nem történik|nem találsz rajta új részletet/);assert.doesNotMatch(result.message,forbidden);state=result;}
+  for(const id of ['loose-foil','loose-wire']){const examined=applyCommand(state,{verb:'look',target:{kind:'environment',id}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);}
+  state=applyAction(applyAction(state,'take:foil'),'take:wire');
+  for(const id of ['foil','wire']){const examined=applyCommand(state,{verb:'look',target:{kind:'item',id}});assert.ok(examined.message.length>60);assert.doesNotMatch(examined.message,forbidden);}
+  for(const id of ['foil','wire']){const used=applyCommand(state,{verb:'use',item:id,target:{kind:'environment',id:'panel'}});assert.deepEqual(used.inventory,state.inventory);assert.doesNotMatch(used.message,forbidden);}
+  state=applyAction(state,'combine:foil:wire');assert.ok(applyCommand(state,{verb:'look',target:{kind:'item',id:'bridge'}}).message.length>60);
+  for(const scene of Object.values(CHAPTERS[0].scenes))for(const rule of scene.rules)assert.doesNotMatch(rule.message,forbidden);
 });
 test('confirmed restart resets only its owner, keeps revisions monotonic and rejects stale resets/actions',()=>{
   const database=new DatabaseSync(':memory:');try{
@@ -141,7 +159,7 @@ test('confirmed restart resets only its owner, keeps revisions monotonic and rej
   }finally{database.close();}
 });
 test('ASCII scene shows every discovered actionable element and exit, without leaking hidden objects',()=>{
-  let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,0);assert.ok(view.scene.columns>=75);assert.ok(view.scene.rows>=26);
+   let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,4);assert.ok(view.scene.columns>=75);assert.ok(view.scene.rows>=26);
   state=applyAction(state,'look:room');view=gameView({state,revision:1,updatedAt:'now'});
   assert.equal(view.scene.spots.length,4);assert.ok(view.scene.spots.some(spot=>spot.exit?.id==='door'));assert.ok(!JSON.stringify(view).includes('loose-foil'));
   state=applyAction(state,'look:bed');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(view.scene.spots.some(spot=>spot.id==='loose-foil'&&spot.glyph));
@@ -177,7 +195,7 @@ test('database initializes idempotently, isolates normalized accounts and reload
 test('environment grows through exploration, hidden targets cannot be forged and views contain no solution rules', () => {
   let state = initialState();
   const view = () => gameView({ state, revision: 0, updatedAt: 'now' });
-  assert.deepEqual(view().environment, []); assert.deepEqual(view().exits, []);
+  assert.equal(view().environment.length, 4); assert.equal(view().exits.length, 1);
   assert.throws(() => applyCommand(state, { verb: 'take', target: { kind: 'environment', id: 'loose-foil' } }));
   state = applyCommand(state, { verb: 'look' });
   assert.equal(view().environment.length, 4);
@@ -188,7 +206,7 @@ test('environment grows through exploration, hidden targets cannot be forged and
   assert.ok(!view().environment.some(entry => entry.id === 'loose-foil'));
   const before = [...state.inventory];
   state = applyCommand(state, { verb: 'use', item: 'foil', target: { kind: 'environment', id: 'speaker' } });
-  assert.deepEqual(state.inventory, before); assert.match(state.message, /nem történik/);
+  assert.deepEqual(state.inventory, before); assert.match(state.message, /Nem történik/);
   state = applyAction(state, 'look:panel'); state = applyAction(state, 'take:wire');
   state = applyCommand(state, { verb: 'combine', item: 'wire', target: { kind: 'item', id: 'foil' } });
   assert.deepEqual(state.inventory, ['bridge']);

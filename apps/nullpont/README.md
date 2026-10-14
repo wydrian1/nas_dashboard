@@ -93,14 +93,20 @@ jóváhagyást a `npm run check:story` kapu ellenőrzi, a kiadási csomag is meg
 Munkafolyamat: [történetellenőrzés](../../docs/nullpont-story-review.md).
 
 A nagyítható ASCII-jeleneten jelölsz ki környezeti elemet; a kijáratra kattintva
-mozogsz. Nincs külön környezet- vagy mozgásmenü. A felfedezett célpont címkéje
-rámutatásra, fókuszra vagy érintésre mutatja a nevét és az általános műveleteket.
+mozogsz. Érkezéskor az alap környezet már látható, külön körülnézési lépés nélkül.
+A közelebbi vizsgálat további részleteket fedhet fel, és minden nyitófejezeti célpont
+érdemi leírást ad. Nincs külön környezet-, mozgás- vagy akciódoboz, látható
+mentés/lépésszámláló vagy állandó oktatófelirat. A célpont címkéje
+rámutatásra, fókuszra vagy érintésre mutatja a nevét és a kompakt műveletikonokat;
+az ikonok hozzáférhető neve és tooltipje megmarad.
 Billentyűzettel a lefelé nyíl a címke műveleteire lép, Escape bezárja azt.
 Az inventory tárgyrajzokat mutat: a címkén a Használom után a jelenet célpontjára,
 a Kombinálom után a másik inventorytárgyra kattints. Nincs előre megjelenített
 kombinációs recept vagy nyerő műveletlista. Csak a ténylegesen felfedezett elemek
 kattinthatók; a felvett tárgy rajza eltűnik a jelenetről. Sikertelen kísérlet nem
 pusztít tárgyat. Keskeny képernyőn a rajz külön, oldalra görgethető.
+Asztali nézetben az inventory a jelenet jobb oldalán van, mobilon alatta. Az aktív
+használat/kombinálás kis jelzése és törlése az inventoryban marad.
 
 A Játék újrakezdése külön megerősítéssel a saját mentést állítja nyitóállapotra,
 beleértve az inventoryt, felfedezéseket, naplót és történetkönyvet. Más fiókhoz
@@ -121,6 +127,13 @@ A `connections.artSpots` régi jelenethez adhat új célpontot. A katalógus ell
 a koordinátákat és a teljes lefedettséget; régi, hotspot nélküli moduloknál a nézet
 kompatibilis ASCII-célpontokat illeszt a rajz alá. A kapcsolódó feltételeket és
 rejtvényrecepteket nem küldi a kliensnek.
+Az `arrivalDiscoveries` csak a helyszín alapvető környezeti elemeit sorolja fel;
+érkezés nem futtat vizsgálati szabályt, nem ír könyvlapot/naplót és nem számít új
+lépésnek. Régi modulnál a célpont nélküli körülnézési szabály felfedezéslistája
+szolgál kompatibilis alapként. Régi mentés beolvasásakor csak az aktuális szoba
+alapfelfedezései pótlódnak memóriában; a mentett revízió, történelmi próza és az
+adatbázis bájtjai olvasáskor nem változnak. A további kísérletek nem ismételnek
+biztonsági garanciákat vagy közvetlen megoldási recepteket.
 
 ASCII-készítési eszközök és helyi modelllehetőség:
 [tervezési útmutató](../../docs/nullpont-ascii-art.md). Ezek fejlesztési segédeszközök,

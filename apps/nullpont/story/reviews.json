@@ -3,12 +3,12 @@
   "reviews": [
     {
       "module": "lib/game/chapters/awakening.ts",
-      "sha256": "9390651dde87d4be1233a117a2fcd1584e4a764d96220dfca48bbe481c5e7025",
-      "contextSha256": "25eef10fd33c66a72645c776d54959ba127b1f8e59b9f06968b38df4abac28ff",
+      "sha256": "f481808254dac240510167a133970a09c001517063007453b12588009304db3e",
+      "contextSha256": "53f680835a722dbbcf2967a4f36141400d2f79a33b8da98964fd34c157eaca9f",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-14T20:59:46.284Z",
+      "reviewedAt": "2026-10-14T21:42:20.936Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     }
   ]

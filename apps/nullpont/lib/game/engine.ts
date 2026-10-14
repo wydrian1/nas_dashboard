@@ -7,8 +7,18 @@ export { INTRO } from './chapters/awakening.ts';
 export const GAME_VERSION = 2;
 export const ITEM_NAMES = CATALOG.items;
 export const SCENES = CATALOG.scenes;
+// Arrival reveals only authored baseline objects, never inspection effects,
+// journal notes, milestones or an extra turn. Legacy modules can reuse their
+// untargeted exploration rule's discovery list without executing that rule.
+export function observeRoom(state: GameState, catalog: AdventureCatalog = CATALOG): GameState {
+  const scene = catalog.scenes[state.room];
+  const baseline = scene.arrivalDiscoveries ?? scene.rules.filter(rule => rule.interaction?.verb === 'look' && !rule.interaction.target && !rule.interaction.item && !rule.interaction.topic && meets(state, rule.requires)).flatMap(rule => rule.discover ?? []);
+  const visible = baseline.filter(id => (scene.environment ?? []).some(entity => entity.id === id && meets(state, entity.requires)));
+  const discoveries = [...new Set([...state.discoveries, ...visible])];
+  return discoveries.length === state.discoveries.length ? state : { ...state, discoveries };
+}
 export function initialState(): GameState {
-  return { version: GAME_VERSION, room: 'chamber', inventory: [], flags: [], discoveries: [], journal: ['7314. Kilencedik ébresztés. A saját hangom óvott a nevemtől.'], book: [{ ...OPENING_ENTRY }], message: INTRO, turns: 0 };
+  return observeRoom({ version: GAME_VERSION, room: 'chamber', inventory: [], flags: [], discoveries: [], journal: ['7314. Kilencedik ébresztés. A saját hangom óvott a nevemtől.'], book: [{ ...OPENING_ENTRY }], message: INTRO, turns: 0 });
 }
 export function availableActions(state: GameState, catalog: AdventureCatalog = CATALOG): GameAction[] {
   return (catalog.scenes[state.room]?.rules ?? []).filter(rule => meets(state, rule.requires)).map(({ id, label, kind }) => ({ id, label, kind }));
@@ -28,7 +38,7 @@ export function applyAction(current: GameState, actionId: string, catalog: Adven
   if (rule.milestone && !state.book.some(entry => entry.id === rule.milestone!.id)) {
     state.book.push({ ...rule.milestone, chapter: catalog.ruleOwners[`${current.room}:${rule.id}`], turn: state.turns });
   }
-  return state;
+  return observeRoom(state, catalog);
 }
 function validEntry(entry: StoryEntry, turns: number) {
   return entry && ['id', 'chapter', 'title', 'text'].every(key => typeof entry[key as keyof StoryEntry] === 'string' && String(entry[key as keyof StoryEntry]).length < 20000) && Number.isSafeInteger(entry.turn) && entry.turn >= 0 && entry.turn <= turns;
@@ -50,10 +60,11 @@ export function parseState(json: string, catalog: AdventureCatalog = CATALOG): G
     typeof value.message !== 'string' || value.message.length > 20000 || !Number.isSafeInteger(value.turns) || value.turns < 0 ||
     !Array.isArray(value.book) || !value.book.every(entry => validEntry(entry, value.turns)) || new Set(value.book.map(entry => entry.id)).size !== value.book.length ||
     !meets(value, catalog.scenes[value.room].requires)) throw new Error('A mentés nem támogatott vagy sérült. Nem írtuk felül.');
-  return value;
+  return observeRoom(value, catalog);
 }
 
 export function applyCommand(state: GameState, command: PlayerCommand, catalog: AdventureCatalog = CATALOG): GameState {
+  state = observeRoom(state, catalog);
   if (!command || !['look', 'take', 'use', 'combine', 'talk', 'attack', 'move'].includes(command.verb) ||
     Object.keys(command).some(key => !['verb', 'item', 'target', 'topic'].includes(key)) ||
     (command.item !== undefined && (typeof command.item !== 'string' || !state.inventory.includes(command.item))) ||
@@ -74,7 +85,11 @@ export function applyCommand(state: GameState, command: PlayerCommand, catalog: 
     return pattern.verb === 'combine' && pattern.target?.kind === 'item' && pattern.item === command.target!.id && pattern.target.id === command.item;
   }) : undefined);
   if (rule) return applyAction(state, rule.id, catalog);
+  if (command.verb === 'look' && command.target?.kind === 'environment' && !command.item && !command.topic) {
+    const entity = scene.environment!.find(entry => entry.id === command.target!.id)!;
+    return { ...state, turns: state.turns + 1, message: entity.description || `${entity.label}. ${scene.description}` };
+  }
   if (command.verb === 'look' && command.target?.kind === 'item' && !command.item && !command.topic) return { ...state, turns: state.turns + 1, message: catalog.itemDescriptions[command.target.id] || `${catalog.items[command.target.id]}. Közelebbről is szemügyre veszed; egyelőre nem találsz rajta új részletet.` };
   if (command.verb === 'look' && !command.target && !command.item && !command.topic) return { ...state, turns: state.turns + 1, message: scene.description };
-  return { ...state, turns: state.turns + 1, message: 'Megpróbálod, de nem történik érdemi változás. Semmi nem sérült meg, a tárgyaid nálad maradtak.' };
+  return { ...state, turns: state.turns + 1, message: 'Nem történik változás.' };
 }

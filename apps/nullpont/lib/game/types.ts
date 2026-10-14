@@ -20,7 +20,8 @@ export type Chapter = {
   itemArt?: Record<string, string>;
   scenes: Record<string, { title: string; description: string; art: string; requires?: Requirement; rules: Rule[];
     artSpots?: ArtSpot[];
-    environment?: { id: string; label: string; requires?: Requirement }[];
+    arrivalDiscoveries?: string[];
+    environment?: { id: string; label: string; description?: string; requires?: Requirement }[];
     exits?: { id: string; label: string; requires?: Requirement }[];
     topics?: { id: string; label: string; target: string; requires?: Requirement }[];
   }>;
