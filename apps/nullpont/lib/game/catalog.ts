@@ -4,7 +4,7 @@ import type { Chapter, Requirement, GameState } from './types.ts';
 // Append AI-authored chapters here; never replace published IDs or old chapters.
 export const CHAPTERS: Chapter[] = [awakening];
 export function createCatalog(chapters: Chapter[]) {
-  const scenes: Chapter['scenes'] = {}, items: Record<string, string> = {}, itemDescriptions: Record<string, string> = {}, owners: Record<string, string> = {}, ruleOwners: Record<string, string> = {};
+  const scenes: Chapter['scenes'] = {}, items: Record<string, string> = {}, itemDescriptions: Record<string, string> = {}, itemArt: Record<string, string> = {}, owners: Record<string, string> = {}, ruleOwners: Record<string, string> = {};
   const chapterIds = new Set<string>();
   for (const chapter of chapters) {
     if (chapterIds.has(chapter.id)) throw new Error('Duplikált fejezetazonosító.');
@@ -17,9 +17,13 @@ export function createCatalog(chapters: Chapter[]) {
       if (!Object.hasOwn(chapter.items, id)) throw new Error('Ismeretlen tárgyleírás.');
       itemDescriptions[id] = description;
     }
+    for (const [id, art] of Object.entries(chapter.itemArt ?? {})) {
+      if (!Object.hasOwn(chapter.items, id) || !art || /[^\x20-\x7e\n]/.test(art)) throw new Error('Érvénytelen tárgyrajz.');
+      itemArt[id] = art;
+    }
     for (const [id, scene] of Object.entries(chapter.scenes)) {
       if (id in scenes || new Set(scene.rules.map(rule => rule.id)).size !== scene.rules.length) throw new Error('Duplikált helyszín vagy művelet.');
-      scenes[id] = { ...scene, rules: [...scene.rules] }; owners[id] = chapter.title;
+      scenes[id] = { ...scene, rules: [...scene.rules], artSpots: scene.artSpots ? [...scene.artSpots] : undefined }; owners[id] = chapter.title;
       for (const rule of scene.rules) ruleOwners[`${id}:${rule.id}`] = chapter.title;
     }
   }
@@ -37,6 +41,7 @@ export function createCatalog(chapters: Chapter[]) {
       if (scene.exits.some(existing => existing.id === exit.id)) throw new Error('Duplikált kijárat.');
       scene.exits.push(exit);
     }
+    if (connection.artSpots?.length) scene.artSpots = [...scene.artSpots ?? [], ...connection.artSpots];
   }
   const flags = new Set<string>(), discoveries = new Set<string>();
   for (const scene of Object.values(scenes)) for (const entity of scene.environment ?? []) {
@@ -45,6 +50,18 @@ export function createCatalog(chapters: Chapter[]) {
   }
   const milestoneIds = new Set<string>(['awakening:wake']);
   for (const scene of Object.values(scenes)) {
+    if (scene.artSpots) {
+      const lines = scene.art.split('\n'), columns = Math.max(...lines.map(line => line.length)), ids = new Set<string>();
+      for (const spot of scene.artSpots) {
+        if (!spot.id || ids.has(spot.id) || ![spot.row, spot.col, spot.width, spot.height].every(Number.isSafeInteger) || spot.row < 0 || spot.col < 0 || spot.width < 1 || spot.height < 1 || spot.row + spot.height > lines.length || spot.col + spot.width > columns) throw new Error('Érvénytelen ASCII-célpont.');
+        ids.add(spot.id);
+        if ((!spot.environment && !spot.exit) || (spot.environment && !(scene.environment ?? []).some(entity => entity.id === spot.environment)) || (spot.exit && !(scene.exits ?? []).some(exit => exit.id === spot.exit))) throw new Error('Ismeretlen ASCII-célpont.');
+        if (spot.glyph && (spot.glyph.split('\n').length > spot.height || spot.glyph.split('\n').some(line => line.length > spot.width) || /[^\x20-\x7e\n]/.test(spot.glyph))) throw new Error('Érvénytelen ASCII-részlet.');
+        if (spot.actions?.some(action => !['look','take','talk','attack'].includes(action))) throw new Error('Érvénytelen képi akció.');
+      }
+      for (const entity of scene.environment ?? []) if (!scene.artSpots.some(spot => spot.environment === entity.id)) throw new Error('Hiányzó környezeti ASCII-célpont.');
+      for (const exit of scene.exits ?? []) if (!scene.artSpots.some(spot => spot.exit === exit.id)) throw new Error('Hiányzó kijárati ASCII-célpont.');
+    }
     for (const rule of scene.rules) {
       if (rule.moveTo && !Object.hasOwn(scenes, rule.moveTo)) throw new Error('Ismeretlen célhelyszín.');
       for (const item of [...rule.addItems ?? [], ...rule.removeItems ?? [], ...rule.requires?.items ?? [], ...rule.requires?.withoutItems ?? []]) if (!(item in items)) throw new Error('Ismeretlen tárgy.');
@@ -62,7 +79,7 @@ export function createCatalog(chapters: Chapter[]) {
       for (const item of [...entity.requires?.items ?? [], ...entity.requires?.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen nézettárgy.');
     }
   }
-  return { scenes, items, itemDescriptions, owners, ruleOwners, flags, discoveries };
+  return { scenes, items, itemDescriptions, itemArt, owners, ruleOwners, flags, discoveries };
 }
 export const CATALOG = createCatalog(CHAPTERS);
 export type AdventureCatalog = ReturnType<typeof createCatalog>;
