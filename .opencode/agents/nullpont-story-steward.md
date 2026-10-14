@@ -19,7 +19,28 @@ permissions:
     effect: allow
   - action: shell
     resource: "*"
-    effect: ask
+    effect: deny
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs inputs"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs check"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs test"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs timestamp"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs storyboard-hash"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs diff"
+    effect: allow
+  - action: shell
+    resource: "D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs status"
+    effect: allow
   - action: subagent
     resource: "*"
     effect: deny
@@ -88,7 +109,17 @@ modify player saves or run Git publication commands yourself.
 
 ## Approval receipt
 
-Use `node scripts/Check-Story.mjs --inputs` from `apps/nullpont` to obtain current
+For shell operations use ONLY the fixed review runner from the repository root:
+`D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe .opencode/scripts/story-steward.mjs <operation>`.
+Operations: `inputs`, `check`, `test`, `timestamp`, `storyboard-hash`, `diff`, `status`.
+Issue each as a separate command; do not prepend PATH assignments, combine commands,
+use `node -e`, run arbitrary scripts or request repeated shell approvals. The runner
+rejects extra arguments, arbitrary paths and commands. Unsupported shell operations
+are denied, not sent for approval. Ordinary read/glob/grep and the narrow receipt/
+private-memory patch permissions remain unchanged. If this project's runner is absent,
+return BLOCKED rather than using another project's runner or broadening permissions.
+
+Use the runner's `inputs` operation (the `Check-Story.mjs --inputs` equivalent) to obtain current
 module paths and SHA-256s. A review covers exact bytes of each chapter AND catalog,
 types, engine and player-view source; any change invalidates the receipt.
 The only public approval artifact is `apps/nullpont/story/reviews.json`, with the
