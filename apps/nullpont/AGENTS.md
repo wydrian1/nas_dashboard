@@ -48,3 +48,20 @@ These are standing owner requirements for all future NULLPONT content and fixes:
   crafting and save/reload regression tests as applicable, including agreement
   between rendered art and prose. Include them in independent narrative review;
   passing structural checks alone does not establish narrative consistency.
+
+## Advisory player review after every release
+
+After every successful NULLPONT deployment/release, launch a fresh
+`nullpont-player-reviewer` subagent using `.opencode/agents/nullpont-player-reviewer.md`
+and the isolated fixture procedure in `docs/nullpont-player-review.md`. Bind the
+review to the actual installed manifest hash; never use a real player's save or
+provide puzzle solutions, chapter source or private story memory to the reviewer.
+Its external five-minute watchdog includes reasoning/tool time and must report
+incomplete/timeout honestly. Collect story, puzzles, UI and difficulty quality
+scores, perceived hardness and actionable developer-only findings.
+
+This review is **not a deployment gate**: run it after success, independently of
+the completion notification. Low scores, timeout or unavailability do not delay
+or roll back deployment. Record that outcome and propose follow-up work. Keep
+the user-facing summary spoiler-free and detailed observations in ignored private
+reports. Do not implement suggestions or deploy another release without scope.
