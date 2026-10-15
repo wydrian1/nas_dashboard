@@ -47,11 +47,13 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     if(event.key==='ArrowDown'){event.preventDefault();requestAnimationFrame(()=>popupRef.current?.querySelector<HTMLButtonElement>('button')?.focus());}
     if(event.key==='Escape')closePopup();
   }
-  async function send(command?:PlayerCommand){
+  async function send(command?:PlayerCommand,reopen?:{id:string;element:HTMLElement}){
     if(lock.current)return;lock.current=true;setBusy(true);setNotice('');setPopup(null);
     try{
       const result=command?await play(game.revision,command):await restart(game.revision,true);
-      if(result.game){setGame(result.game);clearSelection();}
+      if(result.game){setGame(result.game);clearSelection();
+        if(reopen&&!result.conflict&&!result.error&&result.game.scene.id===game.scene.id&&result.game.scene.spots.some(entry=>entry.id===reopen.id))show('scene',reopen.id,reopen.element,true);
+      }
       if(!command&&result.game)setResetOpen(false);
       setNotice(result.error||(result.conflict?(command?'Másik böngészőfülben továbbhaladtál. A friss mentést betöltöttük; válassz újra.':'Az újrakezdés nem történt meg: másik böngészőfülben változott a mentés. Ellenőrizd a friss állapotot, majd erősítsd meg újra.') : ''));
     }catch{setNotice('A kapcsolat megszakadt. Újratöltéssel ellenőrizheted a szerveren elfogadott állapotot.');}
@@ -59,8 +61,12 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   }
   function clickSpot(entry:VisibleSpot,element:HTMLElement){
     if(mode==='use'&&item&&entry.environment){void send({verb:'use',item:item.id,target:{kind:'environment',id:entry.environment}});return;}
-    if(mode==='combine'){setNotice('Kombináláshoz a másik tárgyra kattints az inventoryban.');return;}
+    if(mode==='combine'){setNotice('Kombináláshoz a másik tárgyra kattints a tárgyaid között.');return;}
     if(entry.exit){void send({verb:'move',target:{kind:'exit',id:entry.exit.id}});return;}
+    if(entry.environment&&entry.actions.includes('look')){
+      const hasInput=game.inputs.some(input=>input.id===entry.environment);
+      void send({verb:'look',target:{kind:'environment',id:entry.environment}},hasInput?{id:entry.id,element}:undefined);return;
+    }
     setTarget(entry.id);show('scene',entry.id,element,true);
   }
   function clickItem(id:string,element:HTMLElement){
@@ -77,18 +83,20 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       <div className="ascii-scroll" onScroll={()=>{if(popup&&anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);}}>
         <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows*1.45}em`}}>
           <pre aria-hidden="true">{game.scene.art}</pre>
-          {game.scene.spots.map(entry=><button key={entry.id} className="ascii-hotspot" data-spot={entry.id} data-environment={entry.environment} data-exit={entry.exit?.id} aria-label={entry.label} aria-describedby={`spot-help-${entry.id}`} aria-pressed={target===entry.id} aria-haspopup="dialog" disabled={busy}
-            style={{left:`${entry.col}ch`,top:`${entry.row*1.45}em`,width:`${entry.width}ch`,height:`${entry.height*1.45}em`}}
-            onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard} onClick={event=>clickSpot(entry,event.currentTarget)}>
+          {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row*1.45}em`,width:`${entry.width}ch`,height:`${entry.height*1.45}em`}}>
+            <button className="ascii-hotspot" data-spot={entry.id} data-environment={entry.environment} data-exit={entry.exit?.id} aria-label={entry.label} aria-describedby={`spot-help-${entry.id}`} aria-pressed={target===entry.id} disabled={busy}
+            onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard} onContextMenu={event=>{event.preventDefault();setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}} onClick={event=>clickSpot(entry,event.currentTarget)}>
             {entry.glyph&&<span className="ascii-glyph" aria-hidden="true">{entry.glyph}</span>}
-            <span className="sr-only" id={`spot-help-${entry.id}`}>{mode==='use'&&item&&entry.environment?`${item.label} használata itt.`:entry.exit?`Kattintás: mozgás — ${entry.exit.label}.`:'Kattintás: kijelölés. A lefelé nyíllal eléred a műveleteket.'}</span>
-          </button>)}
+            <span className="sr-only" id={`spot-help-${entry.id}`}>{mode==='use'&&item&&entry.environment?`${item.label} használata itt.`:entry.exit?`Kattintás: mozgás — ${entry.exit.label}.`:'Kattintás: megvizsgálás. A további műveletek gombbal vagy a lefelé nyíllal eléred a műveleteket.'}</span>
+            </button>
+            {entry.environment&&<button className="spot-more" aria-label={`További műveletek: ${entry.label}`} title="További műveletek" aria-haspopup="dialog" disabled={busy} onKeyDown={keyboard} onClick={event=>{setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}}>⋯</button>}
+          </div>)}
         </div>
       </div>
       <div className="story" aria-live="polite" aria-atomic="true"><p>{game.message}</p></div>
       {notice&&<p className="notice" role="alert">{notice}</p>}
     </section>
-    <section className="inventory panel" aria-label="Inventory"><h2>Inventory</h2>
+    <section className="inventory panel" aria-label="Tárgyak"><h2>Tárgyak</h2>
       {item&&mode&&<div className="item-selection" role="status"><ActionIcon name={mode}/><span>{item.label}</span><button className="icon-action quiet" aria-label="Kijelölés törlése" title="Kijelölés törlése" disabled={busy} onClick={clearSelection}><ActionIcon name="cancel"/></button><span className="sr-only">{mode==='use'?'Használat':'Kombinálás'}</span></div>}
       {game.inventory.length?<div className="inventory-grid">{game.inventory.map(entry=><button className="inventory-item" key={entry.id} data-item={entry.id} aria-label={entry.label} aria-pressed={source===entry.id} aria-haspopup="dialog" disabled={busy}
         onMouseEnter={event=>show('item',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('item',entry.id,event.currentTarget)} onKeyDown={keyboard} onClick={event=>clickItem(entry.id,event.currentTarget)}><pre aria-hidden="true">{entry.art}</pre></button>)}</div>:<p>A zsebeid üresek.</p>}

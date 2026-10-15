@@ -226,6 +226,8 @@ awakening.scenes['awakening:panel-detail'].descriptionVariants = [
 ];
 awakening.scenes['awakening:panel-detail'].environment!.find(entity => entity.id === 'awakening:panel-contacts')!.descriptionVariants = [{ requires: opened, text: 'VISSZA és HANG. A két érintkező közötti vonal most végig világít. „HANGMINTA ELFOGADVA” – áll a panelen; a zár nyitva van.' }];
 awakening.scenes.chamber.artSpots!.find(spot => spot.id === 'door')!.glyphVariants = [{ requires: opened, text: '.------------.\n| 09 / NYITVA|\n|            |\n|  /         |\n| /          |\n|/           |\n|            |\n|            |\n|            |\n|            |\n|            |\n|            |\n|            |\n|            |\n|            |\n|            |\n\'------------\'' }];
+awakening.scenes.chamber.artSpots!.find(spot => spot.id === 'panel')!.glyphVariants = [{ requires: opened, text: ".----------.\n|  *==*    |\n|  .----.  |\n|  ======  |\n'----------'" }];
+awakening.scenes['awakening:panel-detail'].artSpots!.find(spot => spot.id === 'contacts')!.glyphVariants = [{ requires: opened, text: " VISSZA                      HANG\n\n .----.                   .----------.\n | ** |                   |  ******  |\n | ** |                   |  ******  |\n '----'                   '----------'\n    :                          :\n    :==========================:" }];
 
 // Interaction metadata is content, not a list of suggested solutions in the UI.
 for (const scene of Object.values(awakening.scenes)) for (const rule of scene.rules) {

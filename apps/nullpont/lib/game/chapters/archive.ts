@@ -175,3 +175,9 @@ archive.scenes[id('vestibule')].descriptionVariants = [{ requires: { flags: [id(
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('look:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A három dob a beállított számokat mutatja. A kör, kettős vonal és háromszög változatlanul a keretbe van vésve. Az irattári ajtó zárja már elengedett.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('submit:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A dobok ugyanabba az állásba kattanak vissza. Az irattári ajtó már nyitva áll; a kilincs lent marad.' }];
 archive.scenes['archive:vestibule'].artSpots!.push({ id: id('spot:signals'), exit: id('signals'), row: 22, col: 42, width: 35, height: 1, glyph: '[ JELFULKE v ]' });
+archive.scenes[id('vestibule')].artSpots!.find(spot => spot.environment === id('reader'))!.glyphVariants = [{ requires: { flags: [id('records-open')] }, text: 'SZAMLAP\n  O    ||    /\\\n+----------------+\n| [4]  [2]  [7]  |\n+----------------+' }];
+archive.scenes[id('bridge-room')].artSpots!.find(spot => spot.environment === id('tongue'))!.glyphVariants = [
+  { requires: { flags: [id('route-bridge'), id('ground-outer')] }, text: 'UVEGBURA\n  .--------.\n /   |      \\\n | * |   *  |\n +----------+' },
+  { requires: { flags: [id('route-bridge')] }, text: 'UVEGBURA\n  .--------.\n /   |~     \\\n | * |   o  |\n +----------+' },
+  { requires: { flags: [id('ground-outer')] }, text: 'UVEGBURA\n  .--------.\n /   |~     \\\n | o |   *  |\n +----------+' },
+];
