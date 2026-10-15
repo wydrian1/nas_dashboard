@@ -2,10 +2,11 @@ import { CATALOG, meets, type AdventureCatalog } from './catalog.ts';
 import type { SavedGame } from './store.ts';
 import type { StoryEntry, ArtSpot } from './types.ts';
 import { activeSceneId, observeRoom } from './engine.ts';
-export type VisibleSpot = Pick<ArtSpot,'id'|'row'|'col'|'width'|'height'|'glyph'> & { label: string; environment?: string; exit?: {id:string;label:string}; actions: ('look'|'take'|'talk'|'attack')[] };
+export type VisibleSpot = Pick<ArtSpot,'id'|'row'|'col'|'width'|'height'|'glyph'> & { label: string; environment?: string; exit?: {id:string;label:string}; actions: ('look'|'take'|'talk'|'attack'|'use')[] };
 export type GameView = {
   revision: number; turns: number; message: string; journal: string[]; book: StoryEntry[];
   breadcrumbs: { id: string; title: string }[];
+  goal?: string;
   inputs: { id: string; label: string; prompt: string; maxLength: number; format: 'digits' | 'text' }[];
   scene: { id: string; title: string; description: string; art: string; columns: number; rows: number; spots: VisibleSpot[] };
   inventory: { id: string; label: string; art: string }[]; environment: { id: string; label: string }[];
@@ -26,6 +27,7 @@ export function gameView(game: SavedGame, catalog: AdventureCatalog = CATALOG): 
   // tiles within the drawing, never as a separate environment/movement menu.
   const extras = [...environment.filter(entity => !spots.some(spot => spot.environment === entity.id)).map(entity => ({entity,exit:undefined})),...exits.filter(exit => !spots.some(spot => spot.exit?.id === exit.id)).map(exit => ({entity:undefined,exit}))];
   const lines = scene.art.split('\n');
+  const goal = catalog.goals.findLast(goal => meets(state, goal.requires));
   if (extras.length) {
     const start = lines.length;
     for (let i=0;i<Math.ceil(extras.length/4)*4;i++) lines.push(' '.repeat(76));
@@ -34,6 +36,7 @@ export function gameView(game: SavedGame, catalog: AdventureCatalog = CATALOG): 
   return {
     revision: game.revision, turns: state.turns, message: state.message, journal: [...state.journal], book: [...state.book],
     breadcrumbs: [state.room, ...state.focus ?? []].map(id => ({ id, title: catalog.scenes[id].title })),
+    ...(goal ? { goal: goal.text } : {}),
     inputs: (scene.inputs ?? []).filter(input => environment.some(entity => entity.id === input.id) && meets(state, input.requires)).map(({id,label,prompt,maxLength,format}) => ({id,label,prompt,maxLength:maxLength ?? 80,format:format ?? 'text'})),
     scene: { id: activeSceneId(state), title: scene.title, description: scene.description, art: lines.join('\n'), columns:Math.max(...lines.map(line=>line.length)),rows:lines.length,spots },
     inventory: state.inventory.map(id => ({ id, label: catalog.items[id], art:catalog.itemArt[id]??' [ ? ]' })),
