@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameView, VisibleSpot } from '@/lib/game/view';
 import type { PlayerCommand } from '@/lib/game/types';
@@ -22,11 +22,12 @@ const ICONS: Record<IconName,string> = {
 };
 function ActionIcon({name}:{name:IconName}){return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[name]}/></svg>;}
 type Popup = { kind: 'scene' | 'item'; id: string; left: number; top: number; pinned: boolean };
+const useIsomorphicLayoutEffect=typeof window!=='undefined'?useLayoutEffect:useEffect;
 export default function Game({ initialGame }: { initialGame: GameView }) {
   const [game,setGame]=useState(initialGame),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [source,setSource]=useState<string|null>(null),[mode,setMode]=useState<'use'|'combine'|null>(null),[target,setTarget]=useState<string|null>(null);
   const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(14),[resetOpen,setResetOpen]=useState(false);
-  const lock=useRef(false),closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null),anchor=useRef<HTMLElement|null>(null),popupRef=useRef<HTMLElement|null>(null),dialog=useRef<HTMLDialogElement|null>(null);
+  const lock=useRef(false),closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null),anchor=useRef<HTMLElement|null>(null),anchorRect=useRef<DOMRect|null>(null),popupRef=useRef<HTMLElement|null>(null),dialog=useRef<HTMLDialogElement|null>(null);
   const restoringFocus=useRef(false);
   const touch=useRef<{timer:ReturnType<typeof setTimeout>|null;x:number;y:number;opened:boolean}|null>(null);
   const item=game.inventory.find(entry=>entry.id===source);
@@ -35,13 +36,38 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   const input=spot?.environment?game.inputs.find(entry=>entry.id===spot.environment):undefined;
   useEffect(()=>()=>{if(closeTimer.current)clearTimeout(closeTimer.current);if(touch.current?.timer)clearTimeout(touch.current.timer);},[]);
   useEffect(()=>{if(resetOpen)dialog.current?.showModal();else dialog.current?.close();},[resetOpen]);
+  // Correct the panel against its measured size before paint, so it always sits flush on the
+  // side of its anchor with full room. A fixed height estimate left bottom-row items with a
+  // ~130px gap, and the panel vanished before the pointer could reach its actions.
+  useIsomorphicLayoutEffect(()=>{
+    if(!popup)return;
+    const rect=anchorRect.current,node=popupRef.current;
+    if(!rect||!node)return;
+    const margin=8,width=node.offsetWidth,height=node.offsetHeight;
+    const below=rect.bottom+margin+height<=window.innerHeight;
+    const top=Math.max(margin,Math.min(below?rect.bottom+margin:rect.top-margin-height,window.innerHeight-height-margin));
+    const left=Math.max(margin,Math.min(rect.left,window.innerWidth-width-margin));
+    if(Math.abs(popup.left-left)>0.5||Math.abs(popup.top-top)>0.5)setPopup(current=>current?{...current,left,top}:current);
+  },[popup]);
+  // Keep an open panel attached to its anchor when the page scrolls or the window resizes
+  // (the scene's own scroller is handled separately by the canvas onScroll handler).
+  useEffect(()=>{
+    if(!popup)return;
+    const reposition=()=>{if(anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);};
+    window.addEventListener('scroll',reposition,{passive:true});
+    window.addEventListener('resize',reposition);
+    return ()=>{window.removeEventListener('scroll',reposition);window.removeEventListener('resize',reposition);};
+  },[popup]);
   function clearSelection(){setSource(null);setMode(null);setTarget(null);setPopup(null);}
   function stopClose(){if(closeTimer.current)clearTimeout(closeTimer.current);closeTimer.current=null;}
   function hideLater(){stopClose();if(!popup?.pinned)closeTimer.current=setTimeout(()=>setPopup(null),180);}
   function show(kind:Popup['kind'],id:string,element:HTMLElement,pinned=false){
     if(restoringFocus.current)return;
-    stopClose();anchor.current=element;const rect=element.getBoundingClientRect();
-    setPopup({kind,id,pinned,left:Math.max(8,Math.min(rect.left,window.innerWidth-296)),top:rect.bottom+250<window.innerHeight?rect.bottom+8:Math.max(8,rect.top-250)});
+    stopClose();anchor.current=element;
+    const rect=element.getBoundingClientRect();anchorRect.current=rect;
+    // First-paint estimate only; the layout effect above snaps it to the panel's real size.
+    const estimate=132;
+    setPopup({kind,id,pinned,left:Math.max(8,Math.min(rect.left,window.innerWidth-296)),top:rect.bottom+8+estimate<=window.innerHeight?rect.bottom+8:Math.max(8,rect.top-estimate-8)});
   }
   function closePopup(){setPopup(null);restoringFocus.current=true;anchor.current?.focus();queueMicrotask(()=>{restoringFocus.current=false;});}
   function keyboard(event:React.KeyboardEvent<HTMLElement>){
