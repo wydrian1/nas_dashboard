@@ -7,6 +7,10 @@ export { INTRO } from './chapters/awakening.ts';
 export const GAME_VERSION = 2;
 export const ITEM_NAMES = CATALOG.items;
 export const SCENES = CATALOG.scenes;
+function contextRules(state: GameState, catalog: AdventureCatalog) {
+  const local = catalog.scenes[activeSceneId(state)]?.rules ?? [];
+  return [...local, ...catalog.portableRules.map(entry => entry.rule).filter(rule => !local.includes(rule))];
+}
 export function activeSceneId(state: GameState): string { return state.focus?.at(-1) ?? state.room; }
 function validFocus(state: GameState, catalog: AdventureCatalog): boolean {
   if (catalog.scenes[state.room]?.detailOf) return false;
@@ -33,10 +37,10 @@ export function initialState(): GameState {
   return observeRoom({ version: GAME_VERSION, room: 'chamber', inventory: [], flags: [], discoveries: [], journal: ['7314. Kilencedik ébresztés. A saját hangom óvott a nevemtől.'], book: [{ ...OPENING_ENTRY }], message: INTRO, turns: 0 });
 }
 export function availableActions(state: GameState, catalog: AdventureCatalog = CATALOG): GameAction[] {
-  return (catalog.scenes[activeSceneId(state)]?.rules ?? []).filter(rule => meets(state, rule.requires)).map(({ id, label, kind }) => ({ id, label, kind }));
+  return contextRules(state, catalog).filter(rule => meets(state, rule.requires)).map(({ id, label, kind }) => ({ id, label, kind }));
 }
 export function applyAction(current: GameState, actionId: string, catalog: AdventureCatalog = CATALOG, submittedInput?: string): GameState {
-  const rule = catalog.scenes[activeSceneId(current)]?.rules.find(rule => rule.id === actionId && meets(current, rule.requires));
+  const rule = contextRules(current, catalog).find(rule => rule.id === actionId && meets(current, rule.requires));
   if (!rule) throw new Error('Ez a művelet most nem érhető el.');
   if (rule.kind === 'submit' && (submittedInput === undefined || submittedInput !== rule.interaction?.input)) throw new Error('A művelethez pontos bevitel szükséges.');
   const state: GameState = { ...current, inventory: [...current.inventory], flags: [...current.flags], discoveries: [...current.discoveries], journal: [...current.journal], book: [...current.book], turns: current.turns + 1, message: rule.message };
@@ -54,7 +58,7 @@ export function applyAction(current: GameState, actionId: string, catalog: Adven
     state.focus = [...current.focus ?? [], rule.focusTo];
   }
   if (rule.milestone && !state.book.some(entry => entry.id === rule.milestone!.id)) {
-    state.book.push({ ...rule.milestone, chapter: catalog.ruleOwners[`${activeSceneId(current)}:${rule.id}`], turn: state.turns });
+    state.book.push({ ...rule.milestone, chapter: catalog.ruleOwners[`${activeSceneId(current)}:${rule.id}`] ?? catalog.portableRules.find(entry => entry.rule === rule)!.owner, turn: state.turns });
   }
   return observeRoom(state, catalog);
 }
@@ -112,7 +116,7 @@ export function applyCommand(state: GameState, command: PlayerCommand, catalog: 
     if (!text || text.length > (input.maxLength ?? 80) || /[\x00-\x1f\x7f]/.test(text) || (input.format === 'digits' && !/^\d+$/.test(text))) return { ...state, message: 'Ellenőrizd a bevitel formátumát.' };
     command = { ...command, input: text };
   }
-  const candidates = scene.rules.filter(rule => meets(state, rule.requires) && rule.interaction);
+  const candidates = contextRules(state, catalog).filter(rule => meets(state, rule.requires) && rule.interaction);
   const matches = (pattern: PlayerCommand) => pattern.verb === command.verb && pattern.item === command.item && pattern.topic === command.topic && pattern.input === command.input && pattern.target?.kind === command.target?.kind && pattern.target?.id === command.target?.id;
   const rule = candidates.find(rule => matches(rule.interaction!)) ?? (command.verb === 'combine' && command.target?.kind === 'item' ? candidates.find(rule => {
     const pattern = rule.interaction!;

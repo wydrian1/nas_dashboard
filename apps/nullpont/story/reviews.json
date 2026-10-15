@@ -4,21 +4,31 @@
     {
       "module": "lib/game/chapters/archive.ts",
       "sha256": "09fffe6aff57783ef9300046fe64b422d08230a0e356795705e2ae41166429ba",
-      "contextSha256": "44866ee3d9258c02cde281b5a595f9926824254ab15f82de2404c3ca627c4cf1",
+      "contextSha256": "c1e41a9e8780ae803e8bb15c727075a1b9cf08e88f88ecd0040637820085bde6",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-14T22:20:27.502Z",
+      "reviewedAt": "2026-10-15T05:47:44.018Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
       "module": "lib/game/chapters/awakening.ts",
-      "sha256": "599796030133efefcb84b441a82deb0b12f3e2b8b01a98311257ceb062e9e6ee",
-      "contextSha256": "44866ee3d9258c02cde281b5a595f9926824254ab15f82de2404c3ca627c4cf1",
+      "sha256": "58ef275752df20a2e1b05ff1c0cc9ad6216c0c7f04dde5d4b1330047e2fc07bc",
+      "contextSha256": "c1e41a9e8780ae803e8bb15c727075a1b9cf08e88f88ecd0040637820085bde6",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-14T22:20:27.502Z",
+      "reviewedAt": "2026-10-15T05:47:44.018Z",
+      "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
+    },
+    {
+      "module": "lib/game/chapters/relay.ts",
+      "sha256": "a19d28497a6bb208ec04e70ae028c6a8271770d1a700281e344a58bb8c1c9049",
+      "contextSha256": "c1e41a9e8780ae803e8bb15c727075a1b9cf08e88f88ecd0040637820085bde6",
+      "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
+      "reviewer": "nullpont-story-steward",
+      "status": "approved",
+      "reviewedAt": "2026-10-15T05:47:44.018Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     }
   ]

@@ -103,6 +103,14 @@ helyzetjelző korábbi elemére kattintva. A közelnézet mentés és újratölt
 megmarad. A megfelelő környezeti célpont címkéjében szöveges/számzáras bevitel is
 megjelenhet; a megoldások nem kerülnek a böngészőnek küldött játékadatokba.
 
+A történetben megismert irány rövid célként látszik a helyzetjelző alatt, és a
+haladással változik; nem mutat még ismeretlen célt vagy feladványmegoldást.
+Környezeti szerkezetet a saját címkéjén megjelenő működtetésikonnal kezelhetsz.
+Az inventoryban végzett tárgykombinálás közelnézetben is működik, nem léptet ki
+onnan. A motor csak a kifejezetten `portable` jelölésű, két meglévő tárgyhoz
+kötött kombinálási szabályt teszi helyfüggetlenné; környezeti célpontot, mozgást
+vagy rejtett felfedezést nem emel át másik nézetből.
+
 A célpont címkéje
 rámutatásra, fókuszra vagy érintésre mutatja a nevét és a kompakt műveletikonokat;
 az ikonok hozzáférhető neve és tooltipje megmarad.
