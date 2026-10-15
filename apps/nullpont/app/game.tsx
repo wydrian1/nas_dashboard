@@ -28,11 +28,12 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(14),[resetOpen,setResetOpen]=useState(false);
   const lock=useRef(false),closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null),anchor=useRef<HTMLElement|null>(null),popupRef=useRef<HTMLElement|null>(null),dialog=useRef<HTMLDialogElement|null>(null);
   const restoringFocus=useRef(false);
+  const touch=useRef<{timer:ReturnType<typeof setTimeout>|null;x:number;y:number;opened:boolean}|null>(null);
   const item=game.inventory.find(entry=>entry.id===source);
   const spot=popup?.kind==='scene'?game.scene.spots.find(entry=>entry.id===popup.id):undefined;
   const inventory=popup?.kind==='item'?game.inventory.find(entry=>entry.id===popup.id):undefined;
   const input=spot?.environment?game.inputs.find(entry=>entry.id===spot.environment):undefined;
-  useEffect(()=>()=>{if(closeTimer.current)clearTimeout(closeTimer.current);},[]);
+  useEffect(()=>()=>{if(closeTimer.current)clearTimeout(closeTimer.current);if(touch.current?.timer)clearTimeout(touch.current.timer);},[]);
   useEffect(()=>{if(resetOpen)dialog.current?.showModal();else dialog.current?.close();},[resetOpen]);
   function clearSelection(){setSource(null);setMode(null);setTarget(null);setPopup(null);}
   function stopClose(){if(closeTimer.current)clearTimeout(closeTimer.current);closeTimer.current=null;}
@@ -46,6 +47,14 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   function keyboard(event:React.KeyboardEvent<HTMLElement>){
     if(event.key==='ArrowDown'){event.preventDefault();requestAnimationFrame(()=>popupRef.current?.querySelector<HTMLButtonElement>('button')?.focus());}
     if(event.key==='Escape')closePopup();
+  }
+  function stopTouch(){if(touch.current?.timer)clearTimeout(touch.current.timer);if(touch.current)touch.current.timer=null;}
+  function startTouch(event:React.PointerEvent<HTMLElement>,entry:VisibleSpot){
+    stopTouch();touch.current=null;
+    if(event.pointerType!=='touch'||!event.isPrimary||busy)return;
+    const element=event.currentTarget,press={timer:null as ReturnType<typeof setTimeout>|null,x:event.clientX,y:event.clientY,opened:false};
+    touch.current=press;
+    press.timer=setTimeout(()=>{press.timer=null;press.opened=true;setTarget(entry.id);show('scene',entry.id,element,true);},600);
   }
   async function send(command?:PlayerCommand,reopen?:{id:string;element:HTMLElement}){
     if(lock.current)return;lock.current=true;setBusy(true);setNotice('');setPopup(null);
@@ -85,11 +94,12 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
           <pre aria-hidden="true">{game.scene.art}</pre>
           {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row*1.45}em`,width:`${entry.width}ch`,height:`${entry.height*1.45}em`}}>
             <button className="ascii-hotspot" data-spot={entry.id} data-environment={entry.environment} data-exit={entry.exit?.id} aria-label={entry.label} aria-describedby={`spot-help-${entry.id}`} aria-pressed={target===entry.id} disabled={busy}
-            onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard} onContextMenu={event=>{event.preventDefault();setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}} onClick={event=>clickSpot(entry,event.currentTarget)}>
+            onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard}
+            onPointerDown={event=>startTouch(event,entry)} onPointerMove={event=>{if(touch.current&&Math.hypot(event.clientX-touch.current.x,event.clientY-touch.current.y)>10)stopTouch();}} onPointerUp={stopTouch} onPointerCancel={()=>{stopTouch();touch.current=null;}}
+            onContextMenu={event=>{event.preventDefault();setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}} onClick={event=>{if(touch.current?.opened){touch.current=null;return;}clickSpot(entry,event.currentTarget);}}>
             {entry.glyph&&<span className="ascii-glyph" aria-hidden="true">{entry.glyph}</span>}
-            <span className="sr-only" id={`spot-help-${entry.id}`}>{mode==='use'&&item&&entry.environment?`${item.label} használata itt.`:entry.exit?`Kattintás: mozgás — ${entry.exit.label}.`:'Kattintás: megvizsgálás. A további műveletek gombbal vagy a lefelé nyíllal eléred a műveleteket.'}</span>
+            <span className="sr-only" id={`spot-help-${entry.id}`}>{mode==='use'&&item&&entry.environment?`${item.label} használata itt.`:entry.exit?`Kattintás: mozgás — ${entry.exit.label}.`:'Kattintás: megvizsgálás. További műveletek: rámutatás, jobb kattintás, hosszú érintés vagy lefelé nyíl.'}</span>
             </button>
-            {entry.environment&&<button className="spot-more" aria-label={`További műveletek: ${entry.label}`} title="További műveletek" aria-haspopup="dialog" disabled={busy} onKeyDown={keyboard} onClick={event=>{setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}}>⋯</button>}
           </div>)}
         </div>
       </div>
