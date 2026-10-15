@@ -104,6 +104,10 @@ export function createCatalog(chapters: Chapter[]) {
         for (const glyph of [spot.glyph, ...spot.glyphVariants?.map(variant => variant.text) ?? []]) if (glyph !== undefined && (glyph.split('\n').length > spot.height || glyph.split('\n').some(line => line.length > spot.width) || /[^\x20-\x7e\n]/.test(glyph))) throw new Error('Érvénytelen ASCII-részlet.');
         if (spot.actions?.some(action => !['look','take','talk','attack','use'].includes(action))) throw new Error('Érvénytelen képi akció.');
       }
+      for (let i = 0; i < scene.artSpots.length; i++) for (let j = i + 1; j < scene.artSpots.length; j++) {
+        const a = scene.artSpots[i], b = scene.artSpots[j];
+        if (a.col < b.col + b.width && b.col < a.col + a.width && a.row < b.row + b.height && b.row < a.row + a.height) throw new Error('Átfedő ASCII-célpontok.');
+      }
       for (const entity of scene.environment ?? []) if (!scene.artSpots.some(spot => spot.environment === entity.id)) throw new Error('Hiányzó környezeti ASCII-célpont.');
       for (const exit of scene.exits ?? []) if (!scene.artSpots.some(spot => spot.exit === exit.id)) throw new Error('Hiányzó kijárati ASCII-célpont.');
     }
@@ -130,14 +134,18 @@ export function createCatalog(chapters: Chapter[]) {
     }
   }
   for (const goal of goals) {
+    if (goal.rooms && (!goal.rooms.length || new Set(goal.rooms).size !== goal.rooms.length || goal.rooms.some(room => !scenes[room] || scenes[room].detailOf))) throw new Error('Érvénytelen célhelyszín.');
     for (const flag of [...goal.requires.flags ?? [], ...goal.requires.withoutFlags ?? []]) if (!flags.has(flag)) throw new Error('Ismeretlen célfeltétel.');
     for (const item of [...goal.requires.items ?? [], ...goal.requires.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen céltárgy.');
     for (const entity of goal.requires.discoveries ?? []) if (!discoveries.has(entity)) throw new Error('Ismeretlen célfelfedezés.');
   }
   for (const scene of Object.values(scenes)) {
-    const variants = [...scene.descriptionVariants ?? [], ...scene.environment?.flatMap(entity => entity.descriptionVariants ?? []) ?? [], ...scene.rules.flatMap(rule => rule.messageVariants ?? []), ...scene.artSpots?.flatMap(spot => spot.glyphVariants ?? []) ?? []];
+    const prose = [...scene.descriptionVariants ?? [], ...scene.environment?.flatMap(entity => entity.descriptionVariants ?? []) ?? [], ...scene.rules.flatMap(rule => rule.messageVariants ?? [])];
+    const variants = [...prose, ...scene.artSpots?.flatMap(spot => spot.glyphVariants ?? []) ?? []];
     for (const variant of variants) {
-      if (!variant.requires || typeof variant.text !== 'string' || !variant.text.trim() || variant.text.length > 20000) throw new Error('Érvénytelen állapotfüggő szöveg.');
+      // A selected empty drawing explicitly erases an overlay. Prose must still
+      // contain meaningful text; disappearance cannot blank an examination.
+      if (!variant.requires || typeof variant.text !== 'string' || (prose.includes(variant) && !variant.text.trim()) || variant.text.length > 20000) throw new Error('Érvénytelen állapotfüggő szöveg.');
       for (const flag of [...variant.requires.flags ?? [], ...variant.requires.withoutFlags ?? []]) if (!flags.has(flag)) throw new Error('Ismeretlen szövegfeltétel.');
       for (const item of [...variant.requires.items ?? [], ...variant.requires.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen szövegtárgy.');
       for (const entity of variant.requires.discoveries ?? []) if (!discoveries.has(entity)) throw new Error('Ismeretlen szövegfelfedezés.');

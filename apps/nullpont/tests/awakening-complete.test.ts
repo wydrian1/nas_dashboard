@@ -25,7 +25,7 @@ test('exactly five new physical locations complete awakening before archive, wit
   assert.equal(complete.room, 'threshold'); assert.ok(complete.flags.includes(aw('chapter-closed')));
   assert.deepEqual(complete.book.slice(0, before.length), before);
   assert.ok(complete.book.filter(entry => entry.id.startsWith('awakening:')).every(entry => entry.chapter === 'I. Az ébredés'));
-  assert.match(complete.book.at(-1)!.text, /a történetem nem/);
+  assert.match(complete.book.at(-1)!.text, /Az archívumban akartam utánajárni/);
   assert.doesNotMatch(complete.book.at(-1)!.text, /holnapi|archivista|emlékeim visszatértek/);
   assert.equal(applyCommand(complete, { verb: 'move', target: { kind: 'exit', id: 'archive:entry' } }).room, 'archive:vestibule');
   assert.ok(complete.inventory.includes('bridge'));
@@ -68,7 +68,7 @@ test('fluid state graph: every reachable setting and every one of the 12 bounded
     const state = at(aw('water-room'), [...(large ? [aw(`large-${large}`)] : []), ...(small ? [aw(`small-${small}`)] : [])]);
     const result = use(state, 'float-test'); assert.equal(result.flags.includes(aw('flow-latched')), large === 2 && small === 0);
     assert.ok(solveWater(state).flags.includes(aw('flow-latched')));
-    assert.match(view(state).scene.description, new RegExp(`hengerben ${large}, a rövidben ${small}`));
+    assert.match(view(state).scene.description, new RegExp(`üveghengerében ${large}, a rövidben ${small}`));
     assert.equal(glyph(reload(state), 'vessels'), glyph(state, 'vessels'));
     const poured = use(state, 'pour-small'); assert.equal(volume(poured, 'large', 3) + volume(poured, 'small', 2), large + small, 'transfer conserves water');
   }
@@ -79,7 +79,10 @@ test('all six light/shutter configurations, both optical tools, wrong-item attem
     let state = at(aw('light-room'), [...(angle ? [aw(`angle-${angle}`)] : []), ...(open ? [aw('shutter-open')] : [])], [aw(item), 'bridge']);
     const attempted = use(state, 'relief', aw(item)); assert.equal(attempted.flags.includes(aw('relief-read')), angle === 2 && open);
     assert.deepEqual(attempted.inventory, state.inventory);
-    assert.deepEqual(use(state, 'relief', 'bridge').flags, state.flags);
+    const reflected = use(state, 'relief', 'bridge');
+    assert.equal(reflected.flags.includes(aw('relief-read')), angle === 2 && open, 'the foil on the bridge can also guide sideways light');
+    assert.deepEqual(reflected.inventory, state.inventory);
+    assert.deepEqual(use({ ...state, inventory: [...state.inventory, 'wire'] }, 'relief', 'wire').flags, state.flags);
     state = solveLight(state, aw(item)); assert.ok(state.flags.includes(aw('relief-read')));
     assert.match(state.message, /SZEMLE.*KÖZLÉS.*HIÁNY/);
     state = take(state, 'loose-source-card'); const book = structuredClone(state.book);
@@ -113,13 +116,15 @@ test('exploring both final declarations or leaving does not consent; explicit ch
     for (const name of ['departure-plain', 'departure-reserved', 'departure-copy']) state = look(state, name);
     assert.ok(!state.flags.includes(aw('chapter-closed'))); assert.deepEqual(state.book, book);
     const unrecordedReturn = go(reload(state), 'departure-return');
-    assert.equal(unrecordedReturn.room, 'threshold'); assert.match(unrecordedReturn.message, /még kilépési bejegyzésre vár/);
+    assert.equal(unrecordedReturn.room, 'threshold'); assert.match(unrecordedReturn.message, /átjáró még zárva.*kijárati pultnál kérhetsz hozzáférést/);
     assert.equal(applyCommand(unrecordedReturn, { verb: 'move', target: { kind: 'exit', id: 'archive:entry' } }).room, 'threshold');
     assert.equal(go(state, 'decision-back').room, aw('source-room'));
     state = use(state, selected); const recorded = structuredClone(state.book);
     for (let repeat = 0; repeat < 3; repeat++) for (const name of ['departure-plain', 'departure-reserved']) state = use(reload(state), name);
     assert.deepEqual(state.book, recorded); assert.deepEqual(state.inventory, inventory);
-    assert.match(glyph(state, 'departure-copy'), selected === 'departure-plain' ? /KILEPES/ : /FENNTARTAS/);
+    assert.match(glyph(state, 'departure-copy'), /TOVABBMEGYEK/);
+    if (selected === 'departure-reserved') assert.match(glyph(state, 'departure-copy'), /ONKENTESSEGET NEM IGAZOLOM/);
+    else assert.doesNotMatch(glyph(state, 'departure-copy'), /NEM IGAZOLOM/);
     assert.match(look(state, 'departure-copy').message, /korábbi iratok nem változtak/);
     const recordedReturn = go(reload(state), 'departure-return');
     assert.match(recordedReturn.message, /archívum útja járható/);
@@ -129,18 +134,18 @@ test('exploring both final declarations or leaving does not consent; explicit ch
 
 test('registered source legend agrees in prose and art before acceptance through repeat use, navigation and reload', () => {
   let state = at(aw('source-room'), [aw('flow-latched')], [aw('source-card')]);
-  assert.match(view(state).scene.description, /vár egy forráslapra/);
-  assert.match(glyph(state, 'card-bed'), /o     o    o/);
+  assert.match(view(state).scene.description, /rögzítőtüske várja a műhely oszlopmintáját/);
+  assert.equal((glyph(state, 'card-bed').match(/o/g) ?? []).length, 3);
   state = use(state, 'card-bed', aw('source-card'));
   for (let repeat = 0; repeat < 3; repeat++) {
     state = reload(state);
     const rendered = view(state);
-    assert.match(rendered.scene.description, /már átvette/);
-    assert.doesNotMatch(rendered.scene.description, /vár egy forráslapra/);
-    assert.match(rendered.scene.description, /még.*kapocs zárja/);
-    assert.match(glyph(state, 'card-bed'), /: :   ::   _/);
+    assert.match(rendered.scene.description, /már a forráslap oszlopaihoz igazodnak/);
+    assert.doesNotMatch(rendered.scene.description, /várja a műhely oszlopmintáját/);
+    assert.match(rendered.scene.description, /ajtaja még zárva/);
+    assert.match(glyph(state, 'card-bed'), /: :\s+::\s+_/);
     assert.match(look(state, 'card-bed').message, /SZEMLE, KÖZLÉS és HIÁNY/);
-    assert.match(look(state, 'card-bed').message, /visszatetted a zsebedbe/);
+    assert.match(look(state, 'card-bed').message, /lap a zsebedben/);
     assert.ok(state.inventory.includes(aw('source-card')));
     assert.equal(go(state, 'decision').room, aw('source-room'));
     state = go(go(state, 'source-back'), 'sorting');
@@ -148,7 +153,7 @@ test('registered source legend agrees in prose and art before acceptance through
   }
   state = solveSources(state);
   const entry = state.book.find(entry => entry.id === aw('sources-separated'))!;
-  assert.match(entry.text, /Három forrásfajtát jelöltem/);
+  assert.match(entry.text, /Saját feljegyzést készítettem/);
   assert.doesNotMatch(entry.text, /szerettem volna|végre nem hagyta/);
 });
 

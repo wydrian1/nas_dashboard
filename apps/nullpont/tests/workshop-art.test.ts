@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { gameView } from '../lib/game/view.ts';
+import { aw, go, use, take, look, reload, enterWing, solveWater, solveLight } from './helpers/awakening-route.ts';
+import type { GameState } from '../lib/game/types.ts';
+
+test('reading the workshop legend does not open its clip; taking the card changes it under either light and after returning', () => {
+  let state = solveWater(go(enterWing(), 'water'));
+  state = take(state, 'loose-prism'); state = go(state, 'water-back'); state = go(state, 'light');
+  const view = (state: GameState) => gameView({ state, revision: 0, updatedAt: 'now' });
+  const relief = (state: GameState) => view(state).scene.spots.find(spot => spot.environment === aw('relief'))!.glyph;
+  state = solveLight(state, aw('prism'));
+  const closedClip = relief(state);
+  assert.ok(closedClip?.trim());
+  assert.match(view(state).scene.description, /még csipesz fogja/);
+  assert.ok(view(state).scene.spots.some(spot => spot.environment === aw('loose-source-card')));
+  state = take(state, 'loose-source-card');
+  const openClipLit = relief(state);
+  assert.ok(openClipLit?.trim()); assert.notEqual(openClipLit, closedClip);
+  assert.match(view(state).scene.description, /nyitott, üres csipesz/);
+  assert.ok(!view(state).scene.spots.some(spot => spot.environment === aw('loose-source-card')));
+  state = use(state, 'shutter');
+  const openClipUnlit = relief(state);
+  assert.ok(openClipUnlit?.trim()); assert.notEqual(openClipUnlit, openClipLit);
+  state = look(state, 'relief'); state = reload(go(go(state, 'light-back'), 'light'));
+  assert.equal(relief(state), openClipUnlit);
+  assert.match(view(state).scene.description, /nyitott, üres csipesz/);
+  assert.ok(!view(state).scene.spots.some(spot => spot.environment === aw('loose-source-card')));
+  state = use(state, 'shutter'); assert.equal(relief(reload(state)), openClipLit);
+});

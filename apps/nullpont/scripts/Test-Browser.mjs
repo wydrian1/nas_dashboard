@@ -61,7 +61,26 @@ try{
   await page.setViewportSize({width:1440,height:1000});
   let revision=0;
   const saved=async(page,expected)=>page.locator(`.game-grid[data-revision="${expected}"][aria-busy="false"]`).waitFor();
-  const step=async action=>{await action();revision++;await saved(page,revision);};
+   const artCaptures=[],capturedArt=new Set();
+   const captureArt=async()=>{
+     if(!process.env.NULLPONT_SCREENSHOT_DIR)return;
+     const canvas=page.locator('.ascii-canvas');
+     const composition=await canvas.evaluate(element=>({background:element.querySelector('pre').textContent,glyphs:[...element.querySelectorAll('.ascii-glyph')].map(node=>node.textContent),inventory:[...document.querySelectorAll('.inventory-item pre')].map(node=>node.textContent)}));
+     const fingerprint=createHash('sha256').update(JSON.stringify(composition)).digest('hex');
+     if(capturedArt.has(fingerprint))return;
+     capturedArt.add(fingerprint);
+     const title=await page.locator('.scene h2').innerText(),viewport=page.viewportSize(),index=String(artCaptures.length+1).padStart(3,'0');
+     const files=[];
+     for(const width of [1440,390]){
+       await page.setViewportSize({width,height:1000});
+       check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'redrawn scene has no page overflow: '+title+' '+width);
+       const filename=`art-${index}-${width}.png`;
+       await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,filename),fullPage:true});files.push(filename);
+     }
+     await page.setViewportSize(viewport);
+     artCaptures.push({title,fingerprint,files});
+   };
+   const step=async action=>{await action();revision++;await saved(page,revision);await captureArt();};
   const object=label=>page.locator('.ascii-canvas').getByRole('button',{name:label,exact:true});
    const action=async(label,verb)=>{if(verb==='Megvizsgálom'&&!await object(label).getAttribute('data-exit')){await step(()=>object(label).click());return;}await object(label).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
    const inspectEnvironment=async id=>step(()=>page.locator(`.ascii-hotspot[data-environment="${id}"]`).click());
@@ -114,14 +133,28 @@ try{
   await object('Ajtó').hover();check(await page.locator('.context-popup .exit-label').innerText().then(text=>text.includes('→ Az ajtó felé')),'exit tooltip names movement without tutorial prose');
   await step(()=>object('Ajtó').click());await page.reload();check(await page.locator('.scene h2').textContent()==='02 · A küszöb','direct ASCII movement resumes across reload');
   check(await object('Folyosó ablaka').count()===1,'next room baseline appears without looking around');
-  await action('Folyosó ablaka','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('NEM VAGY EGYEDÜL')),'visible corridor inscription is acknowledged by examination');
+   await action('Folyosó ablaka','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('NEM VAGY EGYEDÜL')),'visible corridor inscription is acknowledged by examination');
+   await page.locator('.ascii-hotspot[data-environment="awakening:departure-trace"]').click({button:'right'});
+   check(await page.locator('.context-popup .popup-actions button').count()===1&&await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom',exact:true}).count()===1,'corridor sign offers examination only, not meaningless pickup or conversation');await page.keyboard.press('Escape');
    await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
    const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
    const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
    const wingObject=id=>page.locator(`.ascii-hotspot[data-environment="awakening:${id}"]`);
    const wingAction=async(id,verb='Működtetem')=>{await wingObject(id).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
-   const wingItem=async(item,target)=>{await arm(CATALOG.items[`awakening:${item}`],'Használom');await step(()=>wingObject(target).click());};
-   const openingBook=structuredClone(currentState().book);
+    const wingItem=async(item,target)=>{await arm(CATALOG.items[`awakening:${item}`],'Használom');await step(()=>wingObject(target).click());};
+    await inspectEnvironment('awakening:hall-doors');
+    check(currentState().focus?.at(-1)==='awakening:corridor-doors','all other corridor doors have an explorable closeup');
+    const otherDoors=CATALOG.scenes['awakening:corridor-doors'].environment;
+    check(otherDoors.length===11&&await page.locator('.ascii-hotspot[data-environment]').count()===11,'eleven closed doors have separate actual browser targets');
+    for(const door of otherDoors){
+      await inspectEnvironment(door.id);
+      for(const verb of ['Működtetem','Beszélek']){
+        await page.locator(`.ascii-hotspot[data-environment="${door.id}"]`).click({button:'right'});
+        await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());
+      }
+    }
+    await page.reload();check(currentState().focus?.at(-1)==='awakening:corridor-doors'&&await page.locator('.ascii-hotspot[data-environment]').count()===11,'door investigation survives reload without opening an invented room');await back();
+    const openingBook=structuredClone(currentState().book);
    await travel('archive:entry');check(currentState().room==='threshold','archive waits for deliberate first-chapter closure');
    await travel('awakening:wing-entry');check(currentState().room==='awakening:cloakroom','discovered side door enters the new physical route');
    await inspectEnvironment('awakening:coats');await wingAction('loose-frame','Felveszem');
@@ -151,7 +184,14 @@ try{
   // answers are read only here on the fixture server, never from a browser payload.
   const archiveEntry=CATALOG.scenes.threshold.rules.find(rule=>rule.moveTo&&CATALOG.scenes[rule.moveTo]?.detailOf===undefined&&rule.moveTo.startsWith('archive:'));
   check(!!archiveEntry?.interaction?.target,'archive chapter registered for real browser coverage');
-  await step(()=>page.locator(`.ascii-hotspot[data-exit="${archiveEntry.interaction.target.id}"]`).click());
+   await step(()=>page.locator(`.ascii-hotspot[data-exit="${archiveEntry.interaction.target.id}"]`).click());
+   const bridgeTarget=page.locator('.ascii-hotspot[data-exit="archive:bridge"]'),signalTarget=page.locator('.ascii-hotspot[data-exit="archive:signals"]');
+   for(const zoomTarget of [10,20,14]){
+     for(let size=await page.locator('.ascii-canvas').evaluate(element=>parseFloat(getComputedStyle(element).fontSize));size!==zoomTarget;size+=size<zoomTarget?1:-1)await page.getByRole('button',{name:size<zoomTarget?'ASCII nagyítása':'ASCII kicsinyítése',exact:true}).click();
+     const a=await bridgeTarget.boundingBox(),b=await signalTarget.boundingBox();check(a.y+a.height<b.y||b.y+b.height<a.y||a.x+a.width<b.x||b.x+b.width<a.x,'bridge and signal-stair hit zones stay separate at zoom '+zoomTarget);
+   }
+   await step(()=>signalTarget.click());check(currentState().room==='archive:signal-room','clicking the signal stair enters the signal room, not the bridge');await travel('archive:signals-return');
+   await step(()=>bridgeTarget.click());check(currentState().room==='archive:bridge-room','clicking the bridge enters the bridge, not the signal room');await travel('archive:bridge-return');
   let testedInputs=0,testedNested=false;const visited=new Set();
   async function exploreArchive(){
     const state=currentState(),id=state.focus?.at(-1)??state.room,scene=CATALOG.scenes[id];visited.add(id);
@@ -178,7 +218,7 @@ try{
    check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
    await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
     const rhythmGlyph=()=>page.locator('.ascii-hotspot[data-exit="relay:well"] .ascii-glyph').innerText();
-    await operateEnvironment('single');check((await rhythmGlyph()).includes('.||'),'first retracted latch is drawn immediately');await operateEnvironment('double');check((await rhythmGlyph()).includes('..|'),'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
+     await operateEnvironment('single');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===2,'first retracted latch is drawn immediately');await operateEnvironment('double');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===1,'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
     check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
     const weights=()=>page.locator('.ascii-hotspot[data-environment="relay:alignment"] .ascii-glyph').innerText(),lowWeights=await weights();
     if(process.env.NULLPONT_SCREENSHOT_DIR)await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-weights-low.png'),fullPage:true});
@@ -220,5 +260,6 @@ try{
   const blockedReset=await fetch(origin+'/',{method:'POST',headers:{'next-action':resetRequest.headers()['next-action'],'content-type':resetRequest.headers()['content-type'],cookie:'nullpont.session-token='+await token(owner),origin:'https://foreign.example.test'},body:resetRequest.postData()});await blockedReset.body?.cancel();check(blockedReset.status>=400,'cross-origin reset rejected');
    database.prepare('UPDATE players SET enabled=0 WHERE email=?').run(owner);await object('Fekvőlap').click();await page.getByRole('alert').filter({hasText:'hozzáférés megszűnt'}).waitFor();check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===before,'revoked session cannot advance game');
   check(errors.length===0,'no browser errors: '+errors.join(', '));await context.close();
-  console.log(JSON.stringify({passed:true,checks,independentInstallation:true,syntheticDatabase:true,noProductionChanges:true}));
+   if(process.env.NULLPONT_SCREENSHOT_DIR)writeFileSync(join(process.env.NULLPONT_SCREENSHOT_DIR,'art-index.json'),JSON.stringify(artCaptures,null,2));
+   console.log(JSON.stringify({passed:true,checks,artCompositionsCaptured:artCaptures.length,independentInstallation:true,syntheticDatabase:true,noProductionChanges:true}));
 }finally{if(browser)await browser.close();await new Promise(resolve=>dashboard.close(resolve));database.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});}

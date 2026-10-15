@@ -21,7 +21,7 @@ export type Chapter = {
   id: string; title: string; items: Record<string, string>;
   itemDescriptions?: Record<string, string>;
   itemArt?: Record<string, string>;
-  goals?: { text: string; requires: Requirement }[];
+  goals?: { text: string; requires: Requirement; rooms?: string[] }[];
   scenes: Record<string, { title: string; description: string; descriptionVariants?: StateText[]; art: string; detailOf?: string; inputs?: SceneInput[]; requires?: Requirement; rules: Rule[];
     artSpots?: ArtSpot[];
     arrivalDiscoveries?: string[];

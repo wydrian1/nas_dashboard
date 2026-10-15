@@ -47,12 +47,13 @@ test('rhythm-door art shows individual retracted latches, failed reset and the p
   let state = at('relay:interval-room', ['door-open']);
   const door = (state: GameState) => view(state).scene.spots.find(spot => spot.exit?.id === 'relay:well')!.glyph!;
   const closed = door(state);
-  assert.match(closed, /\| \|\|\| \|/);
-  state = use(state, 'relay:single'); assert.match(door(state), /\.\|\|/); assert.match(view(state).scene.description, /bal retesze behúzódott/);
-  state = use(state, 'relay:double'); assert.match(door(state), /\.\.\|/); assert.match(view(state).scene.description, /bal és középső/);
+  const extendedLatches = (picture: string) => (picture.match(/===\|===/g) ?? []).length;
+  assert.equal(extendedLatches(closed), 3);
+  state = use(state, 'relay:single'); assert.equal(extendedLatches(door(state)), 2); assert.match(view(state).scene.description, /bal retesze behúzódott/);
+  state = use(state, 'relay:double'); assert.equal(extendedLatches(door(state)), 1); assert.match(view(state).scene.description, /bal és középső/);
   state = use(state, 'relay:double'); assert.equal(door(state), closed);
   state = look(use(use(state, 'relay:single'), 'relay:double'), 'relay:rest');
-  assert.match(door(state), /\|     \|/);
+  assert.equal(extendedLatches(door(state)), 0); assert.notEqual(door(state), closed);
   assert.equal(door(parseState(JSON.stringify(state))), door(state));
   assert.equal(door(use(state, 'relay:single')), door(state));
 });

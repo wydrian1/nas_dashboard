@@ -1,0 +1,1629 @@
+{
+  "version": 1,
+  "scenes": {
+    "chamber": [
+      {
+        "handler": "h01",
+        "id": "bed",
+        "environment": "bed",
+        "actions": [
+          "look",
+          "attack"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "panel",
+        "environment": "panel",
+        "actions": [
+          "look",
+          "attack"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "door-open"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "door",
+        "environment": "door",
+        "exit": "door",
+        "actions": [
+          "look",
+          "attack"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "door-open"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "speaker",
+        "environment": "speaker",
+        "actions": [
+          "look",
+          "talk",
+          "attack"
+        ]
+      }
+    ],
+    "threshold": [
+      {
+        "handler": "h01",
+        "id": "return",
+        "exit": "chamber"
+      },
+      {
+        "handler": "h02",
+        "id": "window",
+        "environment": "hall-window",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:departure-trace",
+        "environment": "awakening:departure-trace"
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:wing-entry",
+        "exit": "awakening:wing-entry"
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:hall-doors",
+        "environment": "awakening:hall-doors",
+        "actions": [
+          "look"
+        ]
+      }
+    ],
+    "awakening:corridor-doors": [
+      { "handler": "h01", "id": "awakening:spot:hall-door-left-near", "environment": "awakening:hall-door-left-near", "actions": ["look", "use", "talk"] },
+      { "handler": "h02", "id": "awakening:spot:hall-door-left-second", "environment": "awakening:hall-door-left-second", "actions": ["look", "use", "talk"] },
+      { "handler": "h03", "id": "awakening:spot:hall-door-left-middle", "environment": "awakening:hall-door-left-middle", "actions": ["look", "use", "talk"] },
+      { "handler": "h04", "id": "awakening:spot:hall-door-left-fourth", "environment": "awakening:hall-door-left-fourth", "actions": ["look", "use", "talk"] },
+      { "handler": "h05", "id": "awakening:spot:hall-door-left-far", "environment": "awakening:hall-door-left-far", "actions": ["look", "use", "talk"] },
+      { "handler": "h06", "id": "awakening:spot:hall-door-opposite", "environment": "awakening:hall-door-opposite", "actions": ["look", "use", "talk"] },
+      { "handler": "h07", "id": "awakening:spot:hall-door-right-far", "environment": "awakening:hall-door-right-far", "actions": ["look", "use", "talk"] },
+      { "handler": "h08", "id": "awakening:spot:hall-door-right-fourth", "environment": "awakening:hall-door-right-fourth", "actions": ["look", "use", "talk"] },
+      { "handler": "h09", "id": "awakening:spot:hall-door-right-middle", "environment": "awakening:hall-door-right-middle", "actions": ["look", "use", "talk"] },
+      { "handler": "h10", "id": "awakening:spot:hall-door-right-second", "environment": "awakening:hall-door-right-second", "actions": ["look", "use", "talk"] },
+      { "handler": "h11", "id": "awakening:spot:hall-door-right-near", "environment": "awakening:hall-door-right-near", "actions": ["look", "use", "talk"] }
+    ],
+    "awakening:bed-detail": [
+      {
+        "handler": "h01",
+        "id": "rim",
+        "environment": "awakening:bed-rim-edge",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "fastener",
+        "environment": "awakening:bed-fastener",
+        "actions": [
+          "look"
+        ]
+      }
+    ],
+    "awakening:bed-rim": [
+      {
+        "handler": "h01",
+        "id": "foil",
+        "environment": "loose-foil",
+        "actions": [
+          "look",
+          "take"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "mark",
+        "environment": "awakening:bed-rim-mark",
+        "actions": [
+          "look"
+        ]
+      }
+    ],
+    "awakening:panel-detail": [
+      {
+        "handler": "h01",
+        "id": "contacts",
+        "environment": "awakening:panel-contacts",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "door-open"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "wire",
+        "environment": "loose-wire",
+        "actions": [
+          "look",
+          "take"
+        ]
+      }
+    ],
+    "awakening:cloakroom": [
+      {
+        "handler": "h01",
+        "id": "awakening:spot:coats",
+        "environment": "awakening:coats",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "awakening:spot:departure-board",
+        "environment": "awakening:departure-board",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:loose-frame",
+        "environment": "awakening:loose-frame",
+        "actions": [
+          "look",
+          "take"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:water",
+        "exit": "awakening:water"
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:light",
+        "exit": "awakening:light"
+      },
+      {
+        "handler": "h06",
+        "id": "awakening:spot:sorting",
+        "exit": "awakening:sorting",
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:flow-latched"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h07",
+        "id": "awakening:spot:wing-back",
+        "exit": "awakening:wing-back"
+      }
+    ],
+    "awakening:water-room": [
+      {
+        "handler": "h01",
+        "id": "awakening:spot:vessels",
+        "environment": "awakening:vessels",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-1",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:small-1"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:small-2"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-1"
+              ]
+            },
+            "pose": "p03"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-1"
+              ],
+              "withoutFlags": [
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-1",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p04"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-1",
+                "awakening:small-1"
+              ],
+              "withoutFlags": [
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p05"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-1",
+                "awakening:small-2"
+              ],
+              "withoutFlags": [
+                "awakening:large-2",
+                "awakening:large-3",
+                "awakening:small-1"
+              ]
+            },
+            "pose": "p06"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-2"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-3",
+                "awakening:small-1",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p07"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-2",
+                "awakening:small-1"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-3",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p08"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-2",
+                "awakening:small-2"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-3",
+                "awakening:small-1"
+              ]
+            },
+            "pose": "p09"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-3"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:small-1",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p10"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-3",
+                "awakening:small-1"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:small-2"
+              ]
+            },
+            "pose": "p11"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:large-3",
+                "awakening:small-2"
+              ],
+              "withoutFlags": [
+                "awakening:large-1",
+                "awakening:large-2",
+                "awakening:small-1"
+              ]
+            },
+            "pose": "p12"
+          }
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "awakening:spot:fill",
+        "environment": "awakening:fill",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:empty-large",
+        "environment": "awakening:empty-large",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:empty-small",
+        "environment": "awakening:empty-small",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:pour-small",
+        "environment": "awakening:pour-small",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h06",
+        "id": "awakening:spot:pour-large",
+        "environment": "awakening:pour-large",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h07",
+        "id": "awakening:spot:float-test",
+        "environment": "awakening:float-test",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:flow-latched"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h08",
+        "id": "awakening:spot:loose-prism",
+        "environment": "awakening:loose-prism",
+        "actions": [
+          "look",
+          "take"
+        ]
+      },
+      {
+        "handler": "h09",
+        "id": "awakening:spot:water-back",
+        "exit": "awakening:water-back"
+      }
+    ],
+    "awakening:light-room": [
+      {
+        "handler": "h01",
+        "id": "awakening:spot:lamp",
+        "environment": "awakening:lamp",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:angle-1"
+              ],
+              "withoutFlags": [
+                "awakening:angle-2"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:angle-2"
+              ],
+              "withoutFlags": [
+                "awakening:angle-1"
+              ]
+            },
+            "pose": "p02"
+          }
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "awakening:spot:shutter",
+        "environment": "awakening:shutter",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:shutter-open"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:relief",
+        "environment": "awakening:relief",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": { "flags": ["awakening:card-taken", "awakening:angle-2", "awakening:shutter-open"] },
+            "pose": "p03"
+          },
+          {
+            "requires": { "flags": ["awakening:card-taken"] },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:relief-read",
+                "awakening:angle-2",
+                "awakening:shutter-open"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:optics-note",
+        "environment": "awakening:optics-note",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:loose-source-card",
+        "environment": "awakening:loose-source-card",
+        "actions": [
+          "look",
+          "take"
+        ]
+      },
+      {
+        "handler": "h06",
+        "id": "awakening:spot:light-back",
+        "exit": "awakening:light-back"
+      }
+    ],
+    "awakening:source-room": [
+      {
+        "handler": "h01",
+        "id": "awakening:spot:wrist-source",
+        "environment": "awakening:wrist-source",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [],
+              "withoutFlags": [
+                "awakening:wrist-source-1",
+                "awakening:wrist-source-2"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:wrist-source-1"
+              ],
+              "withoutFlags": [
+                "awakening:wrist-source-2"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:wrist-source-2"
+              ],
+              "withoutFlags": [
+                "awakening:wrist-source-1"
+              ]
+            },
+            "pose": "p03"
+          }
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "awakening:spot:claim-source",
+        "environment": "awakening:claim-source",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [],
+              "withoutFlags": [
+                "awakening:claim-source-1",
+                "awakening:claim-source-2"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:claim-source-1"
+              ],
+              "withoutFlags": [
+                "awakening:claim-source-2"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:claim-source-2"
+              ],
+              "withoutFlags": [
+                "awakening:claim-source-1"
+              ]
+            },
+            "pose": "p03"
+          }
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:name-source",
+        "environment": "awakening:name-source",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [],
+              "withoutFlags": [
+                "awakening:name-source-1",
+                "awakening:name-source-2"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:name-source-1"
+              ],
+              "withoutFlags": [
+                "awakening:name-source-2"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:name-source-2"
+              ],
+              "withoutFlags": [
+                "awakening:name-source-1"
+              ]
+            },
+            "pose": "p03"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:card-bed",
+        "environment": "awakening:card-bed",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:card-registered"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:source-check",
+        "environment": "awakening:source-check",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h06",
+        "id": "awakening:spot:source-back",
+        "exit": "awakening:source-back"
+      },
+      {
+        "handler": "h07",
+        "id": "awakening:spot:decision",
+        "exit": "awakening:decision",
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:sources-accepted"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      }
+    ],
+    "awakening:decision-room": [
+      {
+        "handler": "h01",
+        "id": "awakening:spot:departure-plain",
+        "environment": "awakening:departure-plain",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "awakening:spot:departure-reserved",
+        "environment": "awakening:departure-reserved",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "awakening:spot:departure-copy",
+        "environment": "awakening:departure-copy",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "awakening:departure-reserved"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "awakening:departure-plain"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p02"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "awakening:spot:decision-back",
+        "exit": "awakening:decision-back"
+      },
+      {
+        "handler": "h05",
+        "id": "awakening:spot:departure-return",
+        "exit": "awakening:departure-return"
+      }
+    ],
+    "archive:vestibule": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:board",
+        "environment": "archive:board",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:reader",
+        "environment": "archive:reader",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "archive:records-open"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "archive:spot:chair",
+        "environment": "archive:chair",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "archive:spot:records",
+        "exit": "archive:records",
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "archive:records-open"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "archive:spot:threshold",
+        "exit": "archive:threshold"
+      },
+      {
+        "handler": "h06",
+        "id": "archive:spot:bridge",
+        "exit": "archive:bridge"
+      },
+      {
+        "handler": "h07",
+        "id": "archive:spot:signals",
+        "exit": "archive:signals"
+      }
+    ],
+    "archive:directory": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:addresses",
+        "environment": "archive:addresses",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:margin",
+        "environment": "archive:margin",
+        "actions": [
+          "look"
+        ]
+      }
+    ],
+    "archive:paper-fold": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:pencil",
+        "environment": "archive:pencil",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:loose-witness",
+        "environment": "archive:loose-witness",
+        "actions": [
+          "look",
+          "take"
+        ]
+      }
+    ],
+    "archive:bridge-room": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:gauges",
+        "environment": "archive:gauges",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:glass",
+        "environment": "archive:glass",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "archive:spot:tongue",
+        "environment": "archive:tongue",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "archive:route-bridge",
+                "archive:ground-outer"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "archive:route-bridge"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "archive:ground-outer"
+              ]
+            },
+            "pose": "p03"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "archive:spot:bridge-return",
+        "exit": "archive:bridge-return"
+      }
+    ],
+    "archive:signal-room": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:route",
+        "environment": "archive:route",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "archive:route-bridge"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:ground",
+        "environment": "archive:ground",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "archive:ground-outer"
+              ]
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "archive:spot:tube",
+        "environment": "archive:tube",
+        "actions": [
+          "look",
+          "talk",
+          "attack"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "archive:spot:signals-return",
+        "exit": "archive:signals-return"
+      }
+    ],
+    "archive:record-room": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:work-sheet",
+        "environment": "archive:work-sheet",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "archive:spot:hanging",
+        "environment": "archive:hanging",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "archive:spot:bell",
+        "environment": "archive:bell",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "archive:spot:records-return",
+        "exit": "archive:records-return"
+      }
+    ],
+    "connection:archive:entry": [
+      {
+        "handler": "h01",
+        "id": "archive:spot:entry",
+        "exit": "archive:entry"
+      }
+    ],
+    "relay:gallery": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:notice",
+        "environment": "relay:notice",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "relay:spot:clock",
+        "environment": "relay:clock",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "relay:spot:stretcher",
+        "environment": "relay:stretcher",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "relay:spot:gallery-back",
+        "exit": "relay:gallery-back"
+      },
+      {
+        "handler": "h05",
+        "id": "relay:spot:interval",
+        "exit": "relay:interval"
+      }
+    ],
+    "relay:clock-detail": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:cam",
+        "environment": "relay:cam",
+        "actions": [
+          "look"
+        ]
+      }
+    ],
+    "relay:interval-room": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:single",
+        "environment": "relay:single",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "relay:spot:double",
+        "environment": "relay:double",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "relay:spot:rest",
+        "environment": "relay:rest",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "relay:spot:footprints",
+        "environment": "relay:footprints",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "relay:spot:interval-back",
+        "exit": "relay:interval-back"
+      },
+      {
+        "handler": "h06",
+        "id": "relay:spot:well",
+        "exit": "relay:well",
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "relay:rhythm-open"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:beat-two"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:beat-one"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p03"
+          }
+        ]
+      }
+    ],
+    "relay:well-room": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:left-wheel",
+        "environment": "relay:left-wheel",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "relay:spot:right-wheel",
+        "environment": "relay:right-wheel",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "relay:spot:alignment",
+        "environment": "relay:alignment",
+        "actions": [
+          "look"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high",
+                "relay:right-mid",
+                "relay:right-high"
+              ]
+            },
+            "pose": "p01"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:right-mid",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high",
+                "relay:right-high"
+              ]
+            },
+            "pose": "p02"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:right-high",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high"
+              ]
+            },
+            "pose": "p03"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-high",
+                "relay:right-mid",
+                "relay:right-high"
+              ]
+            },
+            "pose": "p04"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid",
+                "relay:right-mid",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-high",
+                "relay:right-high"
+              ]
+            },
+            "pose": "p05"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid",
+                "relay:right-high",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:left-high"
+              ]
+            },
+            "pose": "p06"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:right-mid",
+                "relay:right-high"
+              ]
+            },
+            "pose": "p07"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high",
+                "relay:right-mid",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": [
+                "relay:right-high"
+              ]
+            },
+            "pose": "p08"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high",
+                "relay:right-high",
+                "relay:lift-ready"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p09"
+          },
+          {
+            "requires": {
+              "flags": [],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high",
+                "relay:right-mid",
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p10"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:right-mid"
+              ],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high",
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p11"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:right-high"
+              ],
+              "withoutFlags": [
+                "relay:left-mid",
+                "relay:left-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p12"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid"
+              ],
+              "withoutFlags": [
+                "relay:left-high",
+                "relay:right-mid",
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p13"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid",
+                "relay:right-mid"
+              ],
+              "withoutFlags": [
+                "relay:left-high",
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p14"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-mid",
+                "relay:right-high"
+              ],
+              "withoutFlags": [
+                "relay:left-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p15"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high"
+              ],
+              "withoutFlags": [
+                "relay:right-mid",
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p16"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high",
+                "relay:right-mid"
+              ],
+              "withoutFlags": [
+                "relay:right-high",
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p17"
+          },
+          {
+            "requires": {
+              "flags": [
+                "relay:left-high",
+                "relay:right-high"
+              ],
+              "withoutFlags": [
+                "relay:lift-ready"
+              ]
+            },
+            "pose": "p18"
+          }
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "relay:spot:ledge",
+        "environment": "relay:ledge",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "relay:spot:loose-seal",
+        "environment": "relay:loose-seal",
+        "actions": [
+          "look",
+          "take"
+        ]
+      },
+      {
+        "handler": "h06",
+        "id": "relay:spot:well-back",
+        "exit": "relay:well-back"
+      },
+      {
+        "handler": "h07",
+        "id": "relay:spot:dispatch",
+        "exit": "relay:dispatch"
+      }
+    ],
+    "relay:dispatch-room": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:hand",
+        "environment": "relay:hand",
+        "actions": [
+          "look",
+          "talk"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "relay:spot:house-rule",
+        "environment": "relay:house-rule",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "relay:spot:name-tray",
+        "environment": "relay:name-tray",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "relay:spot:correction-tray",
+        "environment": "relay:correction-tray",
+        "actions": [
+          "look",
+          "use"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "relay:spot:missing-tray",
+        "environment": "relay:missing-tray",
+        "actions": [
+          "look",
+          "use"
+        ],
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "relay:request-sent"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      },
+      {
+        "handler": "h06",
+        "id": "relay:spot:dispatch-back",
+        "exit": "relay:dispatch-back"
+      },
+      {
+        "handler": "h07",
+        "id": "relay:spot:receiver",
+        "exit": "relay:receiver",
+        "variants": [
+          {
+            "requires": {
+              "flags": [
+                "relay:request-sent"
+              ],
+              "withoutFlags": []
+            },
+            "pose": "p01"
+          }
+        ]
+      }
+    ],
+    "relay:receiver-room": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:reply",
+        "environment": "relay:reply",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h02",
+        "id": "relay:spot:window",
+        "environment": "relay:window",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h03",
+        "id": "relay:spot:tube-mouth",
+        "environment": "relay:tube-mouth",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h04",
+        "id": "relay:spot:bolt-holes",
+        "environment": "relay:bolt-holes",
+        "actions": [
+          "look"
+        ]
+      },
+      {
+        "handler": "h05",
+        "id": "relay:spot:receiver-back",
+        "exit": "relay:receiver-back"
+      }
+    ],
+    "connection:relay:entry": [
+      {
+        "handler": "h01",
+        "id": "relay:spot:entry",
+        "exit": "relay:entry"
+      }
+    ]
+  }
+}
