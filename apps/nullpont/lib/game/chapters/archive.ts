@@ -158,4 +158,20 @@ export const archive: Chapter = {
 };
 
 // The signal stair occupies a separate lower-right drawing region.
+const witnessTaken = { items: [id('witness')] };
+for (const [name, flag, off, on] of [
+  ['route', 'route-bridge', 'UTVONAL\n HID     TAR\n          ^', 'UTVONAL\n HID     TAR\n  ^'],
+  ['ground', 'ground-outer', 'FOLDELES\n KULSO   BELSO\n           ^', 'FOLDELES\n KULSO   BELSO\n   ^'],
+] as const) {
+  const spot = archive.scenes[id('signal-room')].artSpots!.find(spot => spot.environment === id(name))!;
+  spot.glyph = off;
+  spot.glyphVariants = [{ requires: { flags: [id(flag)] }, text: on }];
+}
+archive.scenes[id('vestibule')].artSpots!.find(spot => spot.exit === id('records'))!.glyphVariants = [{ requires: { flags: [id('records-open')] }, text: 'IRATTAR >>\n .------------.\n | NYITVA     |\n | /          |\n |/           |\n +------------+' }];
+archive.scenes[id('paper-fold')].descriptionVariants = [{ requires: witnessTaken, text: 'A kihajtott papírcsík mögött üres a lemez helye. A két bemetszés és a kettős ceruzavonal megmaradt.' }];
+archive.scenes[id('paper-fold')].rules.find(rule => rule.id === id('look:pencil'))!.messageVariants = [{ requires: witnessTaken, text: 'A ceruzavonal mellett két üres bemetszés látszik. Innen csúsztattad ki a tanúlemezt; a félholdas vég már nem lóg a papír alól.' }];
+archive.scenes[id('directory')].rules.find(rule => rule.id === id('look:margin'))!.messageVariants = [{ requires: witnessTaken, text: 'Újra kihajtod a csíkot: „CÍMVÁLTÁS NEM SZEMÉLYVÁLTÁS”. Alatta: „A széket ne cseréljék ki.” A hátoldali bemetszések üresek; a lemezt már kivetted.' }];
+archive.scenes[id('vestibule')].descriptionVariants = [{ requires: { flags: [id('records-open')] }, text: 'A lámpa a falitáblára és a beállított számlapra világít. Az irattári ajtó nyitva áll. Balra híd, jobbra kábelcsatornás lejáró; a széken két egymásba csúszó horpadás.' }];
+archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('look:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A három dob a beállított számokat mutatja. A kör, kettős vonal és háromszög változatlanul a keretbe van vésve. Az irattári ajtó zárja már elengedett.' }];
+archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('submit:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A dobok ugyanabba az állásba kattanak vissza. Az irattári ajtó már nyitva áll; a kilincs lent marad.' }];
 archive.scenes['archive:vestibule'].artSpots!.push({ id: id('spot:signals'), exit: id('signals'), row: 22, col: 42, width: 35, height: 1, glyph: '[ JELFULKE v ]' });
