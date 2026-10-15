@@ -220,6 +220,7 @@ for (const scene of Object.values(awakening.scenes)) for (const rule of scene.ru
     rule.interaction = { verb: 'use', item: first, target: { kind: 'environment', id: second } };
     rule.requires = { ...rule.requires, discoveries: [second] };
   } else if (verb === 'combine') {
+    rule.portable = true;
     rule.interaction = { verb: 'combine', item: first, target: { kind: 'item', id: second } };
     rule.label = 'Kombinálás';
   } else if (verb === 'talk' || verb === 'attack') {

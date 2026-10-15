@@ -1,15 +1,21 @@
 import { awakening } from './chapters/awakening.ts';
 import { archive } from './chapters/archive.ts';
-import type { Chapter, Requirement, GameState } from './types.ts';
+import { relay } from './chapters/relay.ts';
+import type { Chapter, Requirement, GameState, Rule } from './types.ts';
 
 // Append AI-authored chapters here; never replace published IDs or old chapters.
-export const CHAPTERS: Chapter[] = [awakening, archive];
+export const CHAPTERS: Chapter[] = [awakening, archive, relay];
 export function createCatalog(chapters: Chapter[]) {
   const scenes: Chapter['scenes'] = {}, items: Record<string, string> = {}, itemDescriptions: Record<string, string> = {}, itemArt: Record<string, string> = {}, owners: Record<string, string> = {}, ruleOwners: Record<string, string> = {};
   const chapterIds = new Set<string>();
+  const portableRules: { rule: Rule; owner: string }[] = [], goals: NonNullable<Chapter['goals']> = [];
   for (const chapter of chapters) {
     if (chapterIds.has(chapter.id)) throw new Error('Duplikált fejezetazonosító.');
     chapterIds.add(chapter.id);
+    for (const goal of chapter.goals ?? []) {
+      if (!goal.text.trim() || goal.text.length > 500) throw new Error('Érvénytelen célleírás.');
+      goals.push(goal);
+    }
     for (const [id, name] of Object.entries(chapter.items)) {
       if (id in items) throw new Error('Duplikált tárgyazonosító.');
       items[id] = name;
@@ -66,6 +72,11 @@ export function createCatalog(chapters: Chapter[]) {
       inputIds.add(input.id);
     }
     for (const rule of scene.rules) {
+      if (rule.portable) {
+        const pattern = rule.interaction;
+        if (rule.kind !== 'combine' || pattern?.verb !== 'combine' || pattern.target?.kind !== 'item' || !pattern.item || !Object.hasOwn(items, pattern.item) || !Object.hasOwn(items, pattern.target.id) || ![pattern.item, pattern.target.id].every(item => rule.requires?.items?.includes(item)) || pattern.item === pattern.target.id || pattern.topic || pattern.input !== undefined || rule.moveTo || rule.focusTo || rule.discover?.length || rule.requires?.discoveries?.length || portableRules.some(entry => entry.rule.id === rule.id)) throw new Error('Érvénytelen hordozható kombinálás.');
+        portableRules.push({ rule, owner: ruleOwners[`${id}:${rule.id}`] });
+      }
       if (rule.focusTo && (!Object.hasOwn(scenes, rule.focusTo) || scenes[rule.focusTo].detailOf !== id || rule.moveTo || rule.interaction?.verb !== 'look' || rule.interaction.target?.kind !== 'environment')) throw new Error('Érvénytelen részletcélpont.');
       if (rule.focusTo && !(scene.environment ?? []).some(entity => entity.id === rule.interaction?.target?.id)) throw new Error('Ismeretlen részletobjektum.');
       if (rule.moveTo && scenes[rule.moveTo]?.detailOf) throw new Error('Részlet nem lehet fizikai célhelyszín.');
@@ -85,7 +96,7 @@ export function createCatalog(chapters: Chapter[]) {
         ids.add(spot.id);
         if ((!spot.environment && !spot.exit) || (spot.environment && !(scene.environment ?? []).some(entity => entity.id === spot.environment)) || (spot.exit && !(scene.exits ?? []).some(exit => exit.id === spot.exit))) throw new Error('Ismeretlen ASCII-célpont.');
         if (spot.glyph && (spot.glyph.split('\n').length > spot.height || spot.glyph.split('\n').some(line => line.length > spot.width) || /[^\x20-\x7e\n]/.test(spot.glyph))) throw new Error('Érvénytelen ASCII-részlet.');
-        if (spot.actions?.some(action => !['look','take','talk','attack'].includes(action))) throw new Error('Érvénytelen képi akció.');
+        if (spot.actions?.some(action => !['look','take','talk','attack','use'].includes(action))) throw new Error('Érvénytelen képi akció.');
       }
       for (const entity of scene.environment ?? []) if (!scene.artSpots.some(spot => spot.environment === entity.id)) throw new Error('Hiányzó környezeti ASCII-célpont.');
       for (const exit of scene.exits ?? []) if (!scene.artSpots.some(spot => spot.exit === exit.id)) throw new Error('Hiányzó kijárati ASCII-célpont.');
@@ -107,7 +118,12 @@ export function createCatalog(chapters: Chapter[]) {
       for (const item of [...entity.requires?.items ?? [], ...entity.requires?.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen nézettárgy.');
     }
   }
-  return { scenes, items, itemDescriptions, itemArt, owners, ruleOwners, flags, discoveries };
+  for (const goal of goals) {
+    for (const flag of [...goal.requires.flags ?? [], ...goal.requires.withoutFlags ?? []]) if (!flags.has(flag)) throw new Error('Ismeretlen célfeltétel.');
+    for (const item of [...goal.requires.items ?? [], ...goal.requires.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen céltárgy.');
+    for (const entity of goal.requires.discoveries ?? []) if (!discoveries.has(entity)) throw new Error('Ismeretlen célfelfedezés.');
+  }
+  return { scenes, items, itemDescriptions, itemArt, owners, ruleOwners, flags, discoveries, portableRules, goals };
 }
 export const CATALOG = createCatalog(CHAPTERS);
 export type AdventureCatalog = ReturnType<typeof createCatalog>;
