@@ -44,7 +44,9 @@ export const archive: Chapter = {
     from: 'threshold', exits: [exit('entry', 'A keskeny oldalsó átjáró')],
     artSpots: [{ id: id('spot:entry'), exit: id('entry'), row: 21, col: 29, width: 18, height: 3, glyph: '[ ARCHIVUM >> ]' }],
     rules: [{ ...move('entry', id('vestibule'), 'Az ablak melletti keskeny átjáró alacsony előcsarnokba vezet. Itt már nem hideg a levegő: papír és felhevült por szaga van.'),
-      milestone: { id: id('arrival'), title: 'A papír szaga', text: 'Az üveg mögötti betűk mellett egy oldalsó átjárót találtam. Az előcsarnokban por melegedett egy lámpa alatt. Az archívum nem puszta felirat volt a folyosó ablakán: be lehetett lépni, meg lehetett érinteni a bútorait. A bejárat melletti széken két különböző mélységű horpadás maradt.' } }],
+      requires: { flags: ['awakening:chapter-closed'] },
+      milestone: { id: id('arrival'), title: 'A papír szaga', text: 'Az üveg mögötti betűk mellett egy oldalsó átjárót találtam. Az előcsarnokban por melegedett egy lámpa alatt. Az archívum nem puszta felirat volt a folyosó ablakán: be lehetett lépni, meg lehetett érinteni a bútorait. A bejárat melletti széken két különböző mélységű horpadás maradt.' } },
+      { ...move('entry', id('vestibule'), 'Az oldalsó átjáró olvasója egy jelen idejű kilépési bejegyzésre vár. A körfolyosó ablakának alján kopott sáv vezet a KILÉPÉSI SZEMLE mellékajtójához. Az ébresztőszoba nyitott ajtaját ez nem zárja vissza.', { withoutFlags: ['awakening:chapter-closed'] }), id: id('move:entry:awaiting-departure'), moveTo: undefined }],
   }],
   scenes: {
     'archive:vestibule': {

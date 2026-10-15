@@ -3,22 +3,22 @@
   "reviews": [
     {
       "module": "lib/game/chapters/archive.ts",
-      "sha256": "8e01b673aa50f82b146bc6f1899c04fd46e419cba806c077b370ab2f1e3fe7f9",
+      "sha256": "043a429215e4397bd7a8baf0a4a58c30f12bda44556711d322650664a7546eac",
       "contextSha256": "df91085451e5b2c136bb6298906df5101365856ad892754b673c513014dc2527",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T14:21:40.804Z",
+      "reviewedAt": "2026-10-15T17:32:44.362Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
       "module": "lib/game/chapters/awakening.ts",
-      "sha256": "a325faca13b50f4d4d0efde0ea673bf27fb68dd96fd3625081150173a48dd5e8",
+      "sha256": "5ce7788be31846ec26daebcdbec874800d201a51bbe44e4874683ca927afe229",
       "contextSha256": "df91085451e5b2c136bb6298906df5101365856ad892754b673c513014dc2527",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T14:21:40.804Z",
+      "reviewedAt": "2026-10-15T17:32:44.362Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
@@ -28,7 +28,7 @@
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T14:21:40.804Z",
+      "reviewedAt": "2026-10-15T17:32:44.362Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     }
   ]

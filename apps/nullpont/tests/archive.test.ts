@@ -6,6 +6,7 @@ import { awakening } from '../lib/game/chapters/awakening.ts';
 import { applyAction, applyCommand, initialState, parseState } from '../lib/game/engine.ts';
 import type { GameState, PlayerCommand } from '../lib/game/types.ts';
 import { gameView } from '../lib/game/view.ts';
+import { closeAwakening } from './helpers/awakening-route.ts';
 
 const catalog = createCatalog([...CHAPTERS.filter(chapter => chapter.id !== archive.id), archive]);
 const command = (state: GameState, verb: PlayerCommand['verb'], name?: string, input?: string) => applyCommand(state, {
@@ -22,7 +23,7 @@ function threshold() {
   state = applyAction(state, 'take:wire', catalog);
   if (state.focus?.length) state = applyCommand(state, { verb: 'back', levels: state.focus.length }, catalog);
   for (const action of ['combine:foil:wire', 'use:bridge:panel', 'move:threshold']) state = applyAction(state, action, catalog);
-  return state;
+  return closeAwakening(state);
 }
 const enter = () => command(threshold(), 'move', 'entry');
 function openRecords(state = enter()) {
@@ -127,6 +128,7 @@ test('observational lock accepts only the exact three-position reading and does 
 test('route and grounding form a reversible control puzzle: every configuration can recover', () => {
   for (const route of ['HID', 'TAR']) for (const ground of ['KULSO', 'BELSO']) {
     let state = openRecords();
+    const inventory = [...state.inventory];
     state = command(state, 'move', 'signals');
     // First energize both branches, then request each configuration. This catches
     // additive-only implementations that cannot actually switch a control back.
@@ -147,7 +149,7 @@ test('route and grounding form a reversible control puzzle: every configuration 
     state = command(state, 'move', 'bridge-return');
     state = readSignal(state);
     assert.ok(state.book.some(entry => entry.id === 'archive:signal-read'));
-    assert.deepEqual(state.inventory, ['bridge']);
+    assert.deepEqual(state.inventory, inventory);
     state = command(command(state, 'move', 'bridge-return'), 'move', 'threshold');
     assert.equal(state.room, 'threshold');
   }

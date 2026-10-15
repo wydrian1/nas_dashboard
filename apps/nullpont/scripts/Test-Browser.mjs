@@ -115,14 +115,44 @@ try{
   await step(()=>object('Ajtó').click());await page.reload();check(await page.locator('.scene h2').textContent()==='02 · A küszöb','direct ASCII movement resumes across reload');
   check(await object('Folyosó ablaka').count()===1,'next room baseline appears without looking around');
   await action('Folyosó ablaka','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('NEM VAGY EGYEDÜL')),'visible corridor inscription is acknowledged by examination');
-  await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
+   await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
+   const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
+   const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
+   const wingObject=id=>page.locator(`.ascii-hotspot[data-environment="awakening:${id}"]`);
+   const wingAction=async(id,verb='Működtetem')=>{await wingObject(id).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
+   const wingItem=async(item,target)=>{await arm(CATALOG.items[`awakening:${item}`],'Használom');await step(()=>wingObject(target).click());};
+   const openingBook=structuredClone(currentState().book);
+   await travel('archive:entry');check(currentState().room==='threshold','archive waits for deliberate first-chapter closure');
+   await travel('awakening:wing-entry');check(currentState().room==='awakening:cloakroom','discovered side door enters the new physical route');
+   await inspectEnvironment('awakening:coats');await wingAction('loose-frame','Felveszem');
+   await inspectEnvironment('awakening:coats');check(await wingObject('loose-frame').count()===0,'repeat cloakroom inspection does not respawn the frame');
+   await travel('awakening:light');await inspectEnvironment('awakening:optics-note');await inspectEnvironment('awakening:relief');
+   check(!currentState().flags.includes('awakening:relief-read'),'early optical branch cannot silently solve itself');await travel('awakening:light-back');
+   await travel('awakening:water');await wingAction('float-test');check(!currentState().flags.includes('awakening:flow-latched'),'wrong water test leaves progress recoverable');
+   for(const id of ['empty-large','empty-small','fill','pour-small','empty-small','pour-small','fill','pour-small','empty-small','float-test'])await wingAction(id);
+   check(currentState().flags.includes('awakening:flow-latched'),'water transfers latch the passage through real UI controls');
+   await wingAction('loose-prism','Felveszem');await page.reload();check(await wingObject('loose-prism').count()===0,'taken prism remains absent after reload');await travel('awakening:water-back');
+   await arm(CATALOG.items['awakening:frame'],'Kombinálom');await step(()=>page.locator('.inventory').getByRole('button',{name:CATALOG.items['awakening:prism'],exact:true}).click());
+   check(currentState().inventory.includes('awakening:viewer')&&currentState().inventory.includes('bridge'),'optional optical crafting preserves the original bridge');
+   await travel('awakening:light');await wingItem('viewer','relief');check(!currentState().flags.includes('awakening:relief-read'),'tool alone cannot bypass optical alignment');
+   await wingAction('lamp');await wingAction('lamp');await wingAction('shutter');await wingItem('viewer','relief');await wingAction('loose-source-card','Felveszem');
+   check(currentState().flags.includes('awakening:relief-read'),'aligned side light reveals the source legend');await page.reload();check(await wingObject('loose-source-card').count()===0,'source card stays removed through reload');
+   await travel('awakening:light-back');await travel('awakening:sorting');await wingAction('source-check');check(!currentState().flags.includes('awakening:sources-accepted'),'unregistered source check cannot open final room');
+   await wingItem('source-card','card-bed');await wingAction('wrist-source');await wingAction('claim-source');await wingAction('claim-source');await wingAction('source-check');await travel('awakening:decision');
+   check(currentState().room==='awakening:decision-room','source classification opens fifth new physical location');
+   for(const id of ['departure-plain','departure-reserved','departure-copy'])await inspectEnvironment(`awakening:${id}`);
+   check(!currentState().flags.includes('awakening:chapter-closed'),'examining both declarations is not a departure decision');
+   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'departure scene has no overflow '+width);}await page.setViewportSize({width:1440,height:1000});
+   await wingAction('departure-reserved');const closureBook=structuredClone(currentState().book);await wingAction('departure-plain');await page.reload();
+   check(currentState().flags.includes('awakening:departure-reserved')&&!currentState().flags.includes('awakening:departure-plain'),'explicit reservation cannot be overwritten by alternate lever');
+   check(JSON.stringify(currentState().book)===JSON.stringify(closureBook)&&JSON.stringify(currentState().book.slice(0,openingBook.length))===JSON.stringify(openingBook),'closure preserves old narrative pages and repeats add none');
+   check(await page.locator('.spot-more').count()===0,'new chapter retains marker-free discovery controls');await travel('awakening:departure-return');
   // Author-owned archive is exercised through its registered public entities;
   // answers are read only here on the fixture server, never from a browser payload.
   const archiveEntry=CATALOG.scenes.threshold.rules.find(rule=>rule.moveTo&&CATALOG.scenes[rule.moveTo]?.detailOf===undefined&&rule.moveTo.startsWith('archive:'));
   check(!!archiveEntry?.interaction?.target,'archive chapter registered for real browser coverage');
   await step(()=>page.locator(`.ascii-hotspot[data-exit="${archiveEntry.interaction.target.id}"]`).click());
   let testedInputs=0,testedNested=false;const visited=new Set();
-  const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
   async function exploreArchive(){
     const state=currentState(),id=state.focus?.at(-1)??state.room,scene=CATALOG.scenes[id];visited.add(id);
     if(state.focus?.length>=2){testedNested=true;await page.reload();check(await page.locator('.scene-path li').count()===state.focus.length+1,'archive nested focus survives reload');}
@@ -140,7 +170,6 @@ try{
   }
    await exploreArchive();check(testedNested,'archive has real two-level inspect coverage');check(testedInputs>0,'archive keypad wrong and correct submissions covered');
    // Follow the complete new route via real UI actions; no production save or injected progress.
-   const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
     const operateEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="relay:${id}"]`).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:'Működtetem',exact:true}).click());};
     const submitRelay=async value=>{await inspectEnvironment('relay:missing-tray');await page.locator('.scene-input input').fill(value);await step(()=>page.locator('.scene-input input').press('Enter'));};
    await travel('archive:records');await travel('relay:entry');
