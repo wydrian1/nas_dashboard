@@ -1,7 +1,7 @@
 ---
 description: NULLPONT spoiler-free player-perspective playtester; ten-minute blind UI playthrough to the current progression boundary and non-blocking story/puzzle/UI/difficulty ratings after every release.
 mode: subagent
-steps: 100
+steps: 50000
 permissions:
   - action: "*"
     resource: "*"
