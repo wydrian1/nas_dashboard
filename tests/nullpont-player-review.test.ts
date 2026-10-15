@@ -41,7 +41,7 @@ test('no-progress stops distinguish unfinished puzzles from the current content 
 test('player profile is blind, bounded and advisory; release workflow invokes it after success only', () => {
   const agent = readFileSync('.opencode/agents/nullpont-player-reviewer.md', 'utf8');
   assert.match(agent, /mode: subagent/); assert.match(agent, /action: "\*"[\s\S]*?effect: deny/);
-  assert.match(agent, /^steps: 10000$/m);
+  assert.match(agent, /^steps: 50000$/m);
   for (const input of ['action.json', 'review.json']) assert.ok(agent.includes(`resource: ".runtime/nullpont-player-review/${input}"`), 'direct relative write allowance');
   for (const word of ['600-second', 'story', 'puzzles', 'difficulty', 'non-blocking', 'private storyboard', 'never silently implement', 'NO real story ending', 'cannot make further progress', 'content_exhausted', 'stuck']) assert.ok(agent.toLowerCase().includes(word.toLowerCase()), word);
   const instructions = readFileSync('apps/nullpont/AGENTS.md', 'utf8');
