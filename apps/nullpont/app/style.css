@@ -41,7 +41,7 @@ small{color:var(--muted);font-size:12px}
 .story p{color:var(--ink);font:19px/1.8 Georgia,serif;margin:0}
 .inventory{grid-column:2;grid-row:1;position:sticky;top:20px}
 .inventory-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
-.inventory-item{min-width:80px;min-height:80px;padding:10px;background:#111711}
+.inventory-item{min-width:80px;max-width:100%;min-height:80px;padding:10px;background:#111711;overflow-x:auto}
 .inventory-item pre{font:15px/1.3 Consolas,'Courier New',monospace;white-space:pre;margin:0;overflow-wrap:normal;color:#cfdbbe;pointer-events:none}
 .item-selection{display:flex;align-items:center;gap:8px;color:var(--accent);font-size:12px}
 .item-selection>svg{flex:none}
@@ -79,4 +79,4 @@ footer{margin-top:32px;font-size:11px;color:var(--muted);text-align:center}
 @media(max-width:380px){.masthead{flex-direction:column}.account{align-self:flex-end;flex-direction:row;align-items:center}}
 @media(pointer:coarse){.icon-action,.map-zoom button{min-height:44px;width:44px;height:44px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
-.current-goal{margin:.25rem 0 .8rem;color:var(--muted);font-size:.85rem;line-height:1.5}.current-goal span{color:var(--accent);margin-right:.4rem}
+.current-goal{margin:.25rem 22px .8rem;color:var(--muted);font-size:.85rem;line-height:1.5}.current-goal span{color:var(--accent);margin-right:.4rem}

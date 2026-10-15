@@ -1,4 +1,5 @@
-import type { ArtSpot, Chapter, Requirement, Rule } from '../types.ts';
+import type { Chapter, Requirement, Rule } from '../types.ts';
+import { bindScene, itemArts } from '../presentation/index.ts';
 
 const id = (name: string) => `relay:${name}`;
 const target = (name: string) => ({ kind: 'environment' as const, id: id(name) });
@@ -7,55 +8,25 @@ const exit = (name: string, label: string) => ({ id: id(name), label });
 const look = (name: string, message: string, extra: Partial<Rule> = {}): Rule => ({ id: id(`look:${name}`), label: 'Megvizsgálom', kind: 'look', interaction: { verb: 'look', target: target(name) }, requires: { discoveries: [id(name)] }, message, ...extra });
 const operate = (name: string, suffix: string, message: string, extra: Partial<Rule> = {}): Rule => ({ id: id(`use:${name}:${suffix}`), label: 'Működtetem', kind: 'use', interaction: { verb: 'use', target: target(name) }, requires: { discoveries: [id(name)] }, message, ...extra });
 const move = (name: string, to: string, message: string, requires?: Requirement): Rule => ({ id: id(`move:${name}`), label: 'Továbbmegyek', kind: 'move', interaction: { verb: 'move', target: { kind: 'exit', id: id(name) } }, moveTo: to, requires, message });
-type Mark = { name: string; row: number; col: number; glyph: string; exit?: boolean; actions?: ArtSpot['actions'] };
-// Architecture stays in the background; context-dependent objects are overlays.
-function picture(caption: string, structure: [number, number, string][], marks: Mark[]) {
-  const lines = Array.from({ length: 30 }, (_, row) => row === 0 || row === 29 ? '+------------------------------------------------------------------------------+' : '|' + ' '.repeat(78) + '|');
-  for (const [row, col, text] of [[1, 3, caption], ...structure] as [number, number, string][]) lines[row] = lines[row].slice(0, col) + text + lines[row].slice(col + text.length);
-  return { art: lines.join('\n'), artSpots: marks.map(mark => ({ id: id(`spot:${mark.name}`), ...(mark.exit ? { exit: id(mark.name) } : { environment: id(mark.name) }), row: mark.row, col: mark.col, width: Math.max(...mark.glyph.split('\n').map(line => line.length)), height: mark.glyph.split('\n').length, glyph: mark.glyph, ...(mark.exit ? {} : { actions: mark.actions ?? ['look'] }) })) };
-}
 const phase = (flags: string[], withoutFlags: string[] = []): Requirement => ({ flags: flags.map(id), withoutFlags: withoutFlags.map(id) });
-
-function counterweightPicture(left: number, right: number, ready: boolean) {
-  const lines = Array.from({ length: 21 }, (_, row) => row === 0 || row === 20 ? '+--------------------------+' : '|' + ' '.repeat(26) + '|');
-  const write = (row: number, col: number, text: string) => { lines[row] = lines[row].slice(0, col) + text + lines[row].slice(col + text.length); };
-  for (const row of [3, 7, 11]) write(row, 1, '--');
-  for (const [col, level, shape] of [[6, left, '|_|_|'], [21, right, '|___|']] as const) {
-    const row = [11, 7, 3][level];
-    for (let y = 1; y < row; y++) write(y, col, '|');
-    write(row, col - 2, shape);
-  }
-  write(6, 10, '=========');
-  const basket = ready ? 3 : 13;
-  for (let row = 1; row < basket; row++) write(row, 14, '|');
-  ['.-----.', '|     |', "'-----'"].forEach((line, row) => write(basket + row, 11, line));
-  write(16, 2, 'KRETA');
-  write(17, 4, '.|_|_|'); write(18, 8, "'..|___"); write(19, 12, "'..|");
-  return lines.join('\n');
-}
 
 export const relay: Chapter = {
   id: 'relay', title: 'III. A címzett helye', items: { 'relay:blank-seal': 'Átlyukasztatlan ólompecsét' },
   itemDescriptions: { 'relay:blank-seal': 'Lapos, puha fémből nyomott pecsét. A lyuk helyén csak egy hajszálvékony kör látszik; a prés sosem ért le odáig. A hátlapján egy apró lépcsős jel van, ugyanaz, amelyet az ellensúlyakna túlsó falán láttál. Nincs rajta szám vagy név.' },
-  itemArt: { 'relay:blank-seal': '  .------.\n /   o    \\\n |  _|_   |\n \'-------\'' },
+  itemArt: itemArts(['relay:blank-seal']),
   goals: [
     { text: 'Eljutni az alsó Fogadóállomásra, ahol az ébresztés felülvizsgálatát fogadják.', requires: phase(['destination-known'], ['received']) },
     { text: 'Az ébresztési kérelem eredetijét követni a túloldali olvasó felé.', requires: phase(['received']) },
   ],
-  connections: [{ from: 'archive:record-room', exits: [exit('entry', 'A sínek mögötti személyzeti átjáró')], artSpots: [{ id: id('spot:entry'), exit: id('entry'), row: 22, col: 3, width: 35, height: 1, glyph: '[ SZEMELYZETI ATJARO >> ]' }], rules: [{ ...move('entry', id('gallery'), 'Az iratsínek mögött keskeny galéria kezdődik. A falon kopott nyíl és egy sokszor javított tábla: „ÉBRESZTÉSI FELÜLVIZSGÁLAT — ALSÓ FOGADÓÁLLOMÁS”. Az archívum jele fölé ezt bélyegezték: „MÁSOLATŐRZÉS”.'), addFlags: [id('destination-known')] }] }],
+  connections: [{ from: 'archive:record-room', exits: [exit('entry', 'A sínek mögötti személyzeti átjáró')], artSpots: bindScene('connection:relay:entry').artSpots, rules: [{ ...move('entry', id('gallery'), 'Az iratsínek mögött keskeny galéria kezdődik. A falon kopott nyíl és egy sokszor javított tábla: „ÉBRESZTÉSI FELÜLVIZSGÁLAT — ALSÓ FOGADÓÁLLOMÁS”. Az archívum jele fölé ezt bélyegezték: „MÁSOLATŐRZÉS”.'), addFlags: [id('destination-known')] }] }],
   scenes: {
     'relay:gallery': {
-      title: '07 · Az átvezető galéria', description: 'Keskeny járda fut az iratsínek hátoldalán. Egy felülvizsgálati tábla a Fogadóállomást nevezi meg. A túloldalon üvegezett óralap, a korlát alatt összecsukott vászonhordágy; a járda végén sötét ajtó.',
+      title: '07 · Az átvezető galéria', description: 'Az iratsínek mögötti személyzeti járda az alsó Fogadóállomás felé vezet. Az útjelző szerint ott kérheted az ébresztésed iratainak felülvizsgálatát. A falon üvegezett óralap, a korlát alatt összecsukott vászonhordágy; a járda végén sötét ajtó.',
       arrivalDiscoveries: ['notice', 'clock', 'stretcher'].map(id),
       environment: [env('notice', 'Felülvizsgálati tábla', 'A nyíl lefelé mutat. A tábla négy sarkát más-más csavarral rögzítették; az alján egy eltérő betűtípusú javítás van.'), env('clock', 'Üvegezett óralap', 'A kör alakú üveg mögött nem mutatók járnak. Három sugárirányú rés, egy lapos bütyök és két egymás melletti csap látszik.'), env('stretcher', 'Összecsukott hordágy', 'A vásznon kilenc keskeny csíkban kopott ki a szövet. Nem emberalakot adnak ki. A fémfogantyú belső oldalán meleg pára ül, a külső oldala hideg.')],
       exits: [exit('gallery-back', 'Vissza a függő irattárba'), exit('interval', 'A sötét ajtó mögé')],
-      ...picture('ATVEZETO GALERIA / A SINEK HATOLDALA', [[3, 2, '===|======|======|======|======|======|======|======|======|======|==='], [21, 5, '___________________________________________________________________'], [24, 5, '/ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / /']], [
-        { name: 'notice', row: 6, col: 7, glyph: '.--------------------.\n| FELULVIZSGALAT    v |\n| FOGADOALLOMAS       |\n\'--------------------\'' },
-        { name: 'clock', row: 6, col: 39, glyph: '    .----------.\n   /   |  ||    \\\n  |      .       |\n   \\    ___    /\n    \'--------\'' },
-        { name: 'stretcher', row: 16, col: 23, glyph: '  ________________\n /_/_/_/_/_/_/_/_/\n O              O' },
-        { name: 'gallery-back', row: 25, col: 5, glyph: '[ << IRATTAR ]', exit: true }, { name: 'interval', row: 16, col: 59, glyph: '.--------.\n|        |\n|    o   |\n|________|', exit: true },
-      ]),
-      rules: [look('notice', '„Az archívum másolatot őriz. Eredeti ébresztési kérelem felülvizsgálatát az ALSÓ FOGADÓÁLLOMÁS vesz át.” A javított sor szerint az átvezető nem kér személynevet: a helyi ébresztési jelölés elegendő. Először van itt valami, ami nemcsak óv vagy kérdez, hanem megnevez egy helyet, ahol utánanézhetsz az ébredésednek.', { addFlags: [id('destination-known')], notes: ['A felülvizsgálati tábla az alsó Fogadóállomást jelöli meg; az archívum másolatot őriz. Személynév helyett helyi ébresztési jelölést kérnek.'], milestone: { id: id('direction'), title: 'Egy hely, ahová el lehet jutni', text: 'A sínek mögötti táblán az állt, hogy az archívum másolatot őriz. Az eredeti ébresztési kérelem felülvizsgálatát máshol, az alsó Fogadóállomáson veszik át. Ez nem mondta meg, ki vagyok, és azt sem, miért ébredtem itt. De megnevezett egy helyet, ahol elkezdhettem utánajárni. A javított sor külön kiemelte: személynév nem szükséges.' } }),
+      ...bindScene('relay:gallery'),
+      rules: [look('notice', '„Az archívum másolatot őriz. Eredeti ébresztési kérelem felülvizsgálatát az ALSÓ FOGADÓÁLLOMÁS vesz át.” A javított sor szerint az átvezető nem kér személynevet: a helyi ébresztési jelölés elegendő. Ez a tábla nemcsak óv vagy kérdez: megnevez egy helyet, ahol utánanézhetsz az ébredésednek.', { addFlags: [id('destination-known')], notes: ['A felülvizsgálati tábla az alsó Fogadóállomást jelöli meg; az archívum másolatot őriz. Személynév helyett helyi ébresztési jelölést kérnek.'], milestone: { id: id('direction'), title: 'Egy hely, ahová el lehet jutni', text: 'A sínek mögötti táblán az állt, hogy az archívum másolatot őriz. Az eredeti ébresztési kérelem felülvizsgálatát máshol, az alsó Fogadóállomáson veszik át. Ez nem mondta meg, ki vagyok, és azt sem, miért ébredtem itt. De megnevezett egy helyet, ahol elkezdhettem utánajárni. A javított sor külön kiemelte: személynév nem szükséges.' } }),
         look('clock', 'Az óralap szélén kioldható pánt tartja az üveget. Közelről látszik, hogy a harmadik szakaszon nincs bütyök.', { focusTo: id('clock-detail') }),
         move('gallery-back', 'archive:record-room', 'A függő iratok közé visszatér a galéria fénye.'), move('interval', id('interval-room'), 'Az ajtó mögött a saját lépteid is tompábbak. A mennyezeten futó kábel minden harmadik felfüggesztése üres.'),
       ],
@@ -63,17 +34,14 @@ export const relay: Chapter = {
     'relay:clock-detail': {
       detailOf: id('gallery'), title: 'Óralap · az üres harmad', description: 'A nyitott üveg alatt a kopott bütyöksor három szakasza látszik.', arrivalDiscoveries: [id('cam')],
       environment: [env('cam', 'A bütyöksor három szakasza', 'Az első szakaszon egyetlen széles bütyök ütötte a nyelvet. A másodikon két közeli csap. A harmadik sima: sem törés, sem javításnyom nincs rajta. A perembe vésve: „A kihagyás is ütem.”')],
-      ...picture('ORALAP / NYITOTT UVEG', [[5, 10, '.--------------------------------------------------------.'], [24, 10, "'--------------------------------------------------------'"]], [{ name: 'cam', row: 10, col: 19, glyph: '    EGY           KETTO           URES\n     |             | |\n     |             | |\n-----+-------------+-+-------------------\n\n       A KIHAGYAS IS UTEM' }]), rules: [],
+      ...bindScene('relay:clock-detail'), rules: [],
     },
     'relay:interval-room': {
-      title: '08 · A kihagyott ütemek terme', description: 'A terem túlsó ajtaját három lapos retesz tartja. A falon egy ütőnyelv, mellette kettős villa. Közöttük üres foglalat hallgat; az alján vékony, feszes hártya. A padlón csak kifelé vezető lábnyomok vannak.',
+      title: '08 · A kihagyott ütemek terme', description: 'A továbbvezető átjáró három reteszét a fal hangra mozduló szerkezete vezérli. Az egyik foglalatban ütőnyelv, a másikban kettős villa áll. A harmadik üresnek látszik, de az alján feszes hártya rezdül. A padló porában csak kifelé vezető lábnyomok vannak.',
       arrivalDiscoveries: ['single', 'double', 'rest', 'footprints'].map(id),
       environment: [env('single', 'Széles ütőnyelv', 'A súlyos nyelv mögött egyetlen rézlap ül. A fogásra kopott perem rugózik; elengedve egyet üt.'), env('double', 'Kettős villa', 'A két ág között alig egy ujjnyi a távolság. A rugó egyszerre szabadítja fel őket, de nem egyszerre érik a falat.'), env('rest', 'Üres foglalat hártyája', 'A harmadik foglalatból nem tört ki semmi. Vékony hártyája a terem hangjára mozdul. Közel hajolva azt is hallod, amikor a másik két szerkezet elhallgat.'), env('footprints', 'Kifelé vezető lábnyomok', 'A porban mindkét cipő sarka az ajtó felé mutat, az orruk viszont a galéria felé. A talprajz nem látszik csúsztatottnak. Az utolsó lenyomat félbeszakad a küszöb előtt.')],
       exits: [exit('interval-back', 'Vissza a galériára'), exit('well', 'Az ellensúlyaknához')],
-      ...picture('KIHAGYOTT UTEMEK / HANGELNYELO FAL', [[4, 4, '/\\'.repeat(34)], [22, 4, '\\/'.repeat(34)]], [
-        { name: 'single', row: 8, col: 7, glyph: '  [ | ]\n    |\n   _|_', actions: ['look', 'use'] }, { name: 'double', row: 8, col: 27, glyph: '  [ || ]\n   |  |\n   |__|', actions: ['look', 'use'] }, { name: 'rest', row: 8, col: 47, glyph: ' .------.\n |  ..  |\n \'------\'' },
-        { name: 'footprints', row: 18, col: 25, glyph: '  ()    ()    ()\n     ()    ()' }, { name: 'interval-back', row: 25, col: 5, glyph: '[ << GALERIA ]', exit: true }, { name: 'well', row: 14, col: 65, glyph: '| = = |\n| [ ] |\n|_____|', exit: true },
-      ]),
+      ...bindScene('relay:interval-room'),
       rules: [operate('single', 'start', 'Egy tompa ütés. A bal retesz behúzódik, a másik kettő visszaül a helyére.', { requires: phase([], ['rhythm-open']), addFlags: [id('beat-one')], removeFlags: [id('beat-two')] }),
         operate('double', 'second', 'A két gyors koppanás után a középső retesz is behúzódik. A fal zengése lassan elvékonyodik.', { requires: phase(['beat-one'], ['rhythm-open']), addFlags: [id('beat-two')], removeFlags: [id('beat-one')] }),
         operate('double', 'restart', 'Két koppanás fut végig a falon. A reteszek röviden megremegnek, majd mind visszazárnak.', { requires: phase([], ['beat-one', 'rhythm-open']), removeFlags: [id('beat-two')] }),
@@ -86,15 +54,11 @@ export const relay: Chapter = {
       ],
     },
     'relay:well-room': {
-      title: '09 · Az ellensúlyakna', description: 'A lépcső egy felvonóakna peremén ér véget. Két visszaforgatható kézikerék két külön kötél hosszát állítja. Az egyik kötél háromágú villát tart, a másik rövid keresztgerendát. A falon krétavonalak, lent egy üres felvonókosár.',
+      title: '09 · Az ellensúlyakna', description: 'A Fogadóállomás alsó szintjére felvonó vezet, de a kosár a járda alatt áll. Két visszaforgatható kézikerékkel állíthatók a külön köteleken függő ellensúlyok: egy háromágú villa és egy rövid keresztgerenda. A fal krétavonalai a helyzetük összehasonlítását segítik. A párkányon régi pecsétprés áll.',
       arrivalDiscoveries: ['left-wheel', 'right-wheel', 'alignment', 'ledge'].map(id),
       environment: [env('left-wheel', 'Bal kézikerék', 'A küllők között három ütköző van. Mindegyik fordítás egy szinttel emeli a háromágú villát, a harmadik visszaereszti az alsó jelhez.'), env('right-wheel', 'Jobb kézikerék', 'Három ütközője a keresztgerenda magasságát váltja. A kötélen egyetlen ép piros fonál fut; minden más szál fakó.'), env('alignment', 'Krétavonalak és kötelek', 'A falon a villa felső árnyéka és a keresztgerenda középső árnyéka találkozik. Nem számok: a körvonalaik együtt egy hiánytalan lépcsőt rajzolnak. Az akna szájánál kettévágott lépcsőjel van a záron.'), env('ledge', 'Poros párkány', 'Egy üres pecsétprés áll a párkányon. A talpa körül finom fémforgács, a prés alatt kerek mélyedés. A fogantyúra kötött zsinór végét gondosan eldolgozták.'), env('loose-seal', 'Átlyukasztatlan pecsét', 'A prés alatt egy puha ólomlap hever. A közepén a lyuk helye megvan, de a fémet nem ütötték át.', { withoutItems: [id('blank-seal')] })],
       exits: [exit('well-back', 'Vissza az ütemek termébe'), exit('dispatch', 'Le a küldeményfülkéhez')],
-      ...picture('ELLENSULYAKNA / KET KULON KOTEL', [], [
-        { name: 'left-wheel', row: 7, col: 8, glyph: '   .---.\n --( + )--\n   \'---\'', actions: ['look', 'use'] }, { name: 'right-wheel', row: 15, col: 8, glyph: '   .---.\n --( + )--\n   \'---\'', actions: ['look', 'use'] },
-        { name: 'alignment', row: 3, col: 29, glyph: counterweightPicture(0, 0, false) }, { name: 'ledge', row: 6, col: 60, glyph: '   __|__\n  |  o  |\n__|_____|__' }, { name: 'loose-seal', row: 12, col: 63, glyph: ' ( o )', actions: ['look', 'take'] },
-        { name: 'well-back', row: 25, col: 4, glyph: '[ << LEPCSO ]', exit: true }, { name: 'dispatch', row: 25, col: 57, glyph: '[ v KULDEMENYFULKE ]', exit: true },
-      ]),
+      ...bindScene('relay:well-room'),
       rules: [
         ...(['left', 'right'] as const).flatMap(side => [
           operate(`${side}-wheel`, 'low-mid', `A ${side === 'left' ? 'háromágú villa' : 'keresztgerenda'} a középső jelhez emelkedik. A racsni csendesen megtartja.`, { requires: phase([], [`${side}-mid`, `${side}-high`]), addFlags: [id(`${side}-mid`)] }),
@@ -112,17 +76,13 @@ export const relay: Chapter = {
       ],
     },
     'relay:dispatch-room': {
-      title: '10 · A küldeményfülke', description: 'Három irattálca áll egy tejüveg ablak alatt: NÉV, JAVÍTÁS, HIÁNY. A falból mechanikus kéz lóg, két ujja között indigós lap. Az ablak mellett rövid házirend; a túlsó ajtó résében meleg fény.',
+      title: '10 · A küldeményfülke', description: 'Itt lehet iratot beküldeni a Fogadóállomásra. A tejüveg ablak alatt három tálca különíti el a kéréseket: NÉV, JAVÍTÁS, HIÁNY. Fölöttük mechanikus kéz tart indigós lapot. Az ablak melletti házirend magyarázza a tálcák használatát; a túlsó ajtó résében meleg fény látszik.',
       arrivalDiscoveries: ['house-rule', 'hand', 'name-tray', 'correction-tray', 'missing-tray'].map(id),
       environment: [env('house-rule', 'Átvételi házirend', '„NÉV: személyadat pótlása. JAVÍTÁS: csatolt lap hibás adatának helyesbítése. HIÁNY: be nem mutatott eredeti bekérése.” Az utolsó sor alá valaki odaszúrta: „A másolat attól még nem lesz eredeti, hogy kétszer hozzák.”'), env('hand', 'Mechanikus másolókéz', 'A kéz ujjai tiszták, az indigólap csak a csukló fölött tintás. A tálcákhoz három huzal köti. Az alatta lógó címke: „CSAK AZ ÁTVÉTELT TANÚSÍTJA”.'), env('name-tray', 'NÉV tálca', 'Sekély fémvályú, alján sok egymásra másolt kézírás. A tálca végén négyzet alakú nyomógomb.'), env('correction-tray', 'JAVÍTÁS tálca', 'A vályú belsejét kivakart tintapacák borítják. A gombon látszik egy régi körömrepedés lenyomata.'), env('missing-tray', 'HIÁNY tálca', 'A fém alig kopott. A gomb mellett az indigólapnak megfelelő méretű, üres négyszög. A bekérőlap nem kínál névmezőt: „HELYI ÉBRESZTÉSI JELÖLÉS”.')],
       inputs: [{ id: id('missing-tray'), label: 'Helyi ébresztési jelölés', prompt: 'A bekérőlap két számhelye', maxLength: 2, format: 'digits' }],
       topics: [{ id: id('hand-task'), target: id('hand'), label: 'Mit tanúsít a kéz?' }, { id: id('hand-copy'), target: id('hand'), label: 'Kinek készül a másolat?' }],
       exits: [exit('dispatch-back', 'Fel az ellensúlyaknához'), exit('receiver', 'Az alsó Fogadóállomásra')],
-      ...picture('KULDEMENYFULKE / TEJUVEG ES INDIGO', [[4, 19, '.------------------------------------.'], [10, 19, "'------------------------------------'"], [22, 5, '___________________________________________________________________']], [
-        { name: 'hand', row: 6, col: 30, glyph: '      |\n    __|__\n   / / / |\n   |_____|', actions: ['look', 'talk'] }, { name: 'house-rule', row: 6, col: 59, glyph: '+----------+\n| AT VETEL |\n| --- ---  |\n+----------+' },
-        { name: 'name-tray', row: 15, col: 7, glyph: '   NEV\n.------------.\n| ____   [o] |\n\'------------\'', actions: ['look', 'use'] }, { name: 'correction-tray', row: 15, col: 27, glyph: '  JAVITAS\n.------------.\n| xxxx   [o] |\n\'------------\'', actions: ['look', 'use'] }, { name: 'missing-tray', row: 15, col: 47, glyph: '  HIANY\n.------------.\n|        [o] |\n\'------------\'', actions: ['look', 'use'] },
-        { name: 'dispatch-back', row: 25, col: 5, glyph: '[ ^ AKNA ]', exit: true }, { name: 'receiver', row: 25, col: 50, glyph: '[ FOGADOALLOMAS >> ]', exit: true },
-      ]),
+      ...bindScene('relay:dispatch-room'),
       rules: [operate('name-tray', 'press', 'A kéz egy üres névmezőt másol le, majd visszahúzza a lapot. Az ablakon felvillan: „SZEMÉLYADAT NINCS MEGADVA”. A tálca végén nem nyílik rés.'), operate('correction-tray', 'press', 'A kéz az üres négyszög fölé hajol. „HELYESBÍTENDŐ EREDETI NINCS CSATOLVA” – nyomja a papírra, majd visszatekeri az indigót.'), operate('missing-tray', 'press', 'A két számhelyes bekérőlap előrecsúszik. Az ébresztési jelölés sor alatt nincs hely a nevednek.'),
         { id: id('submit:missing'), label: 'Bekérem az eredetit', kind: 'submit', interaction: { verb: 'submit', target: target('missing-tray'), input: '09' }, addFlags: [id('request-sent')], message: 'A kéz két ujja a 09 mellé nyom egy apró négyzetet. „EREDETI BEKÉRÉSE / HELYI JELÖLÉS: 09”. Az indigó alatt egy második lap indul el a falba; a meleg fényű ajtó zárja elenged.', notes: ['A HIÁNY tálcán a 09-es helyi ébresztési jelöléssel eredeti kérelmet kértem be. A kéz az átvételt tanúsította, nem a jelölés személyhez tartozását.'], milestone: { id: id('request'), title: 'Amit nem adtam meg', text: 'A névmezőt üresen hagytam. Nem egy meglévő lap adatát akartam kijavítani: az eredeti ébresztési kérelmet kértem be a falon látott 09-es helyi jelöléssel. A másolókéz apró négyzetet nyomott a két szám mellé. A papír elindult a falba, és a Fogadóállomás felőli ajtó kinyílt. A kéz csak azt igazolta, hogy a kérésemet átvette.' } },
         { id: id('talk:hand'), label: 'Megszólítom', kind: 'talk', interaction: { verb: 'talk', target: target('hand') }, message: 'Az ujjak nem mozdulnak. A csukló fölül rövid, előre rögzített mondat szól: „A fogadó nem köteles emlékezni a feladóra.”' },
@@ -135,13 +95,10 @@ export const relay: Chapter = {
     'relay:receiver-room': {
       title: '11 · Az alsó Fogadóállomás', description: 'Az ablak nyitott, de nem a szabadba néz. Keskeny árok túloldalán egy sötét olvasóterem látszik. A pulton felülvizsgálati válaszcsík, mellette csőposta szája; a padlóban régi ülőhely csavarjainak négy üres lyuka.',
       arrivalDiscoveries: ['reply', 'window', 'tube-mouth', 'bolt-holes'].map(id),
-      environment: [env('reply', 'Válaszcsík a pulton', 'A csík felső szélén még nedves az indigó. „BEKÉRÉS / HELYI JELÖLÉS: 09” olvasható rajta; a többi sor apró betűs.'), env('window', 'Nyitott ároktéri ablak', 'Az olvasóterem küszöbén keskeny lámpa világít. A közted és közte futó árokban mozdulatlan víz áll, de a lámpa tükörképe néha továbbhalad. A belső falon egy friss kéznyom látszik: nem éred el.'), env('tube-mouth', 'Csőposta szája', 'A cső végén a lemezolvasó félholdas profiljához hasonló, de annál jóval szélesebb perem fut. A belseje üres; a nyíláson át a saját papírod megérkezését már nem hallani. A tanúlemez nem fér ide rögzítés nélkül.'), env('bolt-holes', 'Négy csavarlyuk', 'A négy furat téglalapot alkot. Az egyik körül friss porgyűrű, a másik három mellett sötét lerakódás maradt. A lyukak között nincs megkopva a padló, mintha a szék idejét senki sem ülte volna végig.')],
+      environment: [env('reply', 'Válaszcsík a pulton', 'A csík felső szélén még nedves az indigó. „BEKÉRÉS / HELYI JELÖLÉS: 09” olvasható rajta; a többi sor apró betűs.'), env('window', 'A túloldali olvasóra néző ablak', 'Az olvasóterem küszöbén keskeny lámpa világít. A közted és közte futó árokban mozdulatlan víz áll, de a lámpa tükörképe néha továbbhalad. A belső falon friss kéznyom látszik: nem éred el.'), env('tube-mouth', 'Csőposta nyílása', 'A cső pereme a füstszínű lemez félholdas végéhez hasonlóan ível, de jóval szélesebb annál. Belseje üres; a beküldött papír zizegése már elhalt. Itt nincs olyan foglalat, amely a lemezt megtartaná. A hasonló ív önmagában nem mutatja meg, mire való.'), env('bolt-holes', 'Négy csavarlyuk', 'A négy furat téglalapot alkot. Az egyik körül friss porgyűrű, a másik három mellett sötét lerakódás maradt. Közöttük nem kopott meg a padló: nem látszik rajta, hogy sokáig használták volna az egykori széket.')],
       exits: [exit('receiver-back', 'Vissza a küldeményfülkébe')],
-      ...picture('ALSO FOGADOALLOMAS / NYITOTT ABLAK', [[3, 29, '.--------------------------------------------.'], [13, 29, "'--------------------------------------------'"], [18, 4, '______________________________________________________________________'], [22, 4, '______________________________________________________________________']], [
-        { name: 'reply', row: 15, col: 8, glyph: ' .--------------.\n | 09  __  ____ |\n |______________|' }, { name: 'window', row: 5, col: 35, glyph: '  |      OLVASO      |\n  |    .-------.     |\n__|____|___o___|_____|__\n ~   ~     ~    ~   ~\n   ~    ~     ~    ~' },
-        { name: 'tube-mouth', row: 6, col: 8, glyph: '   .----.\n ==(    |\n   \'----\'' }, { name: 'bolt-holes', row: 24, col: 40, glyph: '  o       o\n\n  o       o' }, { name: 'receiver-back', row: 25, col: 5, glyph: '[ << FULKE ]', exit: true },
-      ]),
-      rules: [look('reply', '„A KÉRELEM ÉS AZ ENGEDÉLY KÜLÖN LAP. EBBEN A HELYI MÁSOLATTÁRBAN CSAK ENGEDÉLYMÁSOLAT KERESHETŐ. EREDETI KÉRELEM: TÚLOLDALI OLVASÓ.” A csík a bekérésedre válaszol; nem nevezi meg az ébresztés elrendelőjét, és nem igazolja, hogy a 09 kizárólag hozzád tartozik. Az ablakon túl először látsz egy helyet, amely nem újabb archívumi polc.', { requires: phase(['request-sent']), addFlags: [id('received'), id('destination-known')], notes: ['A Fogadóállomás válasza külön kezeli az ébresztési kérelmet és az engedélyt. A helyi archívum engedélymásolatot őrizhet; az eredeti kérelem helyeként a túloldali olvasót jelöli meg.'], milestone: { id: id('received'), title: 'Nem ugyanaz a lap', text: 'Eljutottam az alsó Fogadóállomásra, és a pulton választ találtam a bekérésemre. A kérelem és az engedély két külön lap, állt rajta. A helyi másolattárban csak engedélymásolat kereshető; az eredeti kérelmet a túloldali olvasóhoz irányították. A válasz nem ígérte, hogy ott megértem az ébredésemet. De most már tudtam, milyen iratot keresek, és az ablakon túl láttam a következő helyét.' } }),
+      ...bindScene('relay:receiver-room'),
+      rules: [look('reply', '„A KÉRELEM ÉS AZ ENGEDÉLY KÜLÖN LAP. EBBEN A HELYI MÁSOLATTÁRBAN CSAK ENGEDÉLYMÁSOLAT KERESHETŐ. EREDETI KÉRELEM: TÚLOLDALI OLVASÓ.” A csík a bekérésedre válaszol; nem nevezi meg az ébresztés elrendelőjét, és nem igazolja, hogy a 09 kizárólag hozzád tartozik. Az ablakon túl a megjelölt olvasóterem látszik, nem újabb archívumi polc.', { requires: phase(['request-sent']), addFlags: [id('received'), id('destination-known')], notes: ['A Fogadóállomás válasza külön kezeli az ébresztési kérelmet és az engedélyt. A helyi archívum engedélymásolatot őrizhet; az eredeti kérelem helyeként a túloldali olvasót jelöli meg.'], milestone: { id: id('received'), title: 'Nem ugyanaz a lap', text: 'Eljutottam az alsó Fogadóállomásra, és a pulton választ találtam a bekérésemre. A kérelem és az engedély két külön lap, állt rajta. A helyi másolattárban csak engedélymásolat kereshető; az eredeti kérelmet a túloldali olvasóhoz irányították. A válasz nem ígérte, hogy ott megértem az ébredésemet. De most már tudtam, milyen iratot keresek, és az ablakon túl láttam a következő helyét.' } }),
         { id: id('use:witness:tube'), label: 'Odaillesztem', kind: 'use', interaction: { verb: 'use', item: 'archive:witness', target: target('tube-mouth') }, message: 'A félholdas kivágás csak a cső peremének egy rövid szakaszát követi. A lemez megtartásához hiányzik a foglalat. Visszaveszed; a lyuksor olvasatlan marad.' }, move('receiver-back', id('dispatch-room'), 'A csőposta mögött tovább zizeg az indigó.'),
       ],
     },
@@ -149,13 +106,6 @@ export const relay: Chapter = {
 };
 
 relay.scenes[id('well-room')].rules.find(rule => rule.id === id('look:ledge'))!.messageVariants = [{ requires: { items: [id('blank-seal')] }, text: 'A félrebillentett prés alatt üres a kerek mélyedés. A pecsétet már elvitted; csak fémforgács és a nyomólap fordított lépcsőjele maradt.' }];
-const rhythmDoor = relay.scenes[id('interval-room')].artSpots!.find(spot => spot.exit === id('well'))!;
-rhythmDoor.glyph = '| ||| |\n| [ ] |\n|_____|';
-rhythmDoor.glyphVariants = [
-  { requires: phase(['rhythm-open']), text: '|     |\n|     |\n|_____|' },
-  { requires: phase(['beat-two']), text: '| ..| |\n| [ ] |\n|_____|' },
-  { requires: phase(['beat-one']), text: '| .|| |\n| [ ] |\n|_____|' },
-];
 for (const side of ['left', 'right']) {
   const entity = relay.scenes[id('well-room')].environment!.find(entity => entity.id === id(`${side}-wheel`))!;
   entity.descriptionVariants = [
@@ -170,20 +120,15 @@ relay.scenes[id('interval-room')].descriptionVariants = [
   { requires: phase(['beat-two']), text: 'Az ajtó bal és középső retesze behúzódott; a harmadik még zárva tart. A kettős villa zengése elvékonyodik, az üres foglalat hártyája megfeszül. A por lábnyomai nem változtak.' },
   { requires: phase(['beat-one']), text: 'Az ajtó bal retesze behúzódott, a másik kettő a helyén maradt. A széles ütőnyelv még rezeg; mellette a kettős villa és az üres foglalat hártyája. A por lábnyomai nem változtak.' },
 ];
-const alignment = relay.scenes[id('well-room')].artSpots!.find(spot => spot.environment === id('alignment'))!;
-alignment.glyphVariants = [];
 relay.scenes[id('well-room')].descriptionVariants = [];
 const levelNames = ['alsó', 'középső', 'felső'];
 const levelRequirement = (side: string, level: number) => level === 2 ? phase([`${side}-high`]) : level === 1 ? phase([`${side}-mid`], [`${side}-high`]) : phase([], [`${side}-mid`, `${side}-high`]);
 for (const ready of [true, false]) for (let left = 0; left < 3; left++) for (let right = 0; right < 3; right++) {
   const a = levelRequirement('left', left), b = levelRequirement('right', right);
   const requires = { flags: [...a.flags!, ...b.flags!, ...(ready ? [id('lift-ready')] : [])], withoutFlags: [...a.withoutFlags!, ...b.withoutFlags!, ...(!ready ? [id('lift-ready')] : [])] };
-  alignment.glyphVariants.push({ requires, text: counterweightPicture(left, right, ready) });
   relay.scenes[id('well-room')].descriptionVariants!.push({ requires, text: `A háromágú villa a${left === 0 ? 'z' : ''} ${levelNames[left]} jelhez ér, a keresztgerenda a${right === 0 ? 'z' : ''} ${levelNames[right]} jelhez. ${ready ? 'A felvonókosár a járdához rögzítve vár; a külön sínbe ült fék megtartja, a kézikerekek állítása nem oldja vissza.' : 'A felvonókosár a járda alatt függ; a két kézikerék külön köteleket állít.'} A falon a KRETA felirat mellett változatlanul megmaradtak a lépcsős körvonalak.` });
 }
 for (const rule of relay.scenes[id('well-room')].rules.filter(rule => rule.kind === 'look' && rule.interaction?.target?.id === id('alignment'))) rule.messageVariants = [{ requires: phase(['lift-ready']), text: 'A felvonókosarat a járdánál a külön sínbe ült rögzítőfék tartja. A kötelek mostani helyzete már nem oldja vissza a féket; a krétán továbbra is a villa felső és a keresztgerenda középső körvonala találkozik.' }];
 relay.scenes[id('dispatch-room')].descriptionVariants = [{ requires: phase(['request-sent']), text: 'A NÉV, JAVÍTÁS és HIÁNY tálca fölött megállt a másolókéz. Az indigós lapon a bekérés 09-es jelölése és az átvételi négyzet. A Fogadóállomás ajtaja nyitva áll.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('submit:missing'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A bekérés 09-es jelölése mellett már ott az átvételi négyzet. A másolatot továbbítottad; a Fogadóállomás ajtaja nyitva marad.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('use:missing-tray:press'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A tálca a már kitöltött bekérés másolatát tolja előre. A 09 mellett átvételi négyzet áll; személynév nincs a lapon.' }];
-relay.scenes[id('dispatch-room')].artSpots!.find(spot => spot.environment === id('missing-tray'))!.glyphVariants = [{ requires: phase(['request-sent']), text: "  HIANY\n.------------.\n|09  [x] [o] |\n'------------'" }];
-relay.scenes[id('dispatch-room')].artSpots!.find(spot => spot.exit === id('receiver'))!.glyphVariants = [{ requires: phase(['request-sent']), text: '[ FOGADO / NYITVA ]' }];

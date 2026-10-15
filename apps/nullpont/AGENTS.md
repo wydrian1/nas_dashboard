@@ -1,5 +1,32 @@
 # NULLPONT narrative acceptance
 
+## Required designer → illustrator → coder workflow
+
+For every new or redesigned scene, the main designer first defines its real
+function, approved prose, discoverable elements, objects, exits, puzzles and
+saved-world states. It then writes an approved visual brief, including the
+required neutral handler names and visual poses, to
+`.runtime/nullpont-ascii-brief.json` (never private future-story material).
+
+Delegate illustration to **nullpont-ascii-artist** using
+`.opencode/agents/nullpont-ascii-artist.md` and `docs/nullpont-ascii-art.md`.
+The artist draws architecture, decoration, item silhouettes and neutral handlers
+in the dedicated presentation art assets. It does not design puzzles, edit story,
+write gameplay bindings or see private canon. Use a fresh `general` agent running
+that exact profile only if the named agent has not been discovered yet.
+
+The coding agent then binds each handler to its environment/exit and generic
+actions, and selects named visual poses using server-side saved-state conditions.
+Keep artwork, handler geometry and decoration out of chapter logic. Never infer
+actions from an artist's labels or let an art asset execute code. Validate exact
+handler/pose coverage, bounds, ASCII, non-overlap and all dynamic world states.
+Review actual desktop/mobile renderings, not just JSON. Any meaningful inscription
+must have approved examination prose before acceptance.
+
+This workflow does not replace the independent narrative acceptance below.
+Art assets, bindings and their loader must be covered by its exact-byte context
+hash; changing a drawing can change a clue and must invalidate approval too.
+
 Before accepting, committing as ready, or publishing any new/changed story module,
 delegate an independent review to **nullpont-story-steward** using the project
 definition `.opencode/agents/nullpont-story-steward.md`.

@@ -88,7 +88,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     <section className="scene panel" aria-label="Kattintható ASCII-jelenet">
       <div className="scene-heading"><h2>{game.scene.title}</h2><div className="map-zoom"><button aria-label="ASCII kicsinyítése" title="Kicsinyítés" disabled={zoom<=10} onClick={()=>setZoom(value=>value-1)}>−</button><button aria-label="ASCII nagyítása" title="Nagyítás" disabled={zoom>=20} onClick={()=>setZoom(value=>value+1)}>+</button></div></div>
       <nav className="scene-path" aria-label="Helyzet"><button className="icon-action quiet" aria-label="Vissza egy szinttel" title="Vissza" disabled={busy||game.breadcrumbs.length<2} onClick={()=>void send({verb:'back'})}><ActionIcon name="back"/></button><ol>{game.breadcrumbs.map((entry,index)=><li key={entry.id}>{index>0&&<span aria-hidden="true">›</span>}{index===game.breadcrumbs.length-1?<span aria-current="location">{entry.title}</span>:<button disabled={busy} onClick={()=>void send({verb:'back',levels:game.breadcrumbs.length-1-index})}>{entry.title}</button>}</li>)}</ol></nav>
-      {game.goal&&<p className="current-goal" aria-label="Jelenlegi cél"><span>Irány</span> {game.goal}</p>}
+      {game.goal&&<p className="current-goal" aria-label="Jelenlegi cél"><span>Cél</span> {game.goal}</p>}
       <div className="ascii-scroll" onScroll={()=>{if(popup&&anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);}}>
         <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows*1.45}em`}}>
           <pre aria-hidden="true">{game.scene.art}</pre>

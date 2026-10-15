@@ -54,7 +54,9 @@ machine; without it the steward must return BLOCKED. CI does not need to read it
 
 - `module`: `lib/game/chapters/<name>.ts` (nested modules also covered).
 - `sha256`: chapter bytes, 64 lowercase hex characters.
-- `contextSha256`: canonical digest of catalog/types/engine/view file hash pairs.
+- `contextSha256`: canonical digest of catalog/types/engine/view and the recursively
+  sorted `lib/game/presentation/` file-path/hash pairs. Covers artwork, visual poses,
+  inventory glyphs, handler bindings, state selectors and the presentation loader.
 - `storyboardSha256`: opaque fingerprint of the steward's private storyboard.
 - `reviewer`: exactly `nullpont-story-steward`; `status`: exactly `approved`.
 - `reviewedAt`: ISO-8601 UTC timestamp.
@@ -63,6 +65,13 @@ machine; without it the steward must return BLOCKED. CI does not need to read it
 `node scripts/Check-Story.mjs --inputs` prints only public-source hash metadata for
 the steward. The checker rejects missing/stale/duplicate/extra/non-approved records,
 unknown fields, unsupported schema, unsafe paths and linked inputs.
+Presentation input additions, removals and renames invalidate approval too. Only
+regular, non-hardlinked `.ts`/`.json` inputs are accepted; private-memory names and
+unsupported artifacts fail closed. Presentation imports must resolve to another
+reviewed presentation file or the reviewed game types. Dynamic imports, arbitrary
+external dependencies and obvious runtime external-data APIs are rejected. These
+structural checks do not replace reading the implementation or prove that arbitrary
+code is harmless; the independent steward explicitly reviews gate changes as well.
 The public `story/` directory may contain only `reviews.json`; any extra file blocks
 release. Packaging copies that one allowlisted receipt, not the directory, and
 rejects named private-memory artifacts in any packaged source tree.

@@ -111,13 +111,14 @@ test('story book writes narrative once at milestones, not after ordinary clicks,
   state = applyAction(state, 'move:threshold');
   assert.deepEqual(state.book, book);
   assert.ok(state.book.every((entry, index) => !index || entry.turn > state.book[index - 1].turn));
-  assert.match(state.book.at(-1)!.text, /nagyobb rejtélybe/);
+  assert.match(state.book.at(-1)!.text, /Tizenkét ajtó/);
+  assert.match(state.book.at(-1)!.text, /Nem láttam, mi van a zárt ajtók mögött/);
   assert.deepEqual(parseState(JSON.stringify(state)).book, book);
 });
 test('new chapters attach exits without editing the engine or invalidating existing saves and story pages', () => {
   const next: Chapter = { id: 'garden', title: 'II. A kert', items: {}, scenes: {
     'garden:entry': { title: 'A kert', description: 'Kert.', art: '[kert]', environment: [{ id: 'garden:tree', label: 'Fa' }], exits:[{id:'return',label:'Vissza'}], rules: [{ id: 'garden:look', label: 'Körülnézek', kind: 'look', interaction: { verb: 'look' }, discover: ['garden:tree'], message: 'Egy fa a kertben.' }, { id: 'garden:return', label: 'Vissza', kind: 'move', moveTo: 'threshold', interaction:{verb:'move',target:{kind:'exit',id:'return'}}, message: 'Visszatérsz.' }] },
-  }, connections: [{ from: 'threshold', exits: [{ id: 'garden', label: 'A kert felé' }], artSpots:[{id:'garden:exit',exit:'garden',row:22,col:50,width:16,height:3,glyph:'[ >> ]'}], rules: [{ id: 'garden:enter', label: 'Belépek a kertbe', kind: 'move', moveTo: 'garden:entry', interaction: { verb: 'move', target: { kind: 'exit', id: 'garden' } }, message: 'Egy kert!', milestone: { id: 'garden:arrival', title: 'A kert', text: 'Egy elfeledett kertbe érkeztem. A történetem új irányt vett.' } }] }] };
+  }, connections: [{ from: 'threshold', exits: [{ id: 'garden', label: 'A kert felé' }], artSpots:[{id:'garden:exit',exit:'garden',row:0,col:0,width:6,height:1,glyph:'[ >> ]'}], rules: [{ id: 'garden:enter', label: 'Belépek a kertbe', kind: 'move', moveTo: 'garden:entry', interaction: { verb: 'move', target: { kind: 'exit', id: 'garden' } }, message: 'Egy kert!', milestone: { id: 'garden:arrival', title: 'A kert', text: 'Egy elfeledett kertbe érkeztem. A történetem új irányt vett.' } }] }] };
   const catalog = createCatalog([...CHAPTERS, next]);
   const oldSave = escape(initialState());
   assert.deepEqual(parseState(JSON.stringify(oldSave), catalog), oldSave);

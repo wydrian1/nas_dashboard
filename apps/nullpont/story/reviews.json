@@ -2,33 +2,33 @@
   "version": 1,
   "reviews": [
     {
-      "module": "lib/game/chapters/archive.ts",
-      "sha256": "043a429215e4397bd7a8baf0a4a58c30f12bda44556711d322650664a7546eac",
-      "contextSha256": "df91085451e5b2c136bb6298906df5101365856ad892754b673c513014dc2527",
+      "module": "lib/game/chapters/awakening.ts",
+      "sha256": "5417de48ef5bfaa10c39c51ebb2d44b1d5021ce85f28605997efdf47ce212f1c",
+      "contextSha256": "942a79f34137eb158f9c9d3030d639233c81391715e6d15deb4a84616a2f8f4d",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T17:32:44.362Z",
+      "reviewedAt": "2026-10-15T23:02:46.620Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
-      "module": "lib/game/chapters/awakening.ts",
-      "sha256": "5ce7788be31846ec26daebcdbec874800d201a51bbe44e4874683ca927afe229",
-      "contextSha256": "df91085451e5b2c136bb6298906df5101365856ad892754b673c513014dc2527",
+      "module": "lib/game/chapters/archive.ts",
+      "sha256": "c29a986a3ae5949499b98eb4ecb4e26803adab37504380a956c82583826e821c",
+      "contextSha256": "942a79f34137eb158f9c9d3030d639233c81391715e6d15deb4a84616a2f8f4d",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T17:32:44.362Z",
+      "reviewedAt": "2026-10-15T23:02:46.620Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
       "module": "lib/game/chapters/relay.ts",
-      "sha256": "428f337be4b957cb606a5770608feaef4e44145d1a5ea5442735c7eaf18de237",
-      "contextSha256": "df91085451e5b2c136bb6298906df5101365856ad892754b673c513014dc2527",
+      "sha256": "272681ca6cc9fa7937beaf21ad5b9cd7089806469895d4fba7c9fd17c890c351",
+      "contextSha256": "942a79f34137eb158f9c9d3030d639233c81391715e6d15deb4a84616a2f8f4d",
       "storyboardSha256": "19b3ca98e84e9ac51c8be6ded2d5eb6d56fa1d8b8c755dc8c83c38d3a0e7eff0",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-15T17:32:44.362Z",
+      "reviewedAt": "2026-10-15T23:02:46.620Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     }
   ]
