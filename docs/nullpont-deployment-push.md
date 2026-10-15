@@ -118,7 +118,7 @@ reviewed Android change; this integration does not widen notification URL policy
 
 After every successful release, the deploying agent also starts the isolated
 `nullpont-player-reviewer` procedure in [nullpont-player-review.md](nullpont-player-review.md),
-bound to the installed manifest hash. It has a hard five-minute gameplay budget.
+bound to the installed manifest hash. It has a hard ten-minute gameplay budget.
 This is not a release or notification prerequisite: send the normal completed
 deployment announcement without waiting for its scores. Record partial play,
 timeout or unavailability honestly; never roll back a healthy release because

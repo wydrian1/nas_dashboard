@@ -94,7 +94,7 @@ async function run(smoke) {
     page = await context.newPage(); page.setDefaultTimeout(4000); await page.goto(url, { timeout: 15000 }); await page.locator('.game-grid').waitFor();
     const started = performance.now(); run = { ...run, status: 'running', startedAt: Date.now(), deadline: Date.now() + PLAYTEST_LIMIT_MS }; run.deadline = run.startedAt + PLAYTEST_LIMIT_MS;
     write('active.json', run);
-    timer = setTimeout(() => { if (!done) { done = true; publish('timed_out'); void context.close().catch(() => {}); console.log(JSON.stringify({ nonBlocking: true, status: 'timed_out', message: 'Az 5 perces keret lejárt; a teljes végigjátszás nem sikerült.' })); } }, PLAYTEST_LIMIT_MS);
+    timer = setTimeout(() => { if (!done) { done = true; publish('timed_out'); void context.close().catch(() => {}); console.log(JSON.stringify({ nonBlocking: true, status: 'timed_out', message: 'A 10 perces keret lejárt; a játékpróba időkorlát miatt lezárult.' })); } }, PLAYTEST_LIMIT_MS);
     async function snapshot() {
       // Only visible rendered text and labels; no game catalog, state, DOM attributes
       // holding internal IDs, network payloads, hidden controls or JS evaluation.
@@ -132,7 +132,7 @@ async function run(smoke) {
         if (!done && performance.now() - started >= PLAYTEST_LIMIT_MS) { done = true; value = publish('timed_out'); }
         write('response.json', { id: request.id, value });
         if (!done) write('observation.json', value);
-      } catch { write('response.json', { id: request.id, error: done ? 'Five-minute gameplay deadline reached' : 'Visible UI action failed; observe again and report if blocked' }); }
+      } catch { write('response.json', { id: request.id, error: done ? 'Ten-minute gameplay deadline reached' : 'Visible UI action failed; observe again and report if blocked' }); }
     }
   } catch {
     if (!run.startedAt) run = { ...run, startedAt: Date.now(), deadline: Date.now() + PLAYTEST_LIMIT_MS };

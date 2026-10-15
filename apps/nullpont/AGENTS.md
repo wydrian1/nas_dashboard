@@ -56,7 +56,7 @@ After every successful NULLPONT deployment/release, launch a fresh
 and the isolated fixture procedure in `docs/nullpont-player-review.md`. Bind the
 review to the actual installed manifest hash; never use a real player's save or
 provide puzzle solutions, chapter source or private story memory to the reviewer.
-Its external five-minute watchdog includes reasoning/tool time and must report
+Its external ten-minute watchdog includes reasoning/tool time and must report
 incomplete/timeout honestly. Collect story, puzzles, UI and difficulty quality
 scores, perceived hardness and actionable developer-only findings.
 
@@ -65,3 +65,6 @@ the completion notification. Low scores, timeout or unavailability do not delay
 or roll back deployment. Record that outcome and propose follow-up work. Keep
 the user-facing summary spoiler-free and detailed observations in ignored private
 reports. Do not implement suggestions or deploy another release without scope.
+The game has no real ending yet. End the playtest when no further progress can
+be made after reasonable UI investigation; distinguish current-content exhaustion,
+an unsolved puzzle, technical blockage and uncertainty. Never claim story completion.
