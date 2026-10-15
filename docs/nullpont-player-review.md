@@ -29,8 +29,9 @@ release. They become follow-up development suggestions, not automatic edits.
    state injection, source reading, solution scripts or production gameplay.
 4. The watchdog closes gameplay at **600 seconds** after fixture readiness,
    including model reasoning and tool latency. It independently records timeout
-   even if the agent never responds. An agent step limit is a fallback, not the
-   clock. The deadline cannot be reset/extended by the reviewer. Reporting on
+    even if the agent never responds. The reviewer profile allows **50,000 model
+    steps** as a fallback ceiling, not as the clock or a promise of full coverage.
+    The deadline cannot be reset/extended by the reviewer. Reporting on
    already observed material is allowed after timeout; further play is not.
 5. The reviewer writes `review.json` per its profile and calls `finish`. The runner
    keeps detailed findings in an ignored UUID-named `*-developer.json`; only the

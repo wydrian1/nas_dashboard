@@ -16,6 +16,24 @@ function picture(caption: string, structure: [number, number, string][], marks: 
 }
 const phase = (flags: string[], withoutFlags: string[] = []): Requirement => ({ flags: flags.map(id), withoutFlags: withoutFlags.map(id) });
 
+function counterweightPicture(left: number, right: number, ready: boolean) {
+  const lines = Array.from({ length: 21 }, (_, row) => row === 0 || row === 20 ? '+--------------------------+' : '|' + ' '.repeat(26) + '|');
+  const write = (row: number, col: number, text: string) => { lines[row] = lines[row].slice(0, col) + text + lines[row].slice(col + text.length); };
+  for (const row of [3, 7, 11]) write(row, 1, '--');
+  for (const [col, level, shape] of [[6, left, '|_|_|'], [21, right, '|___|']] as const) {
+    const row = [11, 7, 3][level];
+    for (let y = 1; y < row; y++) write(y, col, '|');
+    write(row, col - 2, shape);
+  }
+  write(6, 10, '=========');
+  const basket = ready ? 3 : 13;
+  for (let row = 1; row < basket; row++) write(row, 14, '|');
+  ['.-----.', '|     |', "'-----'"].forEach((line, row) => write(basket + row, 11, line));
+  write(16, 2, 'KRETA');
+  write(17, 4, '.|_|_|'); write(18, 8, "'..|___"); write(19, 12, "'..|");
+  return lines.join('\n');
+}
+
 export const relay: Chapter = {
   id: 'relay', title: 'III. A címzett helye', items: { 'relay:blank-seal': 'Átlyukasztatlan ólompecsét' },
   itemDescriptions: { 'relay:blank-seal': 'Lapos, puha fémből nyomott pecsét. A lyuk helyén csak egy hajszálvékony kör látszik; a prés sosem ért le odáig. A hátlapján egy apró lépcsős jel van, ugyanaz, amelyet az ellensúlyakna túlsó falán láttál. Nincs rajta szám vagy név.' },
@@ -72,9 +90,9 @@ export const relay: Chapter = {
       arrivalDiscoveries: ['left-wheel', 'right-wheel', 'alignment', 'ledge'].map(id),
       environment: [env('left-wheel', 'Bal kézikerék', 'A küllők között három ütköző van. Mindegyik fordítás egy szinttel emeli a háromágú villát, a harmadik visszaereszti az alsó jelhez.'), env('right-wheel', 'Jobb kézikerék', 'Három ütközője a keresztgerenda magasságát váltja. A kötélen egyetlen ép piros fonál fut; minden más szál fakó.'), env('alignment', 'Krétavonalak és kötelek', 'A falon a villa felső árnyéka és a keresztgerenda középső árnyéka találkozik. Nem számok: a körvonalaik együtt egy hiánytalan lépcsőt rajzolnak. Az akna szájánál kettévágott lépcsőjel van a záron.'), env('ledge', 'Poros párkány', 'Egy üres pecsétprés áll a párkányon. A talpa körül finom fémforgács, a prés alatt kerek mélyedés. A fogantyúra kötött zsinór végét gondosan eldolgozták.'), env('loose-seal', 'Átlyukasztatlan pecsét', 'A prés alatt egy puha ólomlap hever. A közepén a lyuk helye megvan, de a fémet nem ütötték át.', { withoutItems: [id('blank-seal')] })],
       exits: [exit('well-back', 'Vissza az ütemek termébe'), exit('dispatch', 'Le a küldeményfülkéhez')],
-      ...picture('ELLENSULYAKNA / KET KULON KOTEL', [[3, 31, '|                     |'], [10, 31, '|                     |'], [17, 31, '|                     |'], [23, 31, '|_____________________|'], [26, 31, '|                     |']], [
+      ...picture('ELLENSULYAKNA / KET KULON KOTEL', [], [
         { name: 'left-wheel', row: 7, col: 8, glyph: '   .---.\n --( + )--\n   \'---\'', actions: ['look', 'use'] }, { name: 'right-wheel', row: 15, col: 8, glyph: '   .---.\n --( + )--\n   \'---\'', actions: ['look', 'use'] },
-        { name: 'alignment', row: 6, col: 35, glyph: '|   |_|_|      |\n|      |___    |\n|    _|        |\n|   |          |' }, { name: 'ledge', row: 6, col: 60, glyph: '   __|__\n  |  o  |\n__|_____|__' }, { name: 'loose-seal', row: 12, col: 63, glyph: ' ( o )', actions: ['look', 'take'] },
+        { name: 'alignment', row: 3, col: 29, glyph: counterweightPicture(0, 0, false) }, { name: 'ledge', row: 6, col: 60, glyph: '   __|__\n  |  o  |\n__|_____|__' }, { name: 'loose-seal', row: 12, col: 63, glyph: ' ( o )', actions: ['look', 'take'] },
         { name: 'well-back', row: 25, col: 4, glyph: '[ << LEPCSO ]', exit: true }, { name: 'dispatch', row: 25, col: 57, glyph: '[ v KULDEMENYFULKE ]', exit: true },
       ]),
       rules: [
@@ -131,7 +149,13 @@ export const relay: Chapter = {
 };
 
 relay.scenes[id('well-room')].rules.find(rule => rule.id === id('look:ledge'))!.messageVariants = [{ requires: { items: [id('blank-seal')] }, text: 'A félrebillentett prés alatt üres a kerek mélyedés. A pecsétet már elvitted; csak fémforgács és a nyomólap fordított lépcsőjele maradt.' }];
-relay.scenes[id('interval-room')].artSpots!.find(spot => spot.exit === id('well'))!.glyphVariants = [{ requires: phase(['rhythm-open']), text: '|     |\n|     |\n|_____|' }];
+const rhythmDoor = relay.scenes[id('interval-room')].artSpots!.find(spot => spot.exit === id('well'))!;
+rhythmDoor.glyph = '| ||| |\n| [ ] |\n|_____|';
+rhythmDoor.glyphVariants = [
+  { requires: phase(['rhythm-open']), text: '|     |\n|     |\n|_____|' },
+  { requires: phase(['beat-two']), text: '| ..| |\n| [ ] |\n|_____|' },
+  { requires: phase(['beat-one']), text: '| .|| |\n| [ ] |\n|_____|' },
+];
 for (const side of ['left', 'right']) {
   const entity = relay.scenes[id('well-room')].environment!.find(entity => entity.id === id(`${side}-wheel`))!;
   entity.descriptionVariants = [
@@ -141,9 +165,25 @@ for (const side of ['left', 'right']) {
   ];
 }
 relay.scenes[id('dispatch-room')].environment!.find(entity => entity.id === id('missing-tray'))!.descriptionVariants = [{ requires: phase(['request-sent']), text: 'A bekérőlap két számhelyén 09 áll; mellette az átvételi négyzet. A továbbított példány már nincs a vályúban. A névmező továbbra is hiányzik: nem kérték.' }];
-relay.scenes[id('interval-room')].descriptionVariants = [{ requires: phase(['rhythm-open']), text: 'A túlsó ajtó mindhárom retesze behúzódott; a rögzítőnyelv nyitva tartja. A falon az ütőnyelv, a kettős villa és az üres foglalat feszes hártyája. A por lábnyomai nem változtak.' }];
-relay.scenes[id('well-room')].descriptionVariants = [{ requires: phase(['lift-ready']), text: 'A felvonókosár már a járdához rögzítve vár; a külön sínbe ült fék megtartja. A kézikerekek tovább állíthatják a villa és a keresztgerenda köteleit. A falon megmaradtak a krétakörvonalak.' }];
+relay.scenes[id('interval-room')].descriptionVariants = [
+  { requires: phase(['rhythm-open']), text: 'A túlsó ajtó mindhárom retesze behúzódott; a rögzítőnyelv nyitva tartja. A falon az ütőnyelv, a kettős villa és az üres foglalat feszes hártyája. A por lábnyomai nem változtak.' },
+  { requires: phase(['beat-two']), text: 'Az ajtó bal és középső retesze behúzódott; a harmadik még zárva tart. A kettős villa zengése elvékonyodik, az üres foglalat hártyája megfeszül. A por lábnyomai nem változtak.' },
+  { requires: phase(['beat-one']), text: 'Az ajtó bal retesze behúzódott, a másik kettő a helyén maradt. A széles ütőnyelv még rezeg; mellette a kettős villa és az üres foglalat hártyája. A por lábnyomai nem változtak.' },
+];
+const alignment = relay.scenes[id('well-room')].artSpots!.find(spot => spot.environment === id('alignment'))!;
+alignment.glyphVariants = [];
+relay.scenes[id('well-room')].descriptionVariants = [];
+const levelNames = ['alsó', 'középső', 'felső'];
+const levelRequirement = (side: string, level: number) => level === 2 ? phase([`${side}-high`]) : level === 1 ? phase([`${side}-mid`], [`${side}-high`]) : phase([], [`${side}-mid`, `${side}-high`]);
+for (const ready of [true, false]) for (let left = 0; left < 3; left++) for (let right = 0; right < 3; right++) {
+  const a = levelRequirement('left', left), b = levelRequirement('right', right);
+  const requires = { flags: [...a.flags!, ...b.flags!, ...(ready ? [id('lift-ready')] : [])], withoutFlags: [...a.withoutFlags!, ...b.withoutFlags!, ...(!ready ? [id('lift-ready')] : [])] };
+  alignment.glyphVariants.push({ requires, text: counterweightPicture(left, right, ready) });
+  relay.scenes[id('well-room')].descriptionVariants!.push({ requires, text: `A háromágú villa a${left === 0 ? 'z' : ''} ${levelNames[left]} jelhez ér, a keresztgerenda a${right === 0 ? 'z' : ''} ${levelNames[right]} jelhez. ${ready ? 'A felvonókosár a járdához rögzítve vár; a külön sínbe ült fék megtartja, a kézikerekek állítása nem oldja vissza.' : 'A felvonókosár a járda alatt függ; a két kézikerék külön köteleket állít.'} A falon a KRETA felirat mellett változatlanul megmaradtak a lépcsős körvonalak.` });
+}
 for (const rule of relay.scenes[id('well-room')].rules.filter(rule => rule.kind === 'look' && rule.interaction?.target?.id === id('alignment'))) rule.messageVariants = [{ requires: phase(['lift-ready']), text: 'A felvonókosarat a járdánál a külön sínbe ült rögzítőfék tartja. A kötelek mostani helyzete már nem oldja vissza a féket; a krétán továbbra is a villa felső és a keresztgerenda középső körvonala találkozik.' }];
 relay.scenes[id('dispatch-room')].descriptionVariants = [{ requires: phase(['request-sent']), text: 'A NÉV, JAVÍTÁS és HIÁNY tálca fölött megállt a másolókéz. Az indigós lapon a bekérés 09-es jelölése és az átvételi négyzet. A Fogadóállomás ajtaja nyitva áll.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('submit:missing'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A bekérés 09-es jelölése mellett már ott az átvételi négyzet. A másolatot továbbítottad; a Fogadóállomás ajtaja nyitva marad.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('use:missing-tray:press'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A tálca a már kitöltött bekérés másolatát tolja előre. A 09 mellett átvételi négyzet áll; személynév nincs a lapon.' }];
+relay.scenes[id('dispatch-room')].artSpots!.find(spot => spot.environment === id('missing-tray'))!.glyphVariants = [{ requires: phase(['request-sent']), text: "  HIANY\n.------------.\n|09  [x] [o] |\n'------------'" }];
+relay.scenes[id('dispatch-room')].artSpots!.find(spot => spot.exit === id('receiver'))!.glyphVariants = [{ requires: phase(['request-sent']), text: '[ FOGADO / NYITVA ]' }];

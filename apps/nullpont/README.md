@@ -92,8 +92,10 @@ előtt. Privát storyboardja nem kerül a játékba vagy Gitbe. Az exact-byte na
 jóváhagyást a `npm run check:story` kapu ellenőrzi, a kiadási csomag is megköveteli.
 Munkafolyamat: [történetellenőrzés](../../docs/nullpont-story-review.md).
 
-A nagyítható ASCII-jeleneten jelölsz ki környezeti elemet; a kijáratra kattintva
-mozogsz. Érkezéskor az alap környezet már látható, külön körülnézési lépés nélkül.
+A nagyítható ASCII-jeleneten a környezeti elemre kattintva közvetlenül megvizsgálod
+azt; a kijáratra kattintva mozogsz. A kattintható részletek mellett nincs állandó
+„…” gomb vagy más külön jelölés: a rajzból kell felfedezned őket.
+Érkezéskor az alap környezet már látható, külön körülnézési lépés nélkül.
 A közelebbi vizsgálat további részleteket fedhet fel, és minden nyitófejezeti célpont
 érdemi leírást ad. Nincs külön környezet-, mozgás- vagy akciódoboz, látható
 mentés/lépésszámláló vagy állandó oktatófelirat.
@@ -112,7 +114,9 @@ kötött kombinálási szabályt teszi helyfüggetlenné; környezeti célpontot
 vagy rejtett felfedezést nem emel át másik nézetből.
 
 A célpont címkéje
-rámutatásra, fókuszra vagy érintésre mutatja a nevét és a kompakt műveletikonokat;
+rámutatásra, fókuszra, jobb kattintásra vagy hosszú érintésre mutatja a nevét és a
+kompakt műveletikonokat. A rövid érintés vizsgálat, a hosszú csak a menüt nyitja;
+görgetéskor a hosszú érintés megszakad. A menü megnyitása nem hajt végre akciót;
 az ikonok hozzáférhető neve és tooltipje megmarad.
 Billentyűzettel a lefelé nyíl a címke műveleteire lép, Escape bezárja azt.
 Az inventory tárgyrajzokat mutat: a címkén a Használom után a jelenet célpontjára,

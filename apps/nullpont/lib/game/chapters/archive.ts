@@ -44,7 +44,9 @@ export const archive: Chapter = {
     from: 'threshold', exits: [exit('entry', 'A keskeny oldalsó átjáró')],
     artSpots: [{ id: id('spot:entry'), exit: id('entry'), row: 21, col: 29, width: 18, height: 3, glyph: '[ ARCHIVUM >> ]' }],
     rules: [{ ...move('entry', id('vestibule'), 'Az ablak melletti keskeny átjáró alacsony előcsarnokba vezet. Itt már nem hideg a levegő: papír és felhevült por szaga van.'),
-      milestone: { id: id('arrival'), title: 'A papír szaga', text: 'Az üveg mögötti betűk mellett egy oldalsó átjárót találtam. Az előcsarnokban por melegedett egy lámpa alatt. Az archívum nem puszta felirat volt a folyosó ablakán: be lehetett lépni, meg lehetett érinteni a bútorait. A bejárat melletti széken két különböző mélységű horpadás maradt.' } }],
+      requires: { flags: ['awakening:chapter-closed'] },
+      milestone: { id: id('arrival'), title: 'A papír szaga', text: 'Az üveg mögötti betűk mellett egy oldalsó átjárót találtam. Az előcsarnokban por melegedett egy lámpa alatt. Az archívum nem puszta felirat volt a folyosó ablakán: be lehetett lépni, meg lehetett érinteni a bútorait. A bejárat melletti széken két különböző mélységű horpadás maradt.' } },
+      { ...move('entry', id('vestibule'), 'Az oldalsó átjáró olvasója egy jelen idejű kilépési bejegyzésre vár. A körfolyosó ablakának alján kopott sáv vezet a KILÉPÉSI SZEMLE mellékajtójához. Az ébresztőszoba nyitott ajtaját ez nem zárja vissza.', { withoutFlags: ['awakening:chapter-closed'] }), id: id('move:entry:awaiting-departure'), moveTo: undefined }],
   }],
   scenes: {
     'archive:vestibule': {
@@ -175,3 +177,9 @@ archive.scenes[id('vestibule')].descriptionVariants = [{ requires: { flags: [id(
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('look:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A három dob a beállított számokat mutatja. A kör, kettős vonal és háromszög változatlanul a keretbe van vésve. Az irattári ajtó zárja már elengedett.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('submit:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A dobok ugyanabba az állásba kattanak vissza. Az irattári ajtó már nyitva áll; a kilincs lent marad.' }];
 archive.scenes['archive:vestibule'].artSpots!.push({ id: id('spot:signals'), exit: id('signals'), row: 22, col: 42, width: 35, height: 1, glyph: '[ JELFULKE v ]' });
+archive.scenes[id('vestibule')].artSpots!.find(spot => spot.environment === id('reader'))!.glyphVariants = [{ requires: { flags: [id('records-open')] }, text: 'SZAMLAP\n  O    ||    /\\\n+----------------+\n| [4]  [2]  [7]  |\n+----------------+' }];
+archive.scenes[id('bridge-room')].artSpots!.find(spot => spot.environment === id('tongue'))!.glyphVariants = [
+  { requires: { flags: [id('route-bridge'), id('ground-outer')] }, text: 'UVEGBURA\n  .--------.\n /   |      \\\n | * |   *  |\n +----------+' },
+  { requires: { flags: [id('route-bridge')] }, text: 'UVEGBURA\n  .--------.\n /   |~     \\\n | * |   o  |\n +----------+' },
+  { requires: { flags: [id('ground-outer')] }, text: 'UVEGBURA\n  .--------.\n /   |~     \\\n | o |   *  |\n +----------+' },
+];

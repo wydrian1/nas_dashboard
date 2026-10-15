@@ -32,7 +32,8 @@ small{color:var(--muted);font-size:12px}
 .ascii-scroll{overflow:auto;background:#0d110e;padding:20px 8px;max-width:100%}
 .ascii-canvas{position:relative;flex:none;margin:0 auto;font-family:Consolas,'Courier New',monospace;line-height:1.45;color:#c1d0b4;overflow-wrap:normal}
 .ascii-canvas>pre{margin:0;white-space:pre;font:inherit;line-height:inherit;pointer-events:none}
-.ascii-hotspot{position:absolute;min-height:0;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;font:inherit;line-height:inherit;color:inherit}
+.ascii-spot{position:absolute}
+.ascii-hotspot{position:absolute;inset:0;width:100%;height:100%;min-height:0;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;font:inherit;line-height:inherit;color:inherit;user-select:none;-webkit-touch-callout:none}
 .ascii-hotspot:hover:not(:disabled),.ascii-hotspot:focus-visible{background:#b8cba20d;border-color:#b8cba280}
 .ascii-hotspot[aria-pressed=true]{background:#b8cba219;border-color:var(--accent)}
 .ascii-glyph{position:absolute;top:0;left:0;white-space:pre;pointer-events:none}
