@@ -89,7 +89,11 @@ try{
   await page.locator('.inventory').getByRole('button',{name:'Vezető fólia',exact:true}).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click());check(await page.locator('.story').innerText().then(text=>text.includes('hang hullámai')),'inventory examination has meaningful description');
   await arm('Vezető fólia','Használom');await step(()=>object('Hangszóró').click());check(await page.locator('.inventory button').count()===2,'failed targeted use consumes nothing');
   if(process.env.NULLPONT_SCREENSHOT_DIR){await page.setViewportSize({width:1440,height:1000});await object('Falpanel').hover();await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-exploration-1440.png'),fullPage:true});}
-  await arm('Vezető fólia','Kombinálom');check(await page.locator('.inventory-item[aria-pressed=true]').count()===1,'combination source highlighted');await step(()=>page.locator('.inventory').getByRole('button',{name:'Szigetelt huzal',exact:true}).click());check(await page.locator('.inventory button').count()===1,'second inventory click combines without a recipe menu');
+   await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');
+   await arm('Vezető fólia','Kombinálom');check(await page.locator('.inventory-item[aria-pressed=true]').count()===1,'combination source highlighted');await step(()=>page.locator('.inventory').getByRole('button',{name:'Szigetelt huzal',exact:true}).click());check(await page.locator('.inventory button').count()===1,'second inventory click combines inside two-level focus without a recipe menu');
+   check(await page.locator('.scene-path li').count()===3,'successful combination does not leave nested detail');
+   await page.reload();check(await page.locator('.scene-path li').count()===3&&await page.locator('.inventory').getByRole('button',{name:'Áthidaló hurok',exact:true}).count()===1,'nested combination and focus survive reload');
+   await back();await back();
   await arm('Áthidaló hurok','Használom');check(await page.locator('.item-selection').isVisible(),'armed action stays compactly in inventory');await page.getByRole('button',{name:'Kijelölés törlése'}).click();check(await page.locator('.item-selection').count()===0,'armed action can be cancelled without action box');await arm('Áthidaló hurok','Használom');await step(()=>object('Falpanel').click());
   await action('Hangszóró','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('membrán')),'speaker examination is descriptive rather than generic failure');await action('Hangszóró','Beszélek');await action('Hangszóró','A kijutásról');check(await page.locator('.story').innerText().then(text=>!text.includes('Kösd össze')&&!text.includes('fólia')),'conversation no longer states the recipe');await action('Hangszóró','Ki vagyok?');await action('Hangszóró','Megtámadom');
   await object('Ajtó').hover();check(await page.locator('.context-popup .exit-label').innerText().then(text=>text.includes('→ Az ajtó felé')),'exit tooltip names movement without tutorial prose');
@@ -118,7 +122,31 @@ try{
       await inspectEnvironment(rule.interaction.target.id);await exploreArchive();await back();
     }
   }
-  await exploreArchive();check(testedNested,'archive has real two-level inspect coverage');check(testedInputs>0,'archive keypad wrong and correct submissions covered');
+   await exploreArchive();check(testedNested,'archive has real two-level inspect coverage');check(testedInputs>0,'archive keypad wrong and correct submissions covered');
+   // Follow the complete new route via real UI actions; no production save or injected progress.
+   const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
+   const operateEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="relay:${id}"]`).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Működtetem',exact:true}).click());};
+   const submitRelay=async value=>{await page.locator('.ascii-hotspot[data-environment="relay:missing-tray"]').click();await page.locator('.scene-input input').fill(value);await step(()=>page.locator('.scene-input input').press('Enter'));};
+   await travel('archive:records');await travel('relay:entry');
+   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('Fogadóállomás')),'earned destination is visible immediately on the new route');
+   await inspectEnvironment('relay:notice');await inspectEnvironment('relay:clock');await inspectEnvironment('relay:cam');
+   check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
+   await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
+   await operateEnvironment('single');await operateEnvironment('double');await inspectEnvironment('relay:rest');await travel('relay:well');
+   check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
+   check(await page.locator('.ascii-hotspot[data-environment="relay:loose-seal"]').count()===0,'optional seal is not exposed before investigation');
+   await inspectEnvironment('relay:ledge');await action('Átlyukasztatlan pecsét','Felveszem');
+   await operateEnvironment('left-wheel');await operateEnvironment('left-wheel');await operateEnvironment('right-wheel');await inspectEnvironment('relay:alignment');await travel('relay:dispatch');
+   check(currentState().room==='relay:dispatch-room','spatial counterweight puzzle opens the dispatch route');
+   await operateEnvironment('name-tray');await operateEnvironment('correction-tray');check(!currentState().flags.includes('relay:request-sent'),'wrong semantic trays cannot silently submit a request');
+   await inspectEnvironment('relay:house-rule');await submitRelay('90');check(!currentState().flags.includes('relay:request-sent'),'wrong local designation leaves the request unchanged');
+   await submitRelay('09');await travel('relay:receiver');await inspectEnvironment('relay:reply');
+   check(currentState().room==='relay:receiver-room'&&currentState().flags.includes('relay:received'),'all five new physical scenes yield an earned reply');
+   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('olvasó')),'concrete progress updates the next direction without a puzzle recipe');
+   const relayBook=currentState().book;await page.reload();check(JSON.stringify(currentState().book)===JSON.stringify(relayBook)&&await page.getByLabel('Jelenlegi cél',{exact:true}).isVisible(),'goal and milestone pages persist across reload');
+   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'goal/new scene has no overflow '+width);}await page.setViewportSize({width:1440,height:1000});
+   for(const id of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return'])await travel(id);
+   check(currentState().inventory.includes('relay:blank-seal'),'optional carried item survives the complete route and return');
   const archiveState=currentState(),archiveScene=CATALOG.scenes[archiveState.room],returnRule=archiveScene.rules.find(rule=>rule.moveTo==='threshold'&&meets(archiveState,rule.requires));check(!!returnRule?.interaction?.target,'archive return exit remains available');await step(()=>page.locator(`.ascii-hotspot[data-exit="${returnRule.interaction.target.id}"]`).click());
   await step(()=>object('Vissza a szobába').click());check(await page.locator('.ascii-hotspot').count()===4,'discovered hotspots survive travel');
   const anonymous=await browser.newContext({hasTouch:true,viewport:{width:390,height:900}}),isolated=await anonymous.newPage();await anonymous.addCookies([{name:'nullpont.session-token',value:await token(other),url:origin}]);await isolated.goto(origin);check(await isolated.locator('.ascii-hotspot').count()===4&&await isolated.locator('.inventory-item').count()===0,'second account has independent progress with automatic baseline');
