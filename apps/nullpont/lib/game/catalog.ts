@@ -1,7 +1,7 @@
 import { awakening } from './chapters/awakening.ts';
 import { archive } from './chapters/archive.ts';
 import { relay } from './chapters/relay.ts';
-import type { Chapter, Requirement, GameState, Rule } from './types.ts';
+import type { Chapter, Requirement, GameState, Rule, StateText } from './types.ts';
 
 // Append AI-authored chapters here; never replace published IDs or old chapters.
 export const CHAPTERS: Chapter[] = [awakening, archive, relay];
@@ -95,7 +95,7 @@ export function createCatalog(chapters: Chapter[]) {
         if (!spot.id || ids.has(spot.id) || ![spot.row, spot.col, spot.width, spot.height].every(Number.isSafeInteger) || spot.row < 0 || spot.col < 0 || spot.width < 1 || spot.height < 1 || spot.row + spot.height > lines.length || spot.col + spot.width > columns) throw new Error('Érvénytelen ASCII-célpont.');
         ids.add(spot.id);
         if ((!spot.environment && !spot.exit) || (spot.environment && !(scene.environment ?? []).some(entity => entity.id === spot.environment)) || (spot.exit && !(scene.exits ?? []).some(exit => exit.id === spot.exit))) throw new Error('Ismeretlen ASCII-célpont.');
-        if (spot.glyph && (spot.glyph.split('\n').length > spot.height || spot.glyph.split('\n').some(line => line.length > spot.width) || /[^\x20-\x7e\n]/.test(spot.glyph))) throw new Error('Érvénytelen ASCII-részlet.');
+        for (const glyph of [spot.glyph, ...spot.glyphVariants?.map(variant => variant.text) ?? []]) if (glyph !== undefined && (glyph.split('\n').length > spot.height || glyph.split('\n').some(line => line.length > spot.width) || /[^\x20-\x7e\n]/.test(glyph))) throw new Error('Érvénytelen ASCII-részlet.');
         if (spot.actions?.some(action => !['look','take','talk','attack','use'].includes(action))) throw new Error('Érvénytelen képi akció.');
       }
       for (const entity of scene.environment ?? []) if (!scene.artSpots.some(spot => spot.environment === entity.id)) throw new Error('Hiányzó környezeti ASCII-célpont.');
@@ -123,6 +123,15 @@ export function createCatalog(chapters: Chapter[]) {
     for (const item of [...goal.requires.items ?? [], ...goal.requires.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen céltárgy.');
     for (const entity of goal.requires.discoveries ?? []) if (!discoveries.has(entity)) throw new Error('Ismeretlen célfelfedezés.');
   }
+  for (const scene of Object.values(scenes)) {
+    const variants = [...scene.descriptionVariants ?? [], ...scene.environment?.flatMap(entity => entity.descriptionVariants ?? []) ?? [], ...scene.rules.flatMap(rule => rule.messageVariants ?? []), ...scene.artSpots?.flatMap(spot => spot.glyphVariants ?? []) ?? []];
+    for (const variant of variants) {
+      if (!variant.requires || typeof variant.text !== 'string' || !variant.text.trim() || variant.text.length > 20000) throw new Error('Érvénytelen állapotfüggő szöveg.');
+      for (const flag of [...variant.requires.flags ?? [], ...variant.requires.withoutFlags ?? []]) if (!flags.has(flag)) throw new Error('Ismeretlen szövegfeltétel.');
+      for (const item of [...variant.requires.items ?? [], ...variant.requires.withoutItems ?? []]) if (!Object.hasOwn(items, item)) throw new Error('Ismeretlen szövegtárgy.');
+      for (const entity of variant.requires.discoveries ?? []) if (!discoveries.has(entity)) throw new Error('Ismeretlen szövegfelfedezés.');
+    }
+  }
   return { scenes, items, itemDescriptions, itemArt, owners, ruleOwners, flags, discoveries, portableRules, goals };
 }
 export const CATALOG = createCatalog(CHAPTERS);
@@ -133,4 +142,7 @@ export function meets(state: GameState, requirement?: Requirement) {
     (requirement.items ?? []).every(item => state.inventory.includes(item)) &&
     (requirement.withoutItems ?? []).every(item => !state.inventory.includes(item)) &&
     (requirement.discoveries ?? []).every(id => state.discoveries.includes(id));
+}
+export function textFor(state: GameState, fallback: string, variants?: StateText[]) {
+  return variants?.find(variant => meets(state, variant.requires))?.text ?? fallback;
 }
