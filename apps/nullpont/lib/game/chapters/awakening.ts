@@ -254,3 +254,14 @@ for (const scene of Object.values(awakening.scenes)) for (const rule of scene.ru
     if (first === 'threshold') rule.discover = ['hall-window'];
   }
 }
+
+// The close-up contacts are the same physical panel, not a separate mechanism.
+// Reuse effects and state-aware feedback, but keep targeting local to this view.
+for (const rule of awakening.scenes.chamber.rules.filter(rule => rule.interaction?.verb === 'use' && rule.interaction.target?.id === 'panel')) {
+  awakening.scenes['awakening:panel-detail'].rules.push({
+    ...rule,
+    id: rule.id + ':contacts',
+    requires: { ...rule.requires, discoveries: ['awakening:panel-contacts'] },
+    interaction: { ...rule.interaction!, target: { kind: 'environment', id: 'awakening:panel-contacts' } },
+  });
+}

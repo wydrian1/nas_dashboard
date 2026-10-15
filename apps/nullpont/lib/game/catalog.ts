@@ -8,6 +8,7 @@ export const CHAPTERS: Chapter[] = [awakening, archive, relay];
 export function createCatalog(chapters: Chapter[]) {
   const scenes: Chapter['scenes'] = {}, items: Record<string, string> = {}, itemDescriptions: Record<string, string> = {}, itemArt: Record<string, string> = {}, owners: Record<string, string> = {}, ruleOwners: Record<string, string> = {};
   const chapterIds = new Set<string>();
+  const ruleChapterIds: Record<string, string> = {};
   const portableRules: { rule: Rule; owner: string }[] = [], goals: NonNullable<Chapter['goals']> = [];
   for (const chapter of chapters) {
     if (chapterIds.has(chapter.id)) throw new Error('Duplikált fejezetazonosító.');
@@ -31,7 +32,10 @@ export function createCatalog(chapters: Chapter[]) {
     for (const [id, scene] of Object.entries(chapter.scenes)) {
       if (id in scenes || new Set(scene.rules.map(rule => rule.id)).size !== scene.rules.length) throw new Error('Duplikált helyszín vagy művelet.');
       scenes[id] = { ...scene, rules: [...scene.rules], artSpots: scene.artSpots ? [...scene.artSpots] : undefined }; owners[id] = chapter.title;
-      for (const rule of scene.rules) ruleOwners[`${id}:${rule.id}`] = chapter.title;
+      for (const rule of scene.rules) {
+        ruleOwners[`${id}:${rule.id}`] = chapter.title;
+        ruleChapterIds[`${id}:${rule.id}`] = chapter.id;
+      }
     }
   }
   // New exits can be attached to published rooms without rewriting old chapters.
@@ -41,6 +45,7 @@ export function createCatalog(chapters: Chapter[]) {
       if (scenes[connection.from].rules.some(existing => existing.id === rule.id)) throw new Error('Duplikált csatlakozási művelet.');
       scenes[connection.from].rules.push(rule);
       ruleOwners[`${connection.from}:${rule.id}`] = chapter.title;
+      ruleChapterIds[`${connection.from}:${rule.id}`] = chapter.id;
     }
     const scene = scenes[connection.from];
     scene.exits = [...scene.exits ?? []];
@@ -56,6 +61,7 @@ export function createCatalog(chapters: Chapter[]) {
     discoveries.add(entity.id);
   }
   const milestoneIds = new Set<string>(['awakening:wake']);
+  const sharedMilestones = new Map<string, { milestone: Rule['milestone']; owner: string }>();
   for (const [id, scene] of Object.entries(scenes)) {
     const seen = new Set<string>([id]);
     let parent = scene.detailOf;
@@ -87,7 +93,7 @@ export function createCatalog(chapters: Chapter[]) {
       } else if (rule.interaction?.input !== undefined || rule.kind === 'submit') throw new Error('Érvénytelen bevitelművelet.');
     }
   }
-  for (const scene of Object.values(scenes)) {
+  for (const [sceneId, scene] of Object.entries(scenes)) {
     if (scene.arrivalDiscoveries && (new Set(scene.arrivalDiscoveries).size !== scene.arrivalDiscoveries.length || scene.arrivalDiscoveries.some(id => !(scene.environment ?? []).some(entity => entity.id === id)))) throw new Error('Érvénytelen érkezési felfedezés.');
     if (scene.artSpots) {
       const lines = scene.art.split('\n'), columns = Math.max(...lines.map(line => line.length)), ids = new Set<string>();
@@ -107,8 +113,13 @@ export function createCatalog(chapters: Chapter[]) {
       for (const flag of [...rule.addFlags ?? [], ...rule.removeFlags ?? [], ...rule.requires?.flags ?? [], ...rule.requires?.withoutFlags ?? []]) flags.add(flag);
       for (const entity of [...rule.discover ?? [], ...rule.requires?.discoveries ?? []]) if (!discoveries.has(entity)) throw new Error('Ismeretlen felfedezés.');
       if (rule.milestone) {
-        if (milestoneIds.has(rule.milestone.id)) throw new Error('Duplikált mérföldkő.');
+        // Alternative local targets may deliberately share one milestone object,
+        // never a conflicting copy or another chapter's history entry.
+        const previous = sharedMilestones.get(rule.milestone.id);
+        const owner = ruleChapterIds[`${sceneId}:${rule.id}`];
+        if (milestoneIds.has(rule.milestone.id) && (!previous || previous.milestone !== rule.milestone || previous.owner !== owner)) throw new Error('Duplikált mérföldkő.');
         milestoneIds.add(rule.milestone.id);
+        sharedMilestones.set(rule.milestone.id, { milestone: rule.milestone, owner });
       }
     }
     for (const flag of [...scene.requires?.flags ?? [], ...scene.requires?.withoutFlags ?? []]) flags.add(flag);
