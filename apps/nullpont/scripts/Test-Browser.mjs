@@ -80,6 +80,7 @@ try{
   await page.reload();check(await page.locator('.scene-path li').count()===3&&await object('Fóliadarab').count()===1,'nested detail and breadcrumbs persist on reload');check(await object('Falpanel').count()===0,'root objects cannot be targeted in nested detail');
   await action('Fóliadarab','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('barázdák')),'loose item examination gives meaningful description');
   await action('Fóliadarab','Felveszem');check(await object('Fóliadarab').count()===0,'taken glyph disappears from scene');
+  check(await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('mélyedés üres')),'scene description acknowledges removed foil');
   await back();check(await page.locator('.scene-path li').count()===2,'back pops exactly one level');await back();check(await page.locator('.scene-path li').count()===1,'second back returns physical room');
   await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');await step(()=>page.locator('.scene-path li').first().getByRole('button').click());check(await page.locator('.scene-path li').count()===1&&await object('Falpanel').count()===1,'root breadcrumb safely returns several focus levels');
   await action('Falpanel','Megvizsgálom');await action('Huzaldarab','Felveszem');
@@ -93,12 +94,15 @@ try{
    await arm('Vezető fólia','Kombinálom');check(await page.locator('.inventory-item[aria-pressed=true]').count()===1,'combination source highlighted');await step(()=>page.locator('.inventory').getByRole('button',{name:'Szigetelt huzal',exact:true}).click());check(await page.locator('.inventory button').count()===1,'second inventory click combines inside two-level focus without a recipe menu');
    check(await page.locator('.scene-path li').count()===3,'successful combination does not leave nested detail');
    await page.reload();check(await page.locator('.scene-path li').count()===3&&await page.locator('.inventory').getByRole('button',{name:'Áthidaló hurok',exact:true}).count()===1,'nested combination and focus survive reload');
+   check(await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('mélyedés üres'))&&await object('Fóliadarab').count()===0,'crafted-away foil stays absent in text and art after reload');
    await back();await back();
   await arm('Áthidaló hurok','Használom');check(await page.locator('.item-selection').isVisible(),'armed action stays compactly in inventory');await page.getByRole('button',{name:'Kijelölés törlése'}).click();check(await page.locator('.item-selection').count()===0,'armed action can be cancelled without action box');await arm('Áthidaló hurok','Használom');await step(()=>object('Falpanel').click());
+  check(await page.locator('.scene').innerText().then(text=>text.includes('NYITVA'))&&await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('ajtó nyitva')),'open door art replaces old door and prose agrees');
   await action('Hangszóró','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('membrán')),'speaker examination is descriptive rather than generic failure');await action('Hangszóró','Beszélek');await action('Hangszóró','A kijutásról');check(await page.locator('.story').innerText().then(text=>!text.includes('Kösd össze')&&!text.includes('fólia')),'conversation no longer states the recipe');await action('Hangszóró','Ki vagyok?');await action('Hangszóró','Megtámadom');
   await object('Ajtó').hover();check(await page.locator('.context-popup .exit-label').innerText().then(text=>text.includes('→ Az ajtó felé')),'exit tooltip names movement without tutorial prose');
   await step(()=>object('Ajtó').click());await page.reload();check(await page.locator('.scene h2').textContent()==='02 · A küszöb','direct ASCII movement resumes across reload');
   check(await object('Folyosó ablaka').count()===1,'next room baseline appears without looking around');
+  await action('Folyosó ablaka','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('NEM VAGY EGYEDÜL')),'visible corridor inscription is acknowledged by examination');
   await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
   // Author-owned archive is exercised through its registered public entities;
   // answers are read only here on the fixture server, never from a browser payload.
@@ -136,6 +140,7 @@ try{
    check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
    check(await page.locator('.ascii-hotspot[data-environment="relay:loose-seal"]').count()===0,'optional seal is not exposed before investigation');
    await inspectEnvironment('relay:ledge');await action('Átlyukasztatlan pecsét','Felveszem');
+   await inspectEnvironment('relay:ledge');check(await page.locator('.story').innerText().then(text=>text.includes('már elvitted'))&&await object('Átlyukasztatlan pecsét').count()===0,'repeat press inspection reflects removed seal without respawning art');
    await operateEnvironment('left-wheel');await operateEnvironment('left-wheel');await operateEnvironment('right-wheel');await inspectEnvironment('relay:alignment');await travel('relay:dispatch');
    check(currentState().room==='relay:dispatch-room','spatial counterweight puzzle opens the dispatch route');
    await operateEnvironment('name-tray');await operateEnvironment('correction-tray');check(!currentState().flags.includes('relay:request-sent'),'wrong semantic trays cannot silently submit a request');

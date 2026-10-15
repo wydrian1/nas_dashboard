@@ -129,3 +129,21 @@ export const relay: Chapter = {
     },
   },
 };
+
+relay.scenes[id('well-room')].rules.find(rule => rule.id === id('look:ledge'))!.messageVariants = [{ requires: { items: [id('blank-seal')] }, text: 'A félrebillentett prés alatt üres a kerek mélyedés. A pecsétet már elvitted; csak fémforgács és a nyomólap fordított lépcsőjele maradt.' }];
+relay.scenes[id('interval-room')].artSpots!.find(spot => spot.exit === id('well'))!.glyphVariants = [{ requires: phase(['rhythm-open']), text: '|     |\n|     |\n|_____|' }];
+for (const side of ['left', 'right']) {
+  const entity = relay.scenes[id('well-room')].environment!.find(entity => entity.id === id(`${side}-wheel`))!;
+  entity.descriptionVariants = [
+    { requires: phase([`${side}-high`]), text: `A ${side === 'left' ? 'villa' : 'keresztgerenda'} a felső ütközőnél áll. A racsni tartja a kötelet; a következő fordítás az alsó jelhez engedi vissza.` },
+    { requires: phase([`${side}-mid`]), text: `A ${side === 'left' ? 'villa' : 'keresztgerenda'} a középső ütközőnél áll. A kötél feszes; a következő fordítás a felső jelhez emeli.` },
+    { requires: {}, text: `A ${side === 'left' ? 'villa' : 'keresztgerenda'} az alsó ütközőnél áll. A háromállású kézikerék egy fordítása a középső jelhez emeli.` },
+  ];
+}
+relay.scenes[id('dispatch-room')].environment!.find(entity => entity.id === id('missing-tray'))!.descriptionVariants = [{ requires: phase(['request-sent']), text: 'A bekérőlap két számhelyén 09 áll; mellette az átvételi négyzet. A továbbított példány már nincs a vályúban. A névmező továbbra is hiányzik: nem kérték.' }];
+relay.scenes[id('interval-room')].descriptionVariants = [{ requires: phase(['rhythm-open']), text: 'A túlsó ajtó mindhárom retesze behúzódott; a rögzítőnyelv nyitva tartja. A falon az ütőnyelv, a kettős villa és az üres foglalat feszes hártyája. A por lábnyomai nem változtak.' }];
+relay.scenes[id('well-room')].descriptionVariants = [{ requires: phase(['lift-ready']), text: 'A felvonókosár már a járdához rögzítve vár; a külön sínbe ült fék megtartja. A kézikerekek tovább állíthatják a villa és a keresztgerenda köteleit. A falon megmaradtak a krétakörvonalak.' }];
+for (const rule of relay.scenes[id('well-room')].rules.filter(rule => rule.kind === 'look' && rule.interaction?.target?.id === id('alignment'))) rule.messageVariants = [{ requires: phase(['lift-ready']), text: 'A felvonókosarat a járdánál a külön sínbe ült rögzítőfék tartja. A kötelek mostani helyzete már nem oldja vissza a féket; a krétán továbbra is a villa felső és a keresztgerenda középső körvonala találkozik.' }];
+relay.scenes[id('dispatch-room')].descriptionVariants = [{ requires: phase(['request-sent']), text: 'A NÉV, JAVÍTÁS és HIÁNY tálca fölött megállt a másolókéz. Az indigós lapon a bekérés 09-es jelölése és az átvételi négyzet. A Fogadóállomás ajtaja nyitva áll.' }];
+relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('submit:missing'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A bekérés 09-es jelölése mellett már ott az átvételi négyzet. A másolatot továbbítottad; a Fogadóállomás ajtaja nyitva marad.' }];
+relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('use:missing-tray:press'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A tálca a már kitöltött bekérés másolatát tolja előre. A 09 mellett átvételi négyzet áll; személynév nincs a lapon.' }];

@@ -1,5 +1,5 @@
 // Generic deterministic engine: story, puzzles and milestone prose live in chapters.
-import { CATALOG, meets, type AdventureCatalog } from './catalog.ts';
+import { CATALOG, meets, textFor, type AdventureCatalog } from './catalog.ts';
 import { INTRO, OPENING_ENTRY } from './chapters/awakening.ts';
 import type { GameAction, GameState, StoryEntry, PlayerCommand } from './types.ts';
 export type { GameAction, GameState, StoryEntry } from './types.ts';
@@ -43,7 +43,7 @@ export function applyAction(current: GameState, actionId: string, catalog: Adven
   const rule = contextRules(current, catalog).find(rule => rule.id === actionId && meets(current, rule.requires));
   if (!rule) throw new Error('Ez a művelet most nem érhető el.');
   if (rule.kind === 'submit' && (submittedInput === undefined || submittedInput !== rule.interaction?.input)) throw new Error('A művelethez pontos bevitel szükséges.');
-  const state: GameState = { ...current, inventory: [...current.inventory], flags: [...current.flags], discoveries: [...current.discoveries], journal: [...current.journal], book: [...current.book], turns: current.turns + 1, message: rule.message };
+  const state: GameState = { ...current, inventory: [...current.inventory], flags: [...current.flags], discoveries: [...current.discoveries], journal: [...current.journal], book: [...current.book], turns: current.turns + 1, message: textFor(current, rule.message, rule.messageVariants) };
   state.inventory = [...new Set([...state.inventory.filter(item => !(rule.removeItems ?? []).includes(item)), ...rule.addItems ?? []])];
   state.flags = [...new Set([...state.flags.filter(flag => !(rule.removeFlags ?? []).includes(flag)), ...rule.addFlags ?? []])];
   state.discoveries = [...new Set([...state.discoveries, ...rule.discover ?? []])];
@@ -97,7 +97,8 @@ export function applyCommand(state: GameState, command: PlayerCommand, catalog: 
     if (command.target || command.item || command.topic || command.input !== undefined || !state.focus?.length || (command.levels ?? 1) > state.focus.length) throw new Error('Innen nem lehet hátrébb lépni.');
     const next = { ...state, focus: state.focus.slice(0, -(command.levels ?? 1)), turns: state.turns + 1 };
     if (!next.focus.length) delete (next as GameState).focus;
-    next.message = catalog.scenes[activeSceneId(next)].description;
+    const scene = catalog.scenes[activeSceneId(next)];
+    next.message = textFor(next, scene.description, scene.descriptionVariants);
     return observeRoom(next, catalog);
   }
   const scene = catalog.scenes[activeSceneId(state)];
@@ -126,9 +127,9 @@ export function applyCommand(state: GameState, command: PlayerCommand, catalog: 
   if (command.verb === 'submit') return { ...state, message: 'A bevitel nem nyitja meg.' };
   if (command.verb === 'look' && command.target?.kind === 'environment' && !command.item && !command.topic) {
     const entity = scene.environment!.find(entry => entry.id === command.target!.id)!;
-    return { ...state, turns: state.turns + 1, message: entity.description || `${entity.label}. ${scene.description}` };
+    return { ...state, turns: state.turns + 1, message: textFor(state, entity.description || `${entity.label}. ${textFor(state, scene.description, scene.descriptionVariants)}`, entity.descriptionVariants) };
   }
   if (command.verb === 'look' && command.target?.kind === 'item' && !command.item && !command.topic) return { ...state, turns: state.turns + 1, message: catalog.itemDescriptions[command.target.id] || `${catalog.items[command.target.id]}. Közelebbről is szemügyre veszed; egyelőre nem találsz rajta új részletet.` };
-  if (command.verb === 'look' && !command.target && !command.item && !command.topic) return { ...state, turns: state.turns + 1, message: scene.description };
+  if (command.verb === 'look' && !command.target && !command.item && !command.topic) return { ...state, turns: state.turns + 1, message: textFor(state, scene.description, scene.descriptionVariants) };
   return { ...state, turns: state.turns + 1, message: 'Nem történik változás.' };
 }
