@@ -21,3 +21,18 @@ The owner requires every project modification to be represented in GitHub after 
 - Do not restart/deploy production services solely to make a source commit or PR. Deployment is a separate action within the user's requested task and must retain the existing data-preservation and rollback checks.
 - Git and GitHub CLI are project-local: `.runtime/git/cmd/git.exe` and `.runtime/github-cli/bin/gh.exe`. Node 24 is under `.runtime/node-v24*-win-x64`. Use their explicit paths or a process-local PATH; do not change the system PATH unnecessarily.
 - For `gh` issue/PR text, prefer `--body-file` in a private, ignored working directory or the approved OpenCode temporary directory. Authentication is through the existing GitHub CLI login; never embed a token in a remote URL or source/configuration file.
+
+## NULLPONT post-release player review
+
+After every successful NULLPONT deployment/release, launch the fresh blind
+`nullpont-player-reviewer` subagent using `docs/nullpont-player-review.md` and
+`.opencode/agents/nullpont-player-reviewer.md`. It plays an isolated synthetic
+copy of the exact installed release for at most ten minutes and reports story,
+puzzles, UI and difficulty scores plus actionable developer-only observations.
+This is advisory, not a deployment/notification gate: timeout, low scores or
+unavailability must be recorded honestly but do not delay success announcements
+or roll back a healthy release. Do not expose solutions/private plot, touch real
+player saves, extend its timer or implement its suggestions without task scope.
+NULLPONT has no real ending yet: stop when further progression is not possible,
+distinguishing the current content boundary from puzzle blockage or uncertainty;
+never report any of these as the story's ending.

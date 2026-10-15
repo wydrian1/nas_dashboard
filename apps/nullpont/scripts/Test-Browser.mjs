@@ -1,0 +1,178 @@
+// Entirely isolated app installation/build, synthetic database and identities.
+import { mkdtempSync, mkdirSync, cpSync, symlinkSync, unlinkSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createServer } from 'node:net';
+import { spawn } from 'node:child_process';
+import { randomBytes, createHash } from 'node:crypto';
+import { createServer as httpServer } from 'node:http';
+import { DatabaseSync } from 'node:sqlite';
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { sessionToken } from '../lib/session.ts';
+import { initializeDatabase } from '../lib/schema.ts';
+import { CATALOG, meets } from '../lib/game/catalog.ts';
+const root=process.cwd(),temporary=process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir();mkdirSync(temporary,{recursive:true});
+const fixture=mkdtempSync(join(temporary,'nullpont-browser-'));
+const socket=createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
+const basePath=process.env.NULLPONT_BASE_PATH||'',origin='http://127.0.0.1:'+port+basePath,secret=randomBytes(32).toString('base64url'),owner='one@example.test',other='two@example.test';
+const bridgeSecret=randomBytes(32).toString('base64url'),codes=new Map();let exchanges=0;
+const dashboard=httpServer(async(request,response)=>{
+  const url=new URL(request.url,'http://127.0.0.1');
+  if(url.pathname==='/api/nullpont/authorize'){
+    const code=randomBytes(32).toString('base64url');codes.set(code,url.searchParams.get('challenge'));
+    const callback=new URL(origin+'/api/sso/callback');callback.searchParams.set('state',url.searchParams.get('state'));callback.searchParams.set('code',code);
+    response.writeHead(303,{Location:callback.href});response.end();return;
+  }
+  if(url.pathname==='/api/nullpont/redeem'&&request.method==='POST'&&request.headers.authorization==='Bearer '+bridgeSecret){
+    let body='';for await(const chunk of request)body+=chunk;
+    const {code,verifier}=JSON.parse(body);
+    if(codes.get(code)===createHash('sha256').update(verifier).digest('base64url')){codes.delete(code);exchanges++;response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify({email:owner}));return;}
+  }
+  response.writeHead(401);response.end();
+});await new Promise(resolve=>dashboard.listen(0,'127.0.0.1',resolve));const dashboardOrigin='http://127.0.0.1:'+dashboard.address().port;
+cpSync(join(root,'.next-staging'),join(fixture,'.next'),{recursive:true,filter:path=>path!==join(root,'.next-staging','cache')});
+symlinkSync(join(root,'node_modules'),join(fixture,'node_modules'),process.platform==='win32'?'junction':'dir');
+writeFileSync(join(fixture,'package.json'),' {"type":"module"}');writeFileSync(join(fixture,'next.config.mjs'),'export default {distDir:".next",basePath:'+JSON.stringify(basePath)+'}');mkdirSync(join(fixture,'data'));
+const database=new DatabaseSync(join(fixture,'data/nullpont.sqlite'));initializeDatabase(database);database.exec('PRAGMA journal_mode=WAL');
+for(const email of [owner,other])database.prepare('INSERT INTO players VALUES(?,1)').run(email);
+const child=spawn(process.execPath,[join(root,'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',String(port)],{cwd:fixture,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,AUTH_URL:origin,AUTH_SECRET:secret,NULLPONT_DASHBOARD_URL:dashboardOrigin,NULLPONT_SSO_SECRET:bridgeSecret,NULLPONT_DATA_DIR:join(fixture,'data'),NULLPONT_ALLOWED_EMAILS:'',NEXT_TELEMETRY_DISABLED:'1',DASHBOARD_BUILD_DIR:''}});
+let log='',browser,checks=0;for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{log+=chunk;});
+const check=(value,message)=>{assert.ok(value,message);checks++;};
+try{
+  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Fixture startup timeout')),30000);child.once('exit',()=>{clearTimeout(timer);reject(new Error('Fixture exited'));});child.stdout.on('data',()=>{if(log.includes('Ready in')){clearTimeout(timer);resolve();}});});
+  browser=await chromium.launch({headless:true});
+  const token=async email=>sessionToken(email,secret);
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.route('**/*',route=>[origin,dashboardOrigin].some(base=>{const value=route.request().url();return value===base||value.startsWith(base+'/')||value.startsWith(base+'?');})?route.continue():route.abort());
+  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(origin+'/?signedout=1');check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'signed out notice has dashboard continuation');
+  await context.addCookies([{name:'authjs.session-token',value:await token(owner),url:origin}]);await page.reload();check(await page.getByRole('button',{name:'Folytatás a dashboard-belépéssel'}).count()===1,'dashboard cookie cannot log into standalone app');
+  await page.goto(origin);await page.locator('.game-grid').waitFor().catch(()=>{throw new Error('Handoff failed at '+new URL(page.url()).pathname+'; '+log.slice(-1600));});check(exchanges===1,'automatic PKCE handoff establishes local session without Google prompt');
+  check(!new URL(page.url()).search,'callback code removed from browser address');
+  const cookie=(await context.cookies()).find(cookie=>cookie.name==='nullpont.session-token');check(cookie?.httpOnly&&cookie?.sameSite==='Lax'&&cookie?.path===(basePath||'/'),'local session is HttpOnly SameSite Lax and path scoped');
+  await page.goto(origin+'/api/sso/callback?state=forged&code='+'a'.repeat(43));await page.waitForURL(url=>url.searchParams.get('sso')==='failed');check(exchanges===1,'forged callback does not redeem');await page.goto(origin);
+  check(await page.locator('.ascii-hotspot').count()===4,'baseline objects visible immediately on arrival');
+  check(await page.locator('.environment,.movement').count()===0,'separate environment/movement menus removed');
+  check(await page.locator('.actions,.map-toolbar,.scene-heading [role=status]').count()===0&&await page.getByRole('button',{name:'Körülnézek',exact:true}).count()===0,'tutorial, save-step label and action box removed');
+  const sceneBox=await page.locator('.scene').boundingBox(),inventoryBox=await page.locator('.inventory').boundingBox();check(inventoryBox.x>=sceneBox.x+sceneBox.width&&Math.abs(inventoryBox.y-sceneBox.y)<2,'desktop inventory sits right of the scene');
+  check(!await page.locator('body').innerText().then(text=>text.includes('Fólia + huzal')),'no recipe spoiler');
+  for(const width of [1440,800,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no overflow '+width);if(process.env.NULLPONT_SCREENSHOT_DIR&&[1440,390].includes(width))await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});}
+  await page.setViewportSize({width:1440,height:1000});
+  let revision=0;
+  const saved=async(page,expected)=>page.locator(`.game-grid[data-revision="${expected}"][aria-busy="false"]`).waitFor();
+  const step=async action=>{await action();revision++;await saved(page,revision);};
+  const object=label=>page.locator('.ascii-canvas').getByRole('button',{name:label,exact:true});
+  const action=async(label,verb)=>{if(await object(label).getAttribute('data-exit')){await page.locator('.scene h2').hover();await object(label).hover();}else await object(label).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
+  const inspectEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="${id}"]`).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom',exact:true}).click());};
+  const back=async()=>step(()=>page.getByRole('button',{name:'Vissza egy szinttel',exact:true}).click());
+  const arm=async(label,verb)=>{await page.locator('.inventory').getByRole('button',{name:label,exact:true}).click();await page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click();};
+  const stale=await context.newPage();await stale.goto(origin);
+  const sent=page.waitForRequest(request=>request.method()==='POST'&&!!request.headers()['next-action']);
+  await action('Ajtó','Megvizsgálom');const request=await sent;
+  await stale.locator('.ascii-canvas').getByRole('button',{name:'Ajtó',exact:true}).hover();await stale.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click();await stale.getByRole('alert').filter({hasText:'Másik böngészőfülben'}).waitFor();check(await stale.locator('.game-grid').getAttribute('data-revision')==='1','stale tab cannot overwrite');await stale.close();
+  check(await page.locator('.ascii-hotspot').count()===4,'inspection does not reveal unrelated hidden objects');
+  await object('Fekvőlap').hover();await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).waitFor();check(await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).count()===1,'mouseover shows object name and actions');
+  check(await page.locator('.context-popup .popup-actions button').evaluateAll(buttons=>buttons.every(button=>button.querySelector('svg')&&!button.textContent.trim()&&button.getAttribute('aria-label')&&button.getAttribute('title'))),'compact icon actions keep accessible names and tooltips');
+  await object('Fekvőlap').focus();await page.keyboard.press('ArrowDown');await page.waitForFunction(()=>document.activeElement?.matches('.context-popup button'));check(await page.locator('.context-popup').getByRole('button').first().evaluate(element=>document.activeElement===element),'keyboard can enter popup actions');await page.keyboard.press('Escape');await page.locator('.context-popup').waitFor({state:'detached'});check(await page.locator('.context-popup').count()===0,'Escape closes popup without reopening on focus');
+  await action('Fekvőlap','Megvizsgálom');check(await object('Fóliadarab').count()===0,'first detail does not leak deeper pickup');check(await page.locator('.scene-path li').count()===2,'first detail shows physical room and detail breadcrumb');
+  await inspectEnvironment('awakening:bed-rim-edge');check(await object('Fóliadarab').count()===1,'second-level inspection reveals item glyph/hotspot');check(await page.locator('.scene-path li').count()===3,'nested detail shows complete orientation');
+  await page.reload();check(await page.locator('.scene-path li').count()===3&&await object('Fóliadarab').count()===1,'nested detail and breadcrumbs persist on reload');check(await object('Falpanel').count()===0,'root objects cannot be targeted in nested detail');
+  await action('Fóliadarab','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('barázdák')),'loose item examination gives meaningful description');
+  await action('Fóliadarab','Felveszem');check(await object('Fóliadarab').count()===0,'taken glyph disappears from scene');
+  check(await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('mélyedés üres')),'scene description acknowledges removed foil');
+  await back();check(await page.locator('.scene-path li').count()===2,'back pops exactly one level');await back();check(await page.locator('.scene-path li').count()===1,'second back returns physical room');
+  await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');await step(()=>page.locator('.scene-path li').first().getByRole('button').click());check(await page.locator('.scene-path li').count()===1&&await object('Falpanel').count()===1,'root breadcrumb safely returns several focus levels');
+  await action('Falpanel','Megvizsgálom');await action('Huzaldarab','Felveszem');
+  await page.reload();check(await page.locator('.inventory button').count()===2,'inventory and discoveries resume');
+  await back();
+  check(await page.locator('.inventory-item').first().innerText().then(text=>!text.includes('fólia')),'inventory displays ASCII objects rather than permanent name labels');
+  await page.locator('.inventory').getByRole('button',{name:'Vezető fólia',exact:true}).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click());check(await page.locator('.story').innerText().then(text=>text.includes('hang hullámai')),'inventory examination has meaningful description');
+  await arm('Vezető fólia','Használom');await step(()=>object('Hangszóró').click());check(await page.locator('.inventory button').count()===2,'failed targeted use consumes nothing');
+  if(process.env.NULLPONT_SCREENSHOT_DIR){await page.setViewportSize({width:1440,height:1000});await object('Falpanel').hover();await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-exploration-1440.png'),fullPage:true});}
+   await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');
+   await arm('Vezető fólia','Kombinálom');check(await page.locator('.inventory-item[aria-pressed=true]').count()===1,'combination source highlighted');await step(()=>page.locator('.inventory').getByRole('button',{name:'Szigetelt huzal',exact:true}).click());check(await page.locator('.inventory button').count()===1,'second inventory click combines inside two-level focus without a recipe menu');
+   check(await page.locator('.scene-path li').count()===3,'successful combination does not leave nested detail');
+   await page.reload();check(await page.locator('.scene-path li').count()===3&&await page.locator('.inventory').getByRole('button',{name:'Áthidaló hurok',exact:true}).count()===1,'nested combination and focus survive reload');
+   check(await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('mélyedés üres'))&&await object('Fóliadarab').count()===0,'crafted-away foil stays absent in text and art after reload');
+   await back();await back();
+   await action('Falpanel','Megvizsgálom');await page.reload();
+   await arm('Áthidaló hurok','Használom');check(await page.locator('.item-selection').isVisible(),'armed action stays compactly in inventory');await page.getByRole('button',{name:'Kijelölés törlése'}).click();check(await page.locator('.item-selection').count()===0,'armed action can be cancelled without action box');await arm('Áthidaló hurok','Használom');await step(()=>object('Érintkezők').click());
+   check(await page.locator('.story').innerText().then(text=>text.includes('Az ajtó kinyílik')),'loop operates on the actual zoomed contacts after reload');
+   check(await page.locator('.scene-path li').count()===2&&await page.locator('.inventory').getByRole('button',{name:'Áthidaló hurok',exact:true}).count()===1,'contact use preserves zoom and loop');
+   await page.reload();await arm('Áthidaló hurok','Használom');await step(()=>object('Érintkezők').click());
+   check(await page.locator('.story').innerText().then(text=>text.includes('már nyitva')),'repeated close-up use remembers the open door');
+   await back();await arm('Áthidaló hurok','Használom');await step(()=>object('Falpanel').click());
+  check(await page.locator('.scene').innerText().then(text=>text.includes('NYITVA'))&&await page.locator('.ascii-canvas').getAttribute('aria-label').then(text=>text.includes('ajtó nyitva')),'open door art replaces old door and prose agrees');
+  await action('Hangszóró','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('membrán')),'speaker examination is descriptive rather than generic failure');await action('Hangszóró','Beszélek');await action('Hangszóró','A kijutásról');check(await page.locator('.story').innerText().then(text=>!text.includes('Kösd össze')&&!text.includes('fólia')),'conversation no longer states the recipe');await action('Hangszóró','Ki vagyok?');await action('Hangszóró','Megtámadom');
+  await object('Ajtó').hover();check(await page.locator('.context-popup .exit-label').innerText().then(text=>text.includes('→ Az ajtó felé')),'exit tooltip names movement without tutorial prose');
+  await step(()=>object('Ajtó').click());await page.reload();check(await page.locator('.scene h2').textContent()==='02 · A küszöb','direct ASCII movement resumes across reload');
+  check(await object('Folyosó ablaka').count()===1,'next room baseline appears without looking around');
+  await action('Folyosó ablaka','Megvizsgálom');check(await page.locator('.story').innerText().then(text=>text.includes('NEM VAGY EGYEDÜL')),'visible corridor inscription is acknowledged by examination');
+  await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
+  // Author-owned archive is exercised through its registered public entities;
+  // answers are read only here on the fixture server, never from a browser payload.
+  const archiveEntry=CATALOG.scenes.threshold.rules.find(rule=>rule.moveTo&&CATALOG.scenes[rule.moveTo]?.detailOf===undefined&&rule.moveTo.startsWith('archive:'));
+  check(!!archiveEntry?.interaction?.target,'archive chapter registered for real browser coverage');
+  await step(()=>page.locator(`.ascii-hotspot[data-exit="${archiveEntry.interaction.target.id}"]`).click());
+  let testedInputs=0,testedNested=false;const visited=new Set();
+  const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
+  async function exploreArchive(){
+    const state=currentState(),id=state.focus?.at(-1)??state.room,scene=CATALOG.scenes[id];visited.add(id);
+    if(state.focus?.length>=2){testedNested=true;await page.reload();check(await page.locator('.scene-path li').count()===state.focus.length+1,'archive nested focus survives reload');}
+    for(const input of scene.inputs??[]){
+      if(!meets(currentState(),input.requires)||await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).count()===0)continue;
+      const answer=scene.rules.find(rule=>rule.interaction?.verb==='submit'&&rule.interaction.target?.id===input.id&&meets(currentState(),rule.requires))?.interaction.input;
+      check(typeof answer==='string','visible archive keypad has server rule');
+      const before=currentState();await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).click();const field=page.locator('.scene-input input');await field.fill(answer==='0'?'1':'0');await step(()=>page.locator('.scene-input button[type=submit]').click());check(JSON.stringify(currentState().inventory)===JSON.stringify(before.inventory)&&JSON.stringify(currentState().flags)===JSON.stringify(before.flags),'wrong keypad input changes no items or flags');
+      await page.locator(`.ascii-hotspot[data-environment="${input.id}"]`).click();await page.locator('.scene-input input').fill(answer);await step(()=>page.locator('.scene-input input').press('Enter'));check(currentState().turns===before.turns+1,'correct keyboard submission executes exactly once');testedInputs++;
+    }
+    for(const rule of scene.rules.filter(rule=>rule.focusTo&&rule.interaction?.target)){
+      if(visited.has(rule.focusTo)||!meets(currentState(),rule.requires)||await page.locator(`.ascii-hotspot[data-environment="${rule.interaction.target.id}"]`).count()===0)continue;
+      await inspectEnvironment(rule.interaction.target.id);await exploreArchive();await back();
+    }
+  }
+   await exploreArchive();check(testedNested,'archive has real two-level inspect coverage');check(testedInputs>0,'archive keypad wrong and correct submissions covered');
+   // Follow the complete new route via real UI actions; no production save or injected progress.
+   const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
+   const operateEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="relay:${id}"]`).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Működtetem',exact:true}).click());};
+   const submitRelay=async value=>{await page.locator('.ascii-hotspot[data-environment="relay:missing-tray"]').click();await page.locator('.scene-input input').fill(value);await step(()=>page.locator('.scene-input input').press('Enter'));};
+   await travel('archive:records');await travel('relay:entry');
+   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('Fogadóállomás')),'earned destination is visible immediately on the new route');
+   await inspectEnvironment('relay:notice');await inspectEnvironment('relay:clock');await inspectEnvironment('relay:cam');
+   check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
+   await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
+   await operateEnvironment('single');await operateEnvironment('double');await inspectEnvironment('relay:rest');await travel('relay:well');
+   check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
+   check(await page.locator('.ascii-hotspot[data-environment="relay:loose-seal"]').count()===0,'optional seal is not exposed before investigation');
+   await inspectEnvironment('relay:ledge');await action('Átlyukasztatlan pecsét','Felveszem');
+   await inspectEnvironment('relay:ledge');check(await page.locator('.story').innerText().then(text=>text.includes('már elvitted'))&&await object('Átlyukasztatlan pecsét').count()===0,'repeat press inspection reflects removed seal without respawning art');
+   await operateEnvironment('left-wheel');await operateEnvironment('left-wheel');await operateEnvironment('right-wheel');await inspectEnvironment('relay:alignment');await travel('relay:dispatch');
+   check(currentState().room==='relay:dispatch-room','spatial counterweight puzzle opens the dispatch route');
+   await operateEnvironment('name-tray');await operateEnvironment('correction-tray');check(!currentState().flags.includes('relay:request-sent'),'wrong semantic trays cannot silently submit a request');
+   await inspectEnvironment('relay:house-rule');await submitRelay('90');check(!currentState().flags.includes('relay:request-sent'),'wrong local designation leaves the request unchanged');
+   await submitRelay('09');await travel('relay:receiver');await inspectEnvironment('relay:reply');
+   check(currentState().room==='relay:receiver-room'&&currentState().flags.includes('relay:received'),'all five new physical scenes yield an earned reply');
+   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('olvasó')),'concrete progress updates the next direction without a puzzle recipe');
+   const relayBook=currentState().book;await page.reload();check(JSON.stringify(currentState().book)===JSON.stringify(relayBook)&&await page.getByLabel('Jelenlegi cél',{exact:true}).isVisible(),'goal and milestone pages persist across reload');
+   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'goal/new scene has no overflow '+width);}await page.setViewportSize({width:1440,height:1000});
+   for(const id of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return'])await travel(id);
+   check(currentState().inventory.includes('relay:blank-seal'),'optional carried item survives the complete route and return');
+  const archiveState=currentState(),archiveScene=CATALOG.scenes[archiveState.room],returnRule=archiveScene.rules.find(rule=>rule.moveTo==='threshold'&&meets(archiveState,rule.requires));check(!!returnRule?.interaction?.target,'archive return exit remains available');await step(()=>page.locator(`.ascii-hotspot[data-exit="${returnRule.interaction.target.id}"]`).click());
+  await step(()=>object('Vissza a szobába').click());check(await page.locator('.ascii-hotspot').count()===4,'discovered hotspots survive travel');
+  const anonymous=await browser.newContext({hasTouch:true,viewport:{width:390,height:900}}),isolated=await anonymous.newPage();await anonymous.addCookies([{name:'nullpont.session-token',value:await token(other),url:origin}]);await isolated.goto(origin);check(await isolated.locator('.ascii-hotspot').count()===4&&await isolated.locator('.inventory-item').count()===0,'second account has independent progress with automatic baseline');
+  await isolated.locator('.ascii-canvas').getByRole('button',{name:'Fekvőlap',exact:true}).tap();check(await isolated.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).isVisible(),'touch reveals icon actions without hover');await isolated.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).tap();await saved(isolated,1);
+  const otherBefore=database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(other).state_json;
+  const beforeCancel=database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json;await page.getByRole('button',{name:'Játék újrakezdése'}).click();check(await page.getByRole('dialog',{name:'Biztosan elölről kezded?'}).isVisible(),'restart requires explicit confirmation');await page.getByRole('button',{name:'Mégsem',exact:true}).click();check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===beforeCancel,'cancel reset preserves progress');
+  const staleReset=await context.newPage();await staleReset.goto(origin);await action('Hangszóró','Megvizsgálom');const freshBeforeReset=database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json;
+  await staleReset.getByRole('button',{name:'Játék újrakezdése'}).click();await staleReset.getByRole('button',{name:'Igen, elölről kezdem'}).click();await staleReset.getByRole('alert').filter({hasText:'Az újrakezdés nem történt meg'}).waitFor();check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===freshBeforeReset,'stale reset cannot erase newer progress');
+  await page.getByRole('button',{name:'Játék újrakezdése'}).click();const resetSent=page.waitForRequest(request=>request.method()==='POST'&&!!request.headers()['next-action']);await page.getByRole('button',{name:'Igen, elölről kezdem'}).click();const resetRequest=await resetSent;revision++;await saved(page,revision);check(await page.locator('.ascii-hotspot').count()===4&&await page.locator('.inventory-item').count()===0,'reset restores automatic baseline and empty inventory');check(await page.locator('.book article').count()===1,'reset restores opening book only');
+  await page.reload();check(await page.locator('.story').innerText().then(text=>text.includes('Hideg padlón ébredsz')),'reset opening persists after reload');check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(other).state_json===otherBefore,'reset isolates accounts');
+  await staleReset.locator('.ascii-canvas').getByRole('button',{name:'Fekvőlap',exact:true}).click();await staleReset.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click();await staleReset.getByRole('alert').filter({hasText:'Másik böngészőfülben'}).waitFor();check(await staleReset.locator('.game-grid').getAttribute('data-revision')===String(revision),'pre-reset tab cannot overwrite restarted game');await staleReset.close();await anonymous.close();
+  const before=database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json;
+  const blocked=await fetch(origin+'/',{method:'POST',headers:{'next-action':request.headers()['next-action'],'content-type':request.headers()['content-type'],cookie:'nullpont.session-token='+await token(owner),origin:'https://foreign.example.test'},body:request.postData()});await blocked.body?.cancel();check(blocked.status>=400,'cross-origin server action rejected');check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===before,'CSRF attempt preserves progress');
+  const blockedReset=await fetch(origin+'/',{method:'POST',headers:{'next-action':resetRequest.headers()['next-action'],'content-type':resetRequest.headers()['content-type'],cookie:'nullpont.session-token='+await token(owner),origin:'https://foreign.example.test'},body:resetRequest.postData()});await blockedReset.body?.cancel();check(blockedReset.status>=400,'cross-origin reset rejected');
+  database.prepare('UPDATE players SET enabled=0 WHERE email=?').run(owner);await object('Fekvőlap').click();await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click();await page.getByRole('alert').filter({hasText:'hozzáférés megszűnt'}).waitFor();check(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json===before,'revoked session cannot advance game');
+  check(errors.length===0,'no browser errors: '+errors.join(', '));await context.close();
+  console.log(JSON.stringify({passed:true,checks,independentInstallation:true,syntheticDatabase:true,noProductionChanges:true}));
+}finally{if(browser)await browser.close();await new Promise(resolve=>dashboard.close(resolve));database.close();child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('exit',resolve));unlinkSync(join(fixture,'node_modules'));rmSync(fixture,{recursive:true,force:true});}

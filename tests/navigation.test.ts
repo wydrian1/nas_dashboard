@@ -28,6 +28,7 @@ function component(path:string) {
     if(name==='./dashboard-search.css')return {};
     if(name==='@/lib/section-order')return require('../lib/section-order.ts');
     if(name==='@/lib/section-controls')return require('../lib/section-controls.ts');
+    if(name==='@/lib/nullpont-link')return require('../lib/nullpont-link.ts');
     if(name==='./action-form')return {
       ActionForm:({children,className}:any)=>React.createElement('form',{className},children),
       ActionButton:({children,className}:any)=>React.createElement('button',{className},children)

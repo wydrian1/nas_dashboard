@@ -126,6 +126,14 @@ Minden módosítás külön task branch és `main` célú PR útján kerül GitH
 
 A jóváhagyott kiadás a [delegált élesítési folyamatot](docs/delegated-deployment.md) használja: pontos commit, elkülönített ellenőrzés, hash-elt csomag, konzisztens SQLite-mentés, érintett komponensek cseréje és utóellenőrzés. A régi web/worker/APK visszaállítható; hibánál **nem állítunk vakon vissza teljes adatbázist**. Nem építünk az élő `.next` fölé, és nem indítjuk újra az OpenCode-ot vagy a médiaszolgáltatásokat egy dashboardfrissítés miatt.
 
+## NULLPONT
+
+A [NULLPONT kalandjáték](apps/nullpont/README.md) önállóan telepíthető alkalmazás,
+dashboard-belépést átvevő saját munkamenettel, adatbázissal és kiadási csomaggal.
+Új Google OAuth-kliens nem kell. A dashboard `NULLPONT_URL` hivatkozást és
+egyszer használható, PKCE-hez kötött belépésátadást biztosít; nem futtat játékmotort. A régi játékállások
+adatmegőrző importtal átvihetők. [Leválasztási és történeti megállapodás](docs/nullpont-adventure.md).
+
 A napi mentés online SQLite-pillanatképet és védett fájlokat archivál, AES-256-GCM titkosítással és próba-visszaállítással. Az engedélyezett Google Drive-feltöltés csak titkosított archívumot küld, visszaolvasott hash-ellenőrzéssel. A `/system` kizárólag olvasható, érvényes mentési bizonyítékot minősít sikernek; hiányzó vagy olvashatatlan későbbi státusz nem zöld állapot.
 
 **A recovery-kulcs és a kulcs nélküli helyreállító készlet külön, szerveren kívüli példányban is szükséges.** A RAID nem backup. Helyreállítás csak új célmappába történhet; futó SQLite-ból nem elegendő a fő `.sqlite` fájlt lemásolni. A hosting tartalma és adatbázis-metaadata együtt mentendő.
