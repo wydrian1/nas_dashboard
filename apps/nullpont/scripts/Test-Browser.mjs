@@ -113,6 +113,14 @@ try{
   await back();
   check(await page.locator('.inventory-item').first().innerText().then(text=>!text.includes('fólia')),'inventory displays ASCII objects rather than permanent name labels');
   await page.locator('.inventory').getByRole('button',{name:'Vezető fólia',exact:true}).click();await step(()=>page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom'}).click());check(await page.locator('.story').innerText().then(text=>text.includes('hang hullámai')),'inventory examination has meaningful description');
+  const lowItem=page.locator('.inventory').getByRole('button',{name:'Vezető fólia',exact:true}),lowItemBefore=await lowItem.boundingBox();
+  await page.setViewportSize({width:1440,height:Math.max(240,Math.round(lowItemBefore.y+lowItemBefore.height+60))});
+  await lowItem.hover();const lowPopup=page.locator('.context-popup');await lowPopup.waitFor();
+  const lowItemBox=await lowItem.boundingBox(),lowPopupBox=await lowPopup.boundingBox();
+  const popupGap=lowPopupBox.y>=lowItemBox.y+lowItemBox.height?lowPopupBox.y-(lowItemBox.y+lowItemBox.height):lowItemBox.y-(lowPopupBox.y+lowPopupBox.height);
+  check(popupGap>=0&&popupGap<=9,'inventory tooltip opens flush against its item instead of leaving an unreachable gap');
+  await lowPopup.getByRole('button',{name:'Használom',exact:true}).click();check(await page.locator('.item-selection').isVisible(),'inventory tooltip action is still reachable when the panel opens upward');
+  await page.getByRole('button',{name:'Kijelölés törlése'}).click();await page.setViewportSize({width:1440,height:1000});
   await arm('Vezető fólia','Használom');await step(()=>object('Hangszóró').click());check(await page.locator('.inventory button').count()===2,'failed targeted use consumes nothing');
   if(process.env.NULLPONT_SCREENSHOT_DIR){await page.setViewportSize({width:1440,height:1000});await object('Falpanel').hover();await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-exploration-1440.png'),fullPage:true});}
    await action('Fekvőlap','Megvizsgálom');await inspectEnvironment('awakening:bed-rim-edge');
