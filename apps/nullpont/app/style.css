@@ -79,4 +79,3 @@ footer{margin-top:32px;font-size:11px;color:var(--muted);text-align:center}
 @media(max-width:380px){.masthead{flex-direction:column}.account{align-self:flex-end;flex-direction:row;align-items:center}}
 @media(pointer:coarse){.icon-action,.map-zoom button{min-height:44px;width:44px;height:44px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
-.current-goal{margin:.25rem 22px .8rem;color:var(--muted);font-size:.85rem;line-height:1.5}.current-goal span{color:var(--accent);margin-right:.4rem}

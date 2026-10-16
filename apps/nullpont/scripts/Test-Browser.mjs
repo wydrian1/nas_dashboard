@@ -221,7 +221,7 @@ try{
     const operateEnvironment=async id=>{await page.locator(`.ascii-hotspot[data-environment="relay:${id}"]`).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:'Működtetem',exact:true}).click());};
     const submitRelay=async value=>{await inspectEnvironment('relay:missing-tray');await page.locator('.scene-input input').fill(value);await step(()=>page.locator('.scene-input input').press('Enter'));};
    await travel('archive:records');await travel('relay:entry');
-   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('Fogadóállomás')),'earned destination is visible immediately on the new route');
+   check(await page.locator('.current-goal').count()===0&&await page.getByLabel('Jelenlegi cél',{exact:true}).count()===0,'new route does not display a goal banner above the scene');
    await inspectEnvironment('relay:notice');await inspectEnvironment('relay:clock');await inspectEnvironment('relay:cam');
    check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
    await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
@@ -241,8 +241,8 @@ try{
    await inspectEnvironment('relay:house-rule');await submitRelay('90');check(!currentState().flags.includes('relay:request-sent'),'wrong local designation leaves the request unchanged');
     await submitRelay('09');check(await page.locator('.ascii-hotspot[data-environment="relay:missing-tray"] .ascii-glyph').innerText().then(text=>text.includes('09')&&text.includes('[x]')),'accepted request is drawn on the tray');check(await page.locator('.ascii-hotspot[data-exit="relay:receiver"] .ascii-glyph').innerText().then(text=>text.includes('NYITVA')),'accepted request visibly opens the exit');await travel('relay:receiver');await inspectEnvironment('relay:reply');
    check(currentState().room==='relay:receiver-room'&&currentState().flags.includes('relay:received'),'all five new physical scenes yield an earned reply');
-   check(await page.getByLabel('Jelenlegi cél',{exact:true}).innerText().then(text=>text.includes('olvasó')),'concrete progress updates the next direction without a puzzle recipe');
-   const relayBook=currentState().book;await page.reload();check(JSON.stringify(currentState().book)===JSON.stringify(relayBook)&&await page.getByLabel('Jelenlegi cél',{exact:true}).isVisible(),'goal and milestone pages persist across reload');
+   check(await page.locator('.current-goal').count()===0&&await page.getByLabel('Jelenlegi cél',{exact:true}).count()===0,'progress does not reintroduce the goal banner');
+   const relayBook=currentState().book;await page.reload();check(JSON.stringify(currentState().book)===JSON.stringify(relayBook)&&await page.getByLabel('Jelenlegi cél',{exact:true}).count()===0,'milestone pages persist across reload without a goal banner');
    for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'goal/new scene has no overflow '+width);}await page.setViewportSize({width:1440,height:1000});
    for(const id of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return'])await travel(id);
    check(currentState().inventory.includes('relay:blank-seal'),'optional carried item survives the complete route and return');
