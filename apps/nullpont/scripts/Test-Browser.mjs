@@ -57,13 +57,25 @@ try{
   check(await page.locator('.actions,.map-toolbar,.scene-heading [role=status]').count()===0&&await page.getByRole('button',{name:'Körülnézek',exact:true}).count()===0,'tutorial, save-step label and action box removed');
   const sceneBox=await page.locator('.scene').boundingBox(),inventoryBox=await page.locator('.inventory').boundingBox();check(inventoryBox.x>=sceneBox.x+sceneBox.width&&Math.abs(inventoryBox.y-sceneBox.y)<2,'desktop inventory sits right of the scene');
   check(!await page.locator('body').innerText().then(text=>text.includes('Fólia + huzal')),'no recipe spoiler');
-  for(const width of [1440,800,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no overflow '+width);if(process.env.NULLPONT_SCREENSHOT_DIR&&[1440,390].includes(width))await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});}
+   const verifyCharacterGrid=async()=>{
+     const geometry=await page.locator('.ascii-canvas').evaluate(canvas=>{
+       const style=getComputedStyle(canvas),box=canvas.getBoundingClientRect();
+       const rows=canvas.querySelector('pre').textContent.split('\n');
+       const glyphs=[...canvas.querySelectorAll('.ascii-glyph')];
+       return {rows:rows.length,columns:Math.max(...rows.map(row=>row.length)),lineHeight:parseFloat(style.lineHeight),fontSize:parseFloat(style.fontSize),height:box.height,glyphsInside:glyphs.every(glyph=>{const g=glyph.getBoundingClientRect(),s=glyph.closest('.ascii-spot').getBoundingClientRect();return g.left>=s.left-1&&g.top>=s.top-1&&g.right<=s.right+1&&g.bottom<=s.bottom+1;})};
+     });
+     check(geometry.rows===20&&geometry.columns===100,'actual scene uses the compact 100x20 grid');
+     check(Math.abs(geometry.lineHeight-geometry.fontSize)<0.1&&Math.abs(geometry.height-20*geometry.lineHeight)<1,'glyph line height and target row pitch agree');
+     check(geometry.glyphsInside,'all rendered glyphs remain inside their target rectangles');
+   };
+   for(const width of [1440,800,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no overflow '+width);await verifyCharacterGrid();if(process.env.NULLPONT_SCREENSHOT_DIR&&[1440,390].includes(width))await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});}
   await page.setViewportSize({width:1440,height:1000});
   let revision=0;
   const saved=async(page,expected)=>page.locator(`.game-grid[data-revision="${expected}"][aria-busy="false"]`).waitFor();
    const artCaptures=[],capturedArt=new Set();
    const captureArt=async()=>{
-     if(!process.env.NULLPONT_SCREENSHOT_DIR)return;
+      await verifyCharacterGrid();
+      if(!process.env.NULLPONT_SCREENSHOT_DIR)return;
      const canvas=page.locator('.ascii-canvas');
      const composition=await canvas.evaluate(element=>({background:element.querySelector('pre').textContent,glyphs:[...element.querySelectorAll('.ascii-glyph')].map(node=>node.textContent),inventory:[...document.querySelectorAll('.inventory-item pre')].map(node=>node.textContent)}));
      const fingerprint=createHash('sha256').update(JSON.stringify(composition)).digest('hex');
@@ -228,7 +240,8 @@ try{
    const bridgeTarget=page.locator('.ascii-hotspot[data-exit="archive:bridge"]'),signalTarget=page.locator('.ascii-hotspot[data-exit="archive:signals"]');
    for(const zoomTarget of [10,20,14]){
      for(let size=await page.locator('.ascii-canvas').evaluate(element=>parseFloat(getComputedStyle(element).fontSize));size!==zoomTarget;size+=size<zoomTarget?1:-1)await page.getByRole('button',{name:size<zoomTarget?'ASCII nagyítása':'ASCII kicsinyítése',exact:true}).click();
-     const a=await bridgeTarget.boundingBox(),b=await signalTarget.boundingBox();check(a.y+a.height<b.y||b.y+b.height<a.y||a.x+a.width<b.x||b.x+b.width<a.x,'bridge and signal-stair hit zones stay separate at zoom '+zoomTarget);
+      const a=await bridgeTarget.boundingBox(),b=await signalTarget.boundingBox();check(a.y+a.height<b.y||b.y+b.height<a.y||a.x+a.width<b.x||b.x+b.width<a.x,'bridge and signal-stair hit zones stay separate at zoom '+zoomTarget);
+      await verifyCharacterGrid();
    }
    await step(()=>signalTarget.click());check(currentState().room==='archive:signal-room','clicking the signal stair enters the signal room, not the bridge');await travel('archive:signals-return');
    await step(()=>bridgeTarget.click());check(currentState().room==='archive:bridge-room','clicking the bridge enters the bridge, not the signal room');await travel('archive:bridge-return');
@@ -262,7 +275,7 @@ try{
    check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
    await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
     const rhythmGlyph=()=>page.locator('.ascii-hotspot[data-exit="relay:well"] .ascii-glyph').innerText();
-     await operateEnvironment('single');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===2,'first retracted latch is drawn immediately');await operateEnvironment('double');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===1,'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
+      await operateEnvironment('single');check(((await rhythmGlyph()).match(/--------\]---\[---/g)??[]).length===2,'first retracted latch is drawn immediately');await operateEnvironment('double');check(((await rhythmGlyph()).match(/--------\]---\[---/g)??[]).length===1,'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
     check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
     await captureEvidence('well-low');
     const weights=()=>page.locator('.ascii-hotspot[data-environment="relay:alignment"] .ascii-glyph').innerText(),lowWeights=await weights();

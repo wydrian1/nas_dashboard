@@ -17,27 +17,32 @@ function composed(state: GameState) {
 }
 const rectangle = (picture: string, spot: ArtSpot) => picture.split('\n').slice(spot.row, spot.row + spot.height).map(line => line.padEnd(spot.col + spot.width).slice(spot.col, spot.col + spot.width)).join('\n');
 
-test('unselected opening overlays preserve the original closed panel, door and contacts; selected open drawings survive return and reload', () => {
+test('closed opening overlays render their base glyphs; selected open drawings survive return and reload', () => {
   let state = initialState();
   const root = CATALOG.scenes.chamber;
   const panel = root.artSpots!.find(spot => spot.environment === 'panel')!;
   const door = root.artSpots!.find(spot => spot.environment === 'door')!;
   for (const spot of [panel, door]) {
-    assert.equal(rectangle(composed(state), spot), rectangle(root.art, spot));
+    assert.ok(spot.glyph?.trim());
+    assert.notEqual(rectangle(composed(state), spot), rectangle(root.art, spot));
     assert.ok(rectangle(composed(state), spot).trim());
   }
   state = applyAction(state, 'look:panel');
   const detail = CATALOG.scenes['awakening:panel-detail'];
   const contacts = detail.artSpots!.find(spot => spot.environment === 'awakening:panel-contacts')!;
-  assert.equal(rectangle(composed(state), contacts), rectangle(detail.art, contacts));
+  const closedContacts = rectangle(composed(state), contacts);
+  assert.ok(closedContacts.trim());
+  assert.notEqual(closedContacts, rectangle(detail.art, contacts));
   state = parseState(JSON.stringify(state));
-  assert.equal(rectangle(composed(state), contacts), rectangle(detail.art, contacts));
+  assert.equal(rectangle(composed(state), contacts), closedContacts);
   state = applyCommand(state, { verb: 'back' });
-  assert.equal(rectangle(composed(state), panel), rectangle(root.art, panel));
+  const closedPanel = rectangle(composed(state), panel);
+  assert.match(closedPanel, /\.---\./);
+  assert.doesNotMatch(closedPanel, /HANGMINTA ELFOGADVA/);
   state = applyCommand(openOriginal(), { verb: 'move', target: { kind: 'exit', id: 'chamber' } });
   for (const spot of [panel, door]) {
     assert.notEqual(rectangle(composed(state), spot), rectangle(root.art, spot));
-    assert.match(rectangle(composed(state), spot), spot === door ? /NYITVA/ : /\*==\*/);
+    assert.match(rectangle(composed(state), spot), spot === door ? /NYITVA/ : /HANGMINTA ELFOGADVA/);
   }
   const opened = composed(state);
   state = parseState(JSON.stringify(state)); assert.equal(composed(state), opened);
