@@ -122,3 +122,71 @@ archive.scenes[id('directory')].rules.find(rule => rule.id === id('look:margin')
 archive.scenes[id('vestibule')].descriptionVariants = [{ requires: { flags: [id('records-open')] }, text: 'A lámpa a falitáblára és a beállított számlapra világít. Az irattári ajtó nyitva áll. Balra a körfolyosóra térhetsz vissza; az irattári ajtótól jobbra rácsos járda vezet a megfigyelőhídra. Alatta külön, JELFÜLKE feliratú lépcsőlejáró nyílik. A széken két egymásba csúszó horpadás.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('look:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A három dob a beállított számokat mutatja. Alattuk továbbra is: „HELYI SZEMLE”. A kör, kettős vonal és háromszög változatlanul a keretbe van vésve. Az irattári ajtó zárja már elengedett.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('submit:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A dobok ugyanabba az állásba kattanak vissza. Az irattári ajtó már nyitva áll; a kilincs lent marad.' }];
+
+// The audible route is on the main path too: guessing the door code must not
+// skip every answer. The optional reversible test establishes more, not a key.
+const monitorText = 'A fal két nyitott lehallgatórácsából ugyanaz a rövid beszédszakasz ismétlődik: egy elharapott „még”, utána ugyanott megtörő lélegzet. A második rács egy ütemmel késik. A rácsokig végigkövethető kábel közös csomópontból ágazik; címkéi BELÜL 09 és FOLYOSÓ 90. A kábelrajz ezt a két kimenetet a körfolyosó visszhangágaihoz köti. Két helyi kimenet biztosan ugyanazt az ismételt szakaszt kapja. Két hallott hangból nem következik két beszélő; ettől még nem ismered minden ajtó hangforrását.';
+const monitorQuiet = 'A MONITOR első csatlakozója nyitva van. A BELÜL 09 lehallgatórácsa néma, a FOLYOSÓ 90 rácsa tovább ismétli az elharapott „még” szót és ugyanazt a lélegzetakadást. A közös forrás kábele és a két külön kimeneti cím végigkövethető. Csak a két helyi lehallgatóágat vizsgáltad, nem az összes ajtó mögötti teret.';
+const monitorMilestone = { id: id('shared-source-heard'), title: 'A levegő ugyanott fogyott el', text: 'Az irattár két lehallgatórácsából ugyanazt a félbemaradt szót hallottam. A lélegzet is pontosan ugyanott akadt meg, csak egy ütemmel később. Végigkövettem a kábeleket: ugyanabból a csomópontból ágaztak a két, külön címmel jelölt kimenethez. Legalább erről a két helyi visszhangágról tudtam már valamit. A hangok és a késések száma önmagában nem mondta meg, hányan beszélnek. A többi ajtó eredetét ezzel nem fejtettem meg.' };
+const records = archive.scenes[id('record-room')], signals = archive.scenes[id('signal-room')];
+const monitorVariants = [{ requires: { flags: [id('monitor-isolated')] }, text: monitorQuiet }];
+records.environment!.push({ ...env('monitors', 'Két helyi lehallgatórács', monitorText), descriptionVariants: monitorVariants });
+records.arrivalDiscoveries!.push(id('monitors'), id('accompanying-copy'));
+records.description += ' ' + monitorText;
+records.descriptionVariants = [{ requires: { flags: [id('monitor-isolated')] }, text: 'Az iratok a mennyezeti síneken lógnak; a munkalap a néma csengő mellett maradt. ' + monitorQuiet }];
+records.rules.push(look('monitors', monitorText, { addFlags: [id('shared-source-heard')], milestone: monitorMilestone, messageVariants: monitorVariants }));
+const enterRecords = archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('move:records'))!;
+enterRecords.message += ' ' + monitorText;
+enterRecords.addFlags = [id('shared-source-heard'), id('copy-arrived')];
+enterRecords.milestone = monitorMilestone;
+enterRecords.messageVariants = [{ requires: { flags: [id('monitor-isolated')] }, text: 'Belépsz a függő iratok közé. ' + monitorQuiet }];
+const monitorPanel = 'A MONITOR panel külön van a papírnyelv útvonal- és földelésváltójától. A közös forrás kábele BELÜL 09 és FOLYOSÓ 90 jelű hallgatóágra válik szét; a falrajz a körfolyosói visszhangágakhoz köti őket. Az első ág külön karja oldható. Nem a folyosó hangellátását zárod el: ezek helyi lehallgatócsatlakozók.';
+signals.environment!.push({ ...env('monitor-switch', 'A MONITOR ág leválasztókarja', monitorPanel), descriptionVariants: [{ requires: { flags: [id('monitor-isolated')] }, text: monitorPanel + ' Az első csatlakozó most nyitott; a második folytonos maradt.' }] });
+signals.arrivalDiscoveries!.push(id('monitor-switch'));
+signals.description += ' A falon külön MONITOR panel: közös forrás, két címkézett hallgatóág és az első ág saját leválasztókarja.';
+signals.rules.push(
+  { id: id('use:monitor:isolate'), label: 'Működtetem', kind: 'use', interaction: { verb: 'use', target: target('monitor-switch') }, requires: { withoutFlags: [id('monitor-isolated')] }, addFlags: [id('monitor-isolated'), id('monitor-tested')], message: 'Kihúzod az első ág csatlakozóját. A BELÜL 09 helyi rácsa elnémul; a FOLYOSÓ 90 tovább mondja ugyanazt a fél szót, ugyanazzal az elakadó lélegzettel. A kábelük közös forrásra fut vissza. A második hallgatóág nem egy új beszélőtől kapott választ. Visszakapcsolhatod az elsőt; a papírnyelv váltói nem mozdultak.', milestone: { id: id('monitor-tested'), title: 'Az egyik elhallgatott', text: 'A külön MONITOR panelen leválasztottam az első helyi hallgatóágat. Az egyik rács elhallgatott, a másik tovább ismételte ugyanazt a beszédszakaszt. A kábel közös forrásra futott. Ezt a két hangot már nem számolhattam két külön beszélő bizonyítékának. Nem az összes folyosói ajtót némítottam el, és a forrás beszélőjét sem ismertem meg. De a sok hang nem követelt ugyanannyi embert.' } },
+  { id: id('use:monitor:restore'), label: 'Működtetem', kind: 'use', interaction: { verb: 'use', target: target('monitor-switch') }, requires: { flags: [id('monitor-isolated')] }, removeFlags: [id('monitor-isolated')], message: 'Visszailleszted az első csatlakozót. Mindkét helyi hallgatórács szól, a második egy ütemmel később. A két régi útvonal- és földelésváltó a korábbi állásában maradt.' }
+);
+const copyBase = 'A beléptetőtől érkező másolósín végén külön KÍSÉRŐMÁSOLAT fekszik. A Másoló munkajelzése: „Jelenlegi továbbhaladás és régi hozzájárulás külön kezelve.” A RÉGI HOZZÁJÁRULÁS rovatot nem töltötte ki. A saját forrásfeljegyzés — ha van csatolva — külön kapocsba kerül; nem másolják át beleegyezésként. Ez a kiadott példány a munkalap rajzát nem helyettesíti.';
+const copyReserved = copyBase + ' A másolósín a mostani kilépési lap megjegyzését is elhozta: „A KORÁBBI ÖNKÉNTESSÉGET NEM IGAZOLOM”. A Másoló ezt FENNTARTÁS CSATOLVA jelzéssel külön rovatba tette; nem töltötte ki helyette a régi hozzájárulást.';
+const copyPlain = copyBase + ' A csatolt kilépési lap szerint most a továbbhaladást választottad. „JELENLEGI TOVÁBBHALADÁS” szerepel a másolaton, nem korábbi beleegyezés. Ugyanazokat az iratokat teszik hozzáférhetővé.';
+const copyLegacy = copyBase + ' „MEGJEGYZÉS NINCS CSATOLVA” áll az érkező rovatban. Ebből nem következtetnek korábbi döntésedre; a bizonyítékokat így is megvizsgálhatod.';
+const copyVariants = [
+  { requires: { flags: ['awakening:departure-reserved'] }, text: copyReserved },
+  { requires: { flags: ['awakening:departure-plain'] }, text: copyPlain },
+];
+records.environment!.push({ ...env('accompanying-copy', 'A Másoló kísérőmásolata', copyLegacy), descriptionVariants: copyVariants });
+records.description += ' ' + copyBase;
+for (const variant of records.descriptionVariants!) variant.text += ' ' + copyBase;
+records.rules.push(look('accompanying-copy', copyLegacy, { addFlags: [id('copy-arrived')], messageVariants: copyVariants, milestone: { id: id('copy-kept-separate'), title: 'A rovat üres maradt', text: 'A beléptetőtől külön sín hozott lapot a Másoló kísérőmásolatához. A mostani továbbhaladás rovatát elválasztotta a régi hozzájárulásétól. Az utóbbit üresen hagyta. A hiányt nem töltötte ki azzal, hogy most elindultam. Egy helyi iraton már láttam ennek a megkülönböztetésnek a következményét, nem csak a saját feljegyzésemben.' } }));
+signals.topics!.push({ id: id('tube-copy'), label: 'Miért külön másolod a megjegyzést?', target: id('tube'), requires: { flags: [id('copy-arrived')] } });
+signals.rules.push({ id: id('talk:tube-copy'), label: 'Kérdezek', kind: 'talk', interaction: { verb: 'talk', target: target('tube'), topic: id('tube-copy') }, requires: { flags: [id('copy-arrived')] }, message: '„A sínről nem érkezett kilépési megjegyzés” – mondja a Másoló. „Azt írom rá, hogy nincs csatolva. Nem fogok aláírást kitalálni. Az iratokat ettől még kiadom.”', messageVariants: [
+  { requires: { flags: ['awakening:departure-reserved'] }, text: '„Beért a sínen a lapod. A fenntartást külön másoltam” – mondja a Másoló. „Ha az üres régi rovatba tenném, én gyártanék beleegyezést. Nem vállalom. Azt a sort kapod vissza, amit most írtál; a régi iratokhoz nem nyúlok.”' },
+  { requires: { flags: ['awakening:departure-plain'] }, text: '„A sínen a mostani továbbhaladásod érkezett meg” – mondja a Másoló. „Nem a korábbi bezárásod engedélye. Külön másoltam. Nem fogok régi aláírást csinálni belőle. Az iratokat ugyanúgy kiadom.”' },
+] });
+// Reading the old directory now also offers a physical cross-check, without
+// changing its published historical milestone or claiming an identity.
+const addressCrossCheck = ' A tábla alatti kábelcsatlakozón is BELÜL 09 és FOLYOSÓ 90 áll: ugyanazon helyi átjáró két oldala, nem két személy neve.';
+archive.scenes[id('directory')].environment!.find(entity => entity.id === id('addresses'))!.description += addressCrossCheck;
+archive.scenes[id('directory')].rules.find(rule => rule.id === id('look:addresses'))!.message += addressCrossCheck;
+// Render the actual received annotation on return/reload as well, not only in
+// an optional conversation. No new knowledge effects run during observation.
+const recordSceneBase = 'Papírlapok lógnak a síneken, a régi átviteli munkalap a néma csengő mellett fekszik. ';
+records.description = recordSceneBase + monitorText + ' ' + copyLegacy;
+records.descriptionVariants = [false, true].flatMap(isolated => [
+  ...copyVariants.map(variant => ({ requires: { flags: [...variant.requires.flags, ...(isolated ? [id('monitor-isolated')] : [])], withoutFlags: isolated ? [] : [id('monitor-isolated')] }, text: recordSceneBase + (isolated ? monitorQuiet : monitorText) + ' ' + variant.text })),
+  { requires: { flags: isolated ? [id('monitor-isolated')] : [], withoutFlags: ['awakening:departure-reserved', 'awakening:departure-plain', ...(!isolated ? [id('monitor-isolated')] : [])] }, text: recordSceneBase + (isolated ? monitorQuiet : monitorText) + ' ' + copyLegacy },
+]);
+for (const variant of enterRecords.messageVariants!) variant.text += ' A beléptető másolósínje mellett a Másoló külön kísérőmásolata áll; a régi hozzájárulás rovatát üresen hagyta.';
+enterRecords.message += ' A beléptető másolósínje mellett a Másoló külön kísérőmásolata áll; a régi hozzájárulás rovatát üresen hagyta.';
+records.rules.find(rule => rule.id === id('look:accompanying-copy'))!.milestone!.text = 'Az irattárban megvizsgáltam a Másoló külön kísérőmásolatát. A jelenlegi továbbhaladás rovatát elválasztotta a régi hozzájárulásétól. Az utóbbit üresen hagyta. A hiányt nem töltötte ki a mostani mozgásommal vagy egy nem csatolt megjegyzés kitalálásával. Egy helyi iraton már láttam ennek a megkülönböztetésnek a következményét, nem csak a saját feljegyzésemben.';
+
+// Observation and comparison are different events. An already isolated legacy
+// branch cannot supply a memory of hearing both grilles together.
+const quietMilestone = { id: id('isolated-source-seen'), title: 'A néma ág vezetéke', text: 'Az irattárban az egyik lehallgatórács néma volt. A másikból egy félbemaradt „még” és elakadó lélegzet ismétlődött. Végigkövettem a két címkézett kábelt a közös csomópontig. A BELÜL 09 csatlakozója nyitva állt, a FOLYOSÓ 90 ága folytonos maradt. A vezetékek közös forrásra futottak; két egyszerre szóló rács hangját ebből a megfigyelésből nem hasonlíthattam össze.' };
+for (const [scene, rule] of [[records, records.rules.find(rule => rule.id === id('look:monitors'))!], [archive.scenes[id('vestibule')], enterRecords]] as const) {
+  const isolatedRule: Rule = { ...rule, id: rule.id + ':isolated', requires: { ...rule.requires, flags: [...rule.requires?.flags ?? [], id('monitor-isolated')] }, addFlags: [id('isolated-source-seen'), ...(rule === enterRecords ? [id('copy-arrived')] : [])], milestone: quietMilestone };
+  rule.requires = { ...rule.requires, withoutFlags: [...rule.requires?.withoutFlags ?? [], id('monitor-isolated')] };
+  scene.rules.push(isolatedRule);
+}

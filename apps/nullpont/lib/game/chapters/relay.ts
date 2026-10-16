@@ -132,3 +132,63 @@ for (const rule of relay.scenes[id('well-room')].rules.filter(rule => rule.kind 
 relay.scenes[id('dispatch-room')].descriptionVariants = [{ requires: phase(['request-sent']), text: 'A NÉV, JAVÍTÁS és HIÁNY tálca fölött megállt a másolókéz. Az indigós lapon a bekérés 09-es jelölése és az átvételi négyzet. A Fogadóállomás ajtaja nyitva áll.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('submit:missing'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A bekérés 09-es jelölése mellett már ott az átvételi négyzet. A másolatot továbbítottad; a Fogadóállomás ajtaja nyitva marad.' }];
 relay.scenes[id('dispatch-room')].rules.find(rule => rule.id === id('use:missing-tray:press'))!.messageVariants = [{ requires: phase(['request-sent']), text: 'A tálca a már kitöltött bekérés másolatát tolja előre. A 09 mellett átvételi négyzet áll; személynév nincs a lapon.' }];
+
+// The service route yields an actual record, not only another destination.
+// The local document reference links these two copies; "09" alone never does.
+const execution = 'A kosár oldalára rögzített SZERVIZ IRAT tartó itt nyitható. A benne kapcsozott lap fejléce: „VÉGREHAJTÁS / HELYI 09 / E-09/1”. Alatta: „ÉBRESZTÉS VÉGREHAJTVA. BELSŐ ZÁR: VÁLTOZATLAN.” A jelút rajza a külső ébresztési bemenetet a belső kézi zártól külön vezeti. Az ébresztés végrehajtása ennél a helyi ciklusnál nem oldotta és nem zárta újra a belső zárat. Ez nem a kérelmező neve. A lap végrehajtási másolat: az engedély tartalmát nem idézi, és a tartóban marad.';
+const executionMilestone = { id: id('execution-read'), title: 'A zárhoz nem nyúlt', text: 'A felvonó oldalán felhozott irattartóban végrehajtási másolatot olvastam. E-09/1: ez volt a helyi irathivatkozása. Az ébresztést végrehajtották, a belső zár állását változatlanul hagyták. A jelút rajza is külön vezette a két műveletet. Legalább ennél a helyi ciklusnál az ébredés nem ugyanaz a művelet volt, mint a bezárás. Maga a végrehajtási lap nem idézte az engedélyt, és nem nevezte meg a kérelmezőt. A másolatot a tartóban hagytam.' };
+const well = relay.scenes[id('well-room')], dispatch = relay.scenes[id('dispatch-room')], receiver = relay.scenes[id('receiver-room')];
+const holder = 'A kosár oldalára szegecselt keskeny tartón SZERVIZ IRAT olvasható. A kosárral együtt mozog; nem súly és nem része a két kézikerék beállításának.';
+well.environment!.push({ ...env('service-holder', 'A kosár szerviz-irattartója', holder + ' A járda alatt áll, innen a fedelét nem éred el.'), descriptionVariants: [{ requires: phase(['lift-ready']), text: holder + ' A kosár a járdához rögzítve vár. A tartó fedele az alsó küldeményfülke felől nyitható; felirata onnan is követhető.' }] });
+well.arrivalDiscoveries!.push(id('service-holder'));
+well.description += ' A kosár oldalára SZERVIZ IRAT feliratú tartót szegecseltek.';
+for (const variant of well.descriptionVariants!) variant.text += ' A SZERVIZ IRAT tartó a kosár oldalán maradt.';
+dispatch.environment!.push(env('execution-copy', 'Végrehajtási másolat az irattartóban', execution));
+dispatch.arrivalDiscoveries!.push(id('execution-copy'));
+dispatch.description += ' ' + execution;
+for (const variant of dispatch.descriptionVariants!) variant.text += ' ' + execution;
+dispatch.rules.push(look('execution-copy', execution, { addFlags: [id('execution-read')], milestone: executionMilestone }));
+const enterDispatch = well.rules.find(rule => rule.id === id('move:dispatch'))!;
+enterDispatch.message += ' ' + execution;
+enterDispatch.addFlags = [id('execution-read')];
+enterDispatch.milestone = executionMilestone;
+enterDispatch.messageVariants = [{ requires: phase(['execution-read']), text: 'Leereszkedsz a küldeményfülkéhez. A kosár oldalsó tartójában változatlanul az E-09/1 végrehajtási másolata áll: ébresztés végrehajtva, belső zár változatlan.' }];
+
+const permit = 'A régi válaszcsík mellett külön kapocs fog egy lapot: „ENGEDÉLYKIVONAT / HELYI 09 / E-09/1”. „ÉBRESZTÉS ENGEDÉLYEZVE. A BELSŐ ZÁR ÖNÁLLÓ KEZELÉSE VÁLTOZATLAN.” Az E-09/1 a lap saját helyi irathivatkozása. A látott kivonat nem ad felhatalmazást bezárásra vagy emléktörlésre. Nem az eredeti kérelem érkezett meg, de most már van tartalmi válasz: az itt dokumentált engedély az ébresztésről szólt, a belső zárat külön hagyta. A kérelmező és az esetleges más, nem látott iratok ettől még ismeretlenek.';
+const permitMilestone = { id: id('permit-read'), title: 'Amit ez a lap engedett', text: 'A válaszcsík mellett külön engedélykivonatot olvastam. E-09/1 szerepelt rajta helyi irathivatkozásként. Ébresztést engedélyezett; a belső zár önálló kezelését meghagyta. A látott kivonatban nem szerepelt bezárásra vagy emléktörlésre szóló felhatalmazás. Az eredeti kérelmet továbbra sem láttam, és nem tudtam, ki adta be. De ez a lap már külön kezelte az ébresztést és a belső zárat: az egyikre engedélyt adott, a másik kezelését változatlanul hagyta.' };
+receiver.environment!.push(env('permit-copy', 'Az ébresztési engedély kivonata', permit));
+receiver.arrivalDiscoveries!.push(id('permit-copy'), id('card-reader'), id('accompanying-copy'));
+receiver.description += ' ' + permit;
+receiver.rules.push(look('permit-copy', permit, { addFlags: [id('permit-read')], milestone: permitMilestone }));
+const enterReceiver = dispatch.rules.find(rule => rule.id === id('move:receiver'))!;
+enterReceiver.message += ' ' + permit;
+enterReceiver.addFlags = [id('permit-read')];
+enterReceiver.milestone = permitMilestone;
+enterReceiver.messageVariants = [{ requires: phase(['permit-read']), text: 'A Fogadóállomás pultján a válaszcsík mellett megmaradt az E-09/1 engedélykivonata. Ébresztést engedélyez, a belső zár kezelését külön hagyja; a túloldali olvasó ajtaján nem változott semmi.' }];
+const receiverCopy = 'A KÍSÉRŐPÉLDÁNY az archívumból érkező másolat útját jelöli. A mostani továbbhaladás és a RÉGI HOZZÁJÁRULÁS külön rovatban áll; az utóbbi üres maradt. A mechanikus kéz az átvételi négyzetet a jelenlegi rovat mellé nyomta, nem a hiányzó régi beleegyezéshez.';
+const receiverCopyVariants = [
+  { requires: { flags: ['awakening:departure-reserved'] }, text: receiverCopy + ' „FENNTARTÁS CSATOLVA: A KORÁBBI ÖNKÉNTESSÉGET NEM IGAZOLOM.” A külön megőrzött megjegyzést az archívumi kísérőmásolatból vették át. Az engedélykivonatot ennek ellenére kiadták.' },
+  { requires: { flags: ['awakening:departure-plain'] }, text: receiverCopy + ' „JELENLEGI TOVÁBBHALADÁS” áll az átvett rovatban. A régi hozzájárulást nem pótolták vele; az engedélykivonat ugyanúgy hozzáférhető.' },
+];
+const receiverLegacy = receiverCopy + ' „MEGJEGYZÉS NINCS CSATOLVA.” Nem tulajdonítanak neked meg nem tett döntést; a kiadott kivonatot így is elolvashatod.';
+receiver.environment!.push({ ...env('accompanying-copy', 'A fogadói kísérőpéldány', receiverLegacy), descriptionVariants: receiverCopyVariants });
+receiver.rules.push(look('accompanying-copy', receiverLegacy, { messageVariants: receiverCopyVariants }));
+receiver.description += ' A kísérőpéldány a mostani bejegyzést és a hiányzó régi hozzájárulást külön rovatban tartja.';
+
+const cardReader = 'Külön asztali OLVASÓ áll a pulton, a csőpostától távolabb. Keskeny vezetősínje félholdas kivágásban végződik, mellette három sűrű fogcsoport és egy külön érintkező. A foglalat üres; az alatta nyíló résből nyomtatott ellenpéldány jöhet ki. Nem a csőpostába kell betolni a lemezt.';
+const witnessRead = 'A félholdas vég a vezetősín ütközőjéhez ér. A három lyukcsoport és a külön lyuk alatt felvillannak az érintkezők. Az olvasó csíkot nyomtat: „ÁTVÉTEL / E-09/1 / ENGEDÉLY ÉS VÉGREHAJTÁS ELLENPÉLDÁNYA. KÉRELEM NÉLKÜL: CSAK KIVONAT ADHATÓ KI.” A nyomtatott csík maga nevezi meg az iratpárt és a hivatkozását; nem személyes vallomást ad ki. A papírok külön helyen vizsgálhatók: az engedélykivonat itt, a válaszcsík mellett, a végrehajtási másolat a küldeményfülke kosarának irattartójában. A beküldött eredeti kérelem nélkül az átadás csak kivonatra terjed ki. A lemezt visszaveszed; a nyomtatott csík a kimenetben marad.';
+receiver.environment!.push({ ...env('card-reader', 'Asztali lyuksorolvasó', cardReader), descriptionVariants: [{ requires: phase(['witness-read']), text: 'Az OLVASÓ félholdas foglalata üres; a lemezt visszavetted. A kimeneti résben megmaradt az „ÁTVÉTEL / E-09/1” csík: az engedély és a végrehajtás ellenpéldánya, eredeti kérelem nélkül csak kivonat adható ki. A csík nem nevez meg személyt.' }] });
+receiver.description += ' A csőpostától külön asztali lyuksorolvasó áll, üres félholdas foglalattal.';
+receiver.rules.push({ id: id('use:witness:reader'), label: 'Használom', kind: 'use', interaction: { verb: 'use', item: 'archive:witness', target: target('card-reader') }, addFlags: [id('witness-read')], message: witnessRead, messageVariants: [{ requires: phase(['witness-read']), text: 'A lemezt újra beilleszted. Ugyanaz az E-09/1 átvételi ellenpéldány olvasható ki: az engedélyhez és a végrehajtáshoz tartozik, eredeti kérelem nélkül csak kivonat adható ki. Visszaveszed a lemezt; a kimeneti csík tartalma nem változik.' }], milestone: { id: id('witness-read'), title: 'A tanúpéldány megszólalt', text: 'A füstszínű lemez végre illett egy olvasóba. Nem a csőposta pereméhez: a pulton külön félholdas foglalat várta. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki. Ugyanarra a helyi iratpárra hivatkozott, mint a papírok, de nem volt személyes vallomás, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A lemezt visszavettem.' } });
+// The old reply remains true and its book page is immutable; the new separate
+// object is visible beside it, rather than another promise to find a reader.
+receiver.rules.find(rule => rule.id === id('look:reply'))!.message += ' A válaszcsík mellett már ott van a külön E-09/1 engedélykivonat is; az eredeti kérelem helyét nem változtatja meg.';
+const receiverBase = 'Az ablak az árok túloldali olvasótermére néz. A régi válaszcsík és a csőposta a pulton maradt. ';
+receiver.rules.find(rule => rule.id === id('use:witness:reader'))!.milestone!.text = 'A füstszínű lemezt a pult külön félholdas foglalatába illesztettem. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki: a nyomtatott csík maga nevezte meg az iratpárt és a hivatkozását. Nem személyes vallomás volt, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A papírok külön helyen vizsgálhatók: az engedélykivonat a fogadói pulton, a végrehajtási másolat a küldeményfülke kosarának tartójában. A lemezt visszavettem.';
+const readerEmpty = ' Az asztali OLVASÓ félholdas foglalata és kimeneti rése üres.';
+const readerPrinted = ' Az asztali OLVASÓ foglalata üres, a lemezt visszavetted. Kimenetében az ÁTVÉTEL / E-09/1 csík maradt.';
+receiver.description = receiverBase + permit + ' ' + receiverLegacy + readerEmpty;
+receiver.descriptionVariants = [false, true].flatMap(read => [
+  ...receiverCopyVariants.map(variant => ({ requires: { flags: [...variant.requires.flags, ...(read ? [id('witness-read')] : [])], withoutFlags: read ? [] : [id('witness-read')] }, text: receiverBase + permit + ' ' + variant.text + (read ? readerPrinted : readerEmpty) })),
+  { requires: { flags: read ? [id('witness-read')] : [], withoutFlags: ['awakening:departure-reserved', 'awakening:departure-plain', ...(!read ? [id('witness-read')] : [])] }, text: receiverBase + permit + ' ' + receiverLegacy + (read ? readerPrinted : readerEmpty) },
+]);

@@ -327,3 +327,32 @@ awakening.scenes[aw('corridor-doors')] = {
       { id: aw(`talk:${door}`), label: 'Beszólok és kopogok', kind: 'talk' as const, interaction: { verb: 'talk' as const, target: awTarget(door) }, requires: { discoveries: [aw(door)] }, message: response }];
   }),
 };
+
+// A second, physical source tests the old claim without turning a machine log
+// into a personal confession. Existing milestones retain their historical text.
+const lockRecord = 'A külön tartóban a vízkör szerelőfedele mögötti zárállásjegyzék átnyomata áll. Fejléc: „BELSŐ 09 / ZÁRJEGYZÉK”. Nyolc lezárt ciklus sorában a BELSŐ KÉZI bemenet mellett mély jel, a KÜLSŐ ÉBRESZTÉS oszlopától elválasztva. A két vezeték metszete külön bemenetet mutat. A jelenlegi kimenet: NYITVA. A berendezés tehát nyolc belső kézi zárójelet őriz; nem az ébresztés zárta be automatikusan az ajtót. Név és aláírás nincs a csíkon. Attól, hogy belül adtak zárójelet, még nem tudod, ki tette, vagy volt-e választása.';
+const lockMilestone = { id: aw('lock-record-read'), title: 'A belső jel', text: 'Az iratpult külön tartójában a szerelőfedél mögötti zárjegyzék átnyomatát olvastam. Nyolc lezárt ciklusnál belső kézi bemenetet jelölt, külön a külső ébresztéstől. A mostani kimenet nyitott volt. Már nem csak az ajtó feliratára és egy hangra támaszkodhattam: a helyi berendezés is őrizte a belső zárás nyomát. Azt azonban nem jegyezte fel, ki kezelte, és milyen körülmények között. A belső zárás nem lett ettől önkéntes beleegyezés.' };
+water.environment!.push(awEnv('lock-record', 'Zárjegyzék a szerelőfedél mögött', 'A felnyílt szerelőfedél mögött külön papírcsík fut: „BELSŐ 09 / ZÁRJEGYZÉK”. Nyolc régi sorban BELSŐ KÉZI zárójel áll, a KÜLSŐ ÉBRESZTÉS külön oszlop. A jelenlegi kimenet NYITVA. A csík rögzített, nem a prizma tartozéka. A gép a bemenet helyét őrizte meg, nem a kezelő nevét vagy szándékát.', flowOpen));
+water.arrivalDiscoveries!.push(aw('lock-record'));
+const openCover = water.rules.find(rule => rule.id === aw('use:float-test:balanced'))!;
+openCover.discover!.push(aw('lock-record'));
+openCover.message += ' A fedél mögött külön zárjegyzék is látszik: nyolc régi BELSŐ KÉZI zárójel, a külső ébresztéstől elkülönítve. Az iratpult falán ennek átnyomatát rögzítették.';
+water.rules.push(awLook('lock-record', water.environment!.at(-1)!.description!, { requires: flowOpen, addFlags: [aw('lock-log-seen')] }));
+for (const variant of water.descriptionVariants!) if (variant.requires.flags?.includes(aw('flow-latched'))) variant.text += ' A szerelőfedél nyitva maradt; mögötte a külön BELSŐ 09 zárjegyzék nyolc régi belső kézi zárójele és a mostani NYITVA kimenet látszik.';
+source.environment!.push(awEnv('lock-rubbing', 'Zárjegyzék és a két bemenet metszete', lockRecord));
+source.arrivalDiscoveries!.push(aw('lock-rubbing'));
+source.description += ' ' + lockRecord;
+for (const variant of source.descriptionVariants!) variant.text += ' ' + lockRecord;
+source.rules.push(awLook('lock-rubbing', lockRecord, { addFlags: [aw('lock-record-read')], milestone: lockMilestone, messageVariants: [{ requires: awPhase(['lock-record-read']), text: 'A külön tartóban változatlanul a nyolc belső kézi zárójel és a NYITVA kimenet átnyomata áll. A KÜLSŐ ÉBRESZTÉS külön bemeneten fut; a jegyzék továbbra sem nevezi meg a kezelőt, és nem igazol beleegyezést.' }] }));
+const enterSource = awakening.scenes[aw('cloakroom')].rules.find(rule => rule.id === aw('move:sorting'))!;
+enterSource.message += ' ' + lockRecord;
+enterSource.addFlags = [aw('lock-record-read')];
+enterSource.milestone = lockMilestone;
+enterSource.messageVariants = [{ requires: awPhase(['lock-record-read']), text: 'A nyitott acélajtón át az iratpulthoz lépsz vissza. A külön tartóban a nyolc belső kézi zárójel átnyomata maradt; a három régi forráscsíkot nem cserélték le.' }];
+const departureDataPath = ' A papírablakból keskeny másolósín fut az archívumi beléptető mellé: a mostani kilépési bejegyzést külön kísérőlapon továbbítja, a régi iratokhoz nem ír hozzá.';
+decision.description += departureDataPath;
+for (const variant of decision.descriptionVariants!) variant.text += departureDataPath;
+const departureCopy = decision.environment!.find(entity => entity.id === aw('departure-copy'))!;
+departureCopy.description += departureDataPath;
+for (const variant of departureCopy.descriptionVariants!) variant.text += departureDataPath;
+for (const rule of decision.rules.filter(rule => rule.id.endsWith(':record'))) rule.message += departureDataPath;

@@ -39,7 +39,8 @@ test('counterweight art shows all nine rope positions independently of the latch
   const art = glyph(state, 'relay:alignment'), book = state.book;
   state = go(go(state, 'relay:dispatch'), 'relay:dispatch-back');
   assert.equal(glyph(state, 'relay:alignment'), art);
-  assert.deepEqual(state.book, book);
+  assert.deepEqual(state.book.slice(0, book.length), book);
+  assert.equal(state.book.filter(entry => entry.id === 'relay:execution-read').length, 1, 'the newly reached service document has its own page');
   assert.doesNotMatch(JSON.stringify(view(state)), /glyphVariants|withoutFlags|left-high|right-mid|requires/);
 });
 
