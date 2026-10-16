@@ -14,5 +14,7 @@ test('receiver reply remains time-neutral through repeated examination, return a
   state = applyCommand(state, { verb: 'move', target: { kind: 'exit', id: 'relay:receiver-back' } });
   state = applyCommand(state, { verb: 'move', target: { kind: 'exit', id: 'relay:receiver' } });
   state = parseState(JSON.stringify(state)); examine();
-  assert.equal(state.message, message); assert.deepEqual(state.book, book); assert.deepEqual(state.inventory, inventory);
+  assert.equal(state.message, message); assert.deepEqual(state.book.slice(0, book.length), book); assert.deepEqual(state.inventory, inventory);
+  assert.equal(state.book.filter(page => page.id === 'relay:permit-read').length, 1, 'return arrival reads the new separate permit without rewriting the old reply page');
+  const updatedBook = structuredClone(state.book); examine(); assert.deepEqual(state.book, updatedBook);
 });

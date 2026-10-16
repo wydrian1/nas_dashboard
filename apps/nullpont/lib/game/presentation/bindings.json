@@ -232,6 +232,7 @@
       }
     ],
     "awakening:water-room": [
+      { "handler": "h10", "id": "awakening:spot:lock-record", "environment": "awakening:lock-record", "actions": ["look"], "variants": [{ "requires": { "flags": ["awakening:flow-latched"] }, "pose": "p01" }] },
       {
         "handler": "h01",
         "id": "awakening:spot:vessels",
@@ -596,6 +597,7 @@
       }
     ],
     "awakening:source-room": [
+      { "handler": "h08", "id": "awakening:spot:lock-rubbing", "environment": "awakening:lock-rubbing", "actions": ["look"] },
       {
         "handler": "h01",
         "id": "awakening:spot:wrist-source",
@@ -995,6 +997,7 @@
       }
     ],
     "archive:signal-room": [
+      { "handler": "h05", "id": "archive:spot:monitor-switch", "environment": "archive:monitor-switch", "actions": ["look", "use"], "variants": [{ "requires": { "flags": ["archive:monitor-isolated"] }, "pose": "p01" }] },
       {
         "handler": "h01",
         "id": "archive:spot:route",
@@ -1048,6 +1051,8 @@
       }
     ],
     "archive:record-room": [
+      { "handler": "h05", "id": "archive:spot:monitors", "environment": "archive:monitors", "actions": ["look"], "variants": [{ "requires": { "flags": ["archive:monitor-isolated"] }, "pose": "p01" }] },
+      { "handler": "h06", "id": "archive:spot:accompanying-copy", "environment": "archive:accompanying-copy", "actions": ["look"], "variants": [{ "requires": { "flags": ["awakening:departure-reserved"] }, "pose": "p01" }, { "requires": { "flags": ["awakening:departure-plain"] }, "pose": "p02" }] },
       {
         "handler": "h01",
         "id": "archive:spot:work-sheet",
@@ -1207,6 +1212,7 @@
       }
     ],
     "relay:well-room": [
+      { "handler": "h08", "id": "relay:spot:service-holder", "environment": "relay:service-holder", "actions": ["look"], "variants": [{ "requires": { "flags": ["relay:lift-ready"] }, "pose": "p01" }] },
       {
         "handler": "h01",
         "id": "relay:spot:left-wheel",
@@ -1502,6 +1508,7 @@
       }
     ],
     "relay:dispatch-room": [
+      { "handler": "h08", "id": "relay:spot:execution-copy", "environment": "relay:execution-copy", "actions": ["look"] },
       {
         "handler": "h01",
         "id": "relay:spot:hand",
@@ -1580,6 +1587,9 @@
       }
     ],
     "relay:receiver-room": [
+      { "handler": "h06", "id": "relay:spot:permit-copy", "environment": "relay:permit-copy", "actions": ["look"] },
+      { "handler": "h07", "id": "relay:spot:card-reader", "environment": "relay:card-reader", "actions": ["look"], "variants": [{ "requires": { "flags": ["relay:witness-read"] }, "pose": "p01" }] },
+      { "handler": "h08", "id": "relay:spot:accompanying-copy", "environment": "relay:accompanying-copy", "actions": ["look"], "variants": [{ "requires": { "flags": ["awakening:departure-reserved"] }, "pose": "p01" }, { "requires": { "flags": ["awakening:departure-plain"] }, "pose": "p02" }] },
       {
         "handler": "h01",
         "id": "relay:spot:reply",

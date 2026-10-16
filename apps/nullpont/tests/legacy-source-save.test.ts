@@ -17,7 +17,7 @@ test('installed-release accepted source save keeps wrist evidence and the exact 
     assert.match(wrist.glyph!, /csuklomon kilenc heg/i);
     assert.doesNotMatch(wrist.glyph!, /ajton felirat/i);
     assert.ok(state.flags.includes(aw('sources-accepted')));
-    assert.deepEqual(state.book, [page]);
+    assert.deepEqual(state.book.filter(entry => entry.id !== aw('lock-record-read')), [page]);
     assert.deepEqual(state.inventory, legacy.inventory);
   };
   verify();
@@ -25,5 +25,6 @@ test('installed-release accepted source save keeps wrist evidence and the exact 
   state = use(state, 'source-check'); assert.match(state.message, /korábbi másolatot nem írják át/); verify();
   state = use(state, 'wrist-source'); state = reload(state); verify();
   state = reload(go(go(state, 'source-back'), 'sorting')); verify();
-  state = go(state, 'decision'); assert.equal(state.room, aw('decision-room')); assert.deepEqual(state.book, [page]);
+  assert.equal(state.book.filter(entry => entry.id === aw('lock-record-read')).length, 1, 'a new actual arrival can add the new separate evidence page');
+  state = go(state, 'decision'); assert.equal(state.room, aw('decision-room')); assert.deepEqual(state.book[0], page);
 });
