@@ -104,6 +104,9 @@ try{
     for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'search no overflow '+role+' '+width);}
     if(role!=='info'){
       await page.goto(origin+'/pokemon');check(await page.locator('#shop-grandline').innerText().then(text=>text.includes('Elavult készletadat')&&text.includes('Hozzáférésvédelem')),'stale stock clearly labelled '+role);
+      check(await page.locator('#shop-alza').count()===1,'Alza independently listed '+role);
+      check(await page.locator('#shop-alza').innerText().then(text=>text.includes('Szünetel')),'Alza initially paused '+role);
+      check(await page.locator('#shop-alza a[href="https://m.alza.hu/jatekok/pokemon-kartyak/18879069.htm?availabilityFilterValue=2"]').count()===1,'Alza uses reviewed mobile stock URL '+role);
       await page.goto(origin+(role==='owner'?'/config#notifications':'/notifications'));check(await page.locator('h1').textContent()===(role==='owner'?'Konfig':'Értesítési központ'),'personal notifications '+role);check(await page.locator('#notifications').count()===1,'notification section '+role);check(await page.locator('select[name=digest_minutes]').inputValue()==='0','immediate default preserved '+role);
       check(await page.locator('nav a[href="/notifications"]').count()===(role==='reader'?1:0),'standalone notification menu reader-only '+role);
       check(await page.locator('input[name=watchlist_only]').isChecked()===false,'watchlist opt-in default '+role);

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { GAMERUNNER_URL, MYTHGAMES_URL, POTTYOSZEBRA_URL, GRANDLINE_URL, KRODOMCARDS_URL, JATEKNET_URL, REFLEXSHOP_URL, GEEKEMPIRE_URL, TCGFUTAR_URL, SPORTKARTYABOLT_URL, RTCOLLECTORSCLUB_URL, CARDVERSE_URL, METAGAMES_URL, TCGBOLT_URL, BLOOMRIFT_URL } from "./types.ts";
+import { GAMERUNNER_URL, MYTHGAMES_URL, POTTYOSZEBRA_URL, GRANDLINE_URL, KRODOMCARDS_URL, JATEKNET_URL, REFLEXSHOP_URL, GEEKEMPIRE_URL, TCGFUTAR_URL, SPORTKARTYABOLT_URL, RTCOLLECTORSCLUB_URL, CARDVERSE_URL, METAGAMES_URL, TCGBOLT_URL, BLOOMRIFT_URL, ALZA_URL } from "./types.ts";
 import { migratePokemonIntervals } from './interval-migration.ts';
 
 export function initializePokemon(database: DatabaseSync) {
@@ -61,6 +61,8 @@ export function initializePokemon(database: DatabaseSync) {
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('metagames','Metagames',?)").run(METAGAMES_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('tcgbolt','TCG Bolt',?)").run(TCGBOLT_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('bloomrift','Bloomrift',?)").run(BLOOMRIFT_URL);
+  // Explicit opt-in: installing source must not start browser traffic before access/runtime review.
+  database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url,enabled,status) VALUES('alza','Alza',?,0,'paused')").run(ALZA_URL);
   migratePokemonIntervals(database);
   // One-time, non-destructive retirement. Historical rows remain; no SMTP sender exists.
   if(!database.prepare("SELECT 1 FROM pokemon_migrations WHERE id='retire-email-v1'").get()){

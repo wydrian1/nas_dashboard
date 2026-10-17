@@ -1,8 +1,45 @@
 # Alza — Pokémon kártyák
 
-Elemzés: 2026-10-01. **Állapot: hozzáférés miatt blokkolt; nincs bekapcsolt adapter, automatikus Alza-lekérés vagy baseline.** A GameRunner működését nem módosítottuk.
+Megvalósítás: 2026-10-17. **Külön Alza-adapter készült, alapból szüneteltetve. A tulajdonos külön kérésére az Alza nem kéri/ellenőrzi a robots.txt-t; más boltok működése nem változik.** A normál Chromium a tényleges `LocalService` workerfiókkal, nem interaktív Windows-környezetben is sikeresen igazolt hat terméket. Nincs éles Alza-baseline vagy ütemezett Alza-forgalom; az élesítés és bekapcsolás külön jóváhagyást igényel.
 
-## Megadott nézet
+## Mobil adapter és ellenőrzött szabályok
+
+Forrás: `https://m.alza.hu/jatekok/pokemon-kartyak/18879069.htm?availabilityFilterValue=2`.
+
+- A készletszűrő valódi queryparaméter, nem desktop URL-fragment. Kizárólag ez az egy kategóriacím lehet böngészős navigációs cél; nincs robots-, API-, termékoldal-, kosár-, belépés- vagy archívumlekérés.
+- Az egyszeri, friss, **látható Chromium** 2026-10-17-én HTTP 200-at kapott, CAPTCHA nélkül. A DOM-ban **6 ennyiből: 208**, egy aktív szűrő, hat egyedi termék, mindegyiken „Raktáron > 10 db” és nem letiltott „Kosárba” gomb szerepelt. Négy album/mappa és két kártyavédő volt a listán; a kategória összes ilyen termékét figyeljük, nincs booster/ETB-kizárólagosság.
+- A korábbi diagnosztika desktop szelektorai nem illettek a mobil DOM-ra; az akkori időtúllépés nem bizonyított betöltési hibát vagy CAPTCHA-t. A mentett valódi DOM offline feldolgozása a mostani parserrel mind a hat terméket, árat és azonosítót igazolta.
+- Mobil séma: `#categoryPage h1`, `meta[property="og:url"]`, `.commodity-count`, `.button-filter__count`, `#itemsContainer > .js-box.item[data-id]`, `.item__name`, `a.item__link-top`, `.js-price-withVat`, `.item__availability`, `button.js-buy[data-id]`, `img.item__image`.
+- A kategória, pontos szűrős meta-URL, egyetlen aktív szűrő, egyező pozitív darabszám és egyedi numerikus ID kötelező. A terméklink `-d<ID>.htm` és a kosárgomb ID-ja egyezzen. SKU-ként a mobil oldalon igazolt numerikus termékazonosító szolgál; desktop SKU-t nem találunk ki.
+- Csak igazolt „Raktáron” feliratú kártyából lesz készlet. A parser kizárja a letiltott/rejtett gombokat és őseiket; a böngésző a tényleges CSS-láthatóságot is ellenőrzi, kattintás nélkül. Előrendelést nem következtetünk a névből; ez a készletszűrt adapter `in_stock` termékeket ad.
+- A nyilvános, egyértelmű Ft-árat olvassuk, nem a kedvezményes/member-árat; ismeretlen ár `null`. Opcionális kép csak az `https://image.alza.cz/products/` eredetről engedett.
+- **Jelenleg csak a teljes egyoldalas lista támogatott.** A mobil `rel=next` a megfigyelt teljes listán az **Archív** oldalra mutatott, ugyanazzal a készletszűrővel; azt nem követjük. A query nélküli archív link is csak figyelmen kívül hagyott archívum lehet, navigáció soha. Nem egyező darabszám, valódi/ismeretlen lapozás, hiányos DOM, nem igazolt nulla találat vagy minden gomb rejtettsége hiba, soha nem részleges/üres baseline. A többoldalas szerződést élőben még nem igazoltuk.
+
+## Háttérfuttatás és hozzáférési kapu
+
+- A worker nem használja a felhasználó asztalát, böngészőprofilját vagy cookie-jait. Külön, rövid életű Chromium indul friss kontextussal; nincs stealth, UA-átírás, proxyváltás, CAPTCHA-megoldás vagy mentett session. A vizsgálat végén és megszakításkor a böngésző bezárul.
+- **Windows alatt alapból normál (`headed`) Chromium fut a szolgáltatás saját, nem interaktív munkamenetében**, nem a bejelentkezett asztalon. Ez a mód a tényleges `LocalService` fiókkal is sikeresen feldolgozta a hat terméket. Más rendszeren alapból headless; explicit operátori felülbírálás: `ALZA_BROWSER_MODE=headed` vagy `headless`. Más érték hiba. A headless mód ezen a NAS-on a kategórián is 403-at kapott; automatikus módváltás/fallback vagy ismétlés nincs.
+- Külön tulajdonosi utasítás alapján **nincs Alza robots.txt-kérés, robots-cache vagy robots-alapú tiltás**. A 2026-10-17-i korábbi robots-próba 403-at adott, így annak tartalmát/szabályait nem állítjuk ismertnek. Az ettől független tényleges HTTP-elutasítás vagy CAPTCHA továbbra is megállítja a vizsgálatot. A többi adapter robots-kezelése változatlan.
+- Csak rögzített, felülvizsgált Alza/CDN-erőforrások tölthetők be, nyilvános DNS-címekre rögzítve. XHR/fetch, POST, websocket, service worker, idegen host, belépés/kosár és privát HTTP-cél blokkolt; WebRTC közvetlen UDP nem engedett, a Chromium sandboxa bekapcsolva marad. Nincs rejtett API-fallback. A közös HTTP-fetch policy is csak a készletszűrt kategóriacímet engedi.
+- A 403/CAPTCHA `protected`, a 429 `rate_limited`, a többi sikertelen/hiányos olvasás hiba. Az eddigi termékek és a baseline megmaradnak; a közös worker hibavárakozása és a `Retry-After` érvényes. A többi webshop és a személyes értesítési szabályok nem változnak.
+- Az adatbázis-regisztráció **INSERT OR IGNORE**, `enabled=0`, `status=paused`; egy már létező Alza-sor beállításait újraindításkor sem írja át. Az első teljes baseline csendes, utána a meglévő új/újrakészletezett esemény- és telefonos pushrendszer működik. Az Android dinamikus hostlistája csak `m.alza.hu`-t enged az Alzához; nem kell APK- vagy párosításmódosítás.
+
+## Telepítési előfeltételek — nem automatikus élesítés
+
+1. A Playwright `1.64.0` futásidejű függőség. Az azonos verzió Chromiumját külön kell telepíteni: `node node_modules/playwright/cli.js install chromium`. A böngészőbinaris nem kerül Gitbe vagy a web/worker forráscsomagjába.
+2. A telepítést és a worker környezetét azonos, privát `PLAYWRIGHT_BROWSERS_PATH` könyvtárra kell állítani (például a NAS `.runtime/pokemon-browsers` mappájára). A dedikált workerfióknak csak ehhez a binárisfához szükséges olvasás/végrehajtás és saját tempkönyvtár írása kell; nincs új privátadat-könyvtárjog vagy magasabb szolgáltatásjog.
+3. Azonos verziójú futásidejű csomagok és böngésző szükségesek a workernek is, nem csak a fejlesztői worktree-nek (`npm ci --omit=dev` a külön jóváhagyott telepítés részeként). A Chromiumot **a tényleges szolgáltatásfiókkal** ellenőrizni kell. Egyszeri, adatbázis-/értesítésmentes operátori próba: `node scripts/Probe-Alza.ts --live`. A `LocalService`-próba izolált forrás-/binárismásolattal sikeres: **6 termék, 1 oldal**, nincs termelési DB, telefonforgalom vagy szolgáltatásmódosítás. Ez műszaki hozzáférési bizonyíték, nem az Alza felhasználási feltételeinek jóváhagyása.
+4. Csak külön jóváhagyott web+worker kiadás és a kapuk sikeres ellenőrzése után kapcsolható be az Alza a szokásos adminbeállítással. Sem ez a forrásváltoztatás, sem a tesztek nem indítanak éles figyelést vagy szolgáltatás-újraindítást.
+
+## Tesztek
+
+- `npm test`: szintetikus mobil HTML; szűrő, darabszám, ID/link/gomb egyezés, ár, kép, rejtett gomb, hibás/üres/lapozott lista, robots-lekérés hiánya, megszakítás és bezárás, szüneteltetett migráció, csendes baseline, új/újrakészletezett push és más boltok/párosítások/beállítások megőrzése.
+- `node scripts/Test-Alza-Browser.mjs`: valódi Chromium, kizárólag route-olt szintetikus dokumentumokkal; CSS-láthatóság, scanner+reader együtt, robots-lekérés hiánya, 403/429, CAPTCHA, írás és privát hálózati kérés blokkolása. A kiadási ellenőrzés része, nincs külső webshop-/telefonforgalom.
+- `node scripts/Test-Browser.mjs`: a beépített webalkalmazás Alza-panelje, szüneteltetett alapállapot és pontos mobil forráslink admin/olvasó nézetben, izolált szintetikus adatbázissal.
+
+Az alábbi desktopfeljegyzések **2026-10-01-i történeti megfigyelések**, nem a mobil adapter sémája vagy jelenlegi készletígéret.
+
+## Korábbi desktopnézet
 
 https://www.alza.hu/jatekok/pokemon-kartyak/18879069.htm#f&availabilityFilterValue=2&cud=0&pg=1&prod=
 
@@ -40,7 +77,7 @@ Folytatáshoz az Alza által támogatott/engedélyezett API vagy termékfeed, il
 - Diagnosztikai script: `scripts/Probe-Alza-Playwright.mjs`; JSON-eredmény: `.runtime/research/alza-playwright-probe.json`. A script csak kézzel indítható; a worker és a dashboard nem importálja.
 - A Playwright és a böngészők elkülönítve, a `.runtime/alza-probe` mappába kerültek. A dashboard fő csomagfájljai, Windows-szolgáltatásai és az adatbázis nem változtak. A JSON-jelentés nem tartalmaz cookie-t, hitelesítési adatot vagy teljes hálózati naplót.
 
-Az Alza továbbra sincs bekapcsolva. A próba nem hozott létre baseline-t, eseményt vagy e-mailt.
+A korábbi próba nem kapcsolta be az Alzát, és nem hozott létre baseline-t, eseményt vagy e-mailt.
 
 ## Megfigyelt nyilvános adatstruktúra
 
@@ -71,11 +108,11 @@ Ezek elemzési megfigyelések, **nem éles adapterszerződés**:
 
 Pillanatfelvétel, nem élő készletígéret. Nem kerültek a monitor adatbázisába, nem küldtünk róluk értesítést. Ha csak tényleges kártyatermékeket szeretnénk figyelni, a kiegészítőkre külön kizárási szabály szükséges; a kategórianév önmagában nem elegendő.
 
-## Megvalósítás előtt szükséges lépések
+## A korábbi vizsgálat folytatási feltételei
 
 1. Engedélyezett, megbízható adatforrás megszerzése; 403 esetén nem aktiválunk scrapert.
 2. A készletszűrő pontos visszaigazolása a kapott adatokban, nem pusztán a megadott URL-fragment alapján.
 3. Teljes, többoldalas katalógus és változatok ellenőrzése; részleges eredmény nem lehet baseline.
 4. Sanitizált tesztminták készítése az elfogadott forrásból, aktív/inaktív gombbal, előrendeléssel és lapozással.
-5. A jelenleg GameRunnerre kötött tároló, dashboardműveletek és worker webshoponkénti általánosítása. Az események, lease-ek, beállítások és levélsorok nem keveredhetnek a források között.
+5. A közös, azóta többwebshopossá bővített tároló, dashboard és worker elkülönített Alza-integrációja elkészült; az események, lease-ek és pushok nem keveredhetnek más forrásokkal.
 6. Csendes első Alza-baseline; a meglévő GameRunner-baseline és adatok megőrzése. Csak ezután automatikus figyelés.

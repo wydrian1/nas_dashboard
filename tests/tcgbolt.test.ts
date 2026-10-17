@@ -53,7 +53,7 @@ test('TCG Bolt is an independent three-minute shop with silent baseline, named p
   const db=new DatabaseSync(':memory:');initializeDatabase(db);const products=parseTcgboltPage(fixture).products;
   const run=(list:typeof products,now:number)=>{db.prepare("UPDATE pokemon_shops SET next_scan=? WHERE id='tcgbolt'").run(now);return finishScan(db,claimScan(db,now,'tcgbolt')!,{products:list,total:list.length,pages:1,scannedAt:now},now+1);};
   try{
-    assert.equal(SHOP_NAMES.tcgbolt,'TCG Bolt');assert.equal(SHOP_IDS.length,15);
+    assert.equal(SHOP_NAMES.tcgbolt,'TCG Bolt');assert.ok(SHOP_IDS.includes('tcgbolt'));
     db.exec("DELETE FROM pokemon_user_notifications WHERE shop_id='tcgbolt';DELETE FROM pokemon_shops WHERE id='tcgbolt';UPDATE pokemon_shops SET enabled=0,interval_minutes=25,baseline_at=1000 WHERE id='gamerunner'");const ids=SHOP_IDS.filter(id=>id!=='tcgbolt'),before=ids.map(id=>shop(db,id));registerTestPhone(db);const phones=JSON.stringify(db.prepare('SELECT * FROM mobile_devices').all());initializeDatabase(db);
     assert.deepEqual(ids.map(id=>shop(db,id)),before);assert.equal(JSON.stringify(db.prepare('SELECT * FROM mobile_devices').all()),phones);assert.equal(shop(db,'tcgbolt').interval_minutes,3);assert.equal(shop(db,'tcgbolt').url,TCGBOLT_URL);
     assert.equal(run(products,1000).baseline,true);assert.equal(readPokemonSnapshot(db).latestEvents.length,0);assert.equal(db.prepare('SELECT count(*) n FROM mobile_push_outbox').get()!.n,0);assert.equal(run(products,700_000).events,0);
