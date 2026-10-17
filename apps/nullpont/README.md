@@ -117,7 +117,12 @@ A célpont címkéje
 rámutatásra, fókuszra, jobb kattintásra vagy hosszú érintésre mutatja a nevét és a
 kompakt műveletikonokat. A rövid érintés vizsgálat, a hosszú csak a menüt nyitja;
 görgetéskor a hosszú érintés megszakad. A menü megnyitása nem hajt végre akciót;
-az ikonok hozzáférhető neve és tooltipje megmarad.
+az ikonok hozzáférhető neve és tooltipje megmarad. Ha a pontnak a vizsgálaton kívül
+más művelete is van (felvétel, használat, beszélgetés), a rövid kattintással végzett
+vizsgálat után a menü nyitva marad, hogy ezek a lehetőségek rámutatás nélkül is
+láthatók legyenek; a menü ekkor sem hajt végre műveletet. A jelenet alatti rövid,
+mindig látható sor ugyanezt a kezelést ismerteti. Az ismételt vizsgálat, amely szó
+szerint ugyanazt a szöveget adná, rövid jelzést kap, hogy nincs benne új részlet.
 Billentyűzettel a lefelé nyíl a címke műveleteire lép, Escape bezárja azt.
 Az inventory tárgyrajzokat mutat: a címkén a Használom után a jelenet célpontjára,
 a Kombinálom után a másik inventorytárgyra kattints. Nincs előre megjelenített
