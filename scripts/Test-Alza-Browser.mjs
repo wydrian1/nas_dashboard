@@ -28,6 +28,7 @@ try{
   try{
     const doc=await normal.read(ALZA_URL);check(doc.cartVisibility['1001']&&doc.cartVisibility['1002'],'both real rendered cart buttons visible');
     check(parseAlzaPage(doc.html,doc.url).products.length===2,'production reader output satisfies production parser');
+    check(parseAlzaPage(doc.html,doc.url).products[0].image==='https://image.alza.cz/products/DEMO/DEMO.jpg','rendered thumbnail dimensions normalize to the original image URL');
     check(normal.requests.filter(request=>request.path.endsWith('.htm')).length===1,'one catalog visit, no retry or pagination');
   }finally{await normal.close();}
   for(const css of ['display:none','visibility:hidden','opacity:0']){
@@ -37,6 +38,7 @@ try{
   let closed=false;const full=await session();
   const result=await scanAlza(AbortSignal.timeout(25_000),{open:async()=>({...full,close:async()=>{closed=true;await full.close();}})});
   check(result.total===2&&result.pages===1,'scanner proves a complete stock list through actual browser');check(closed,'scanner closes its browser session on success');
+  check(result.products[0].image==='https://image.alza.cz/products/DEMO/DEMO.jpg','scanner retains the image through the complete browser/parser path');
   check(full.requests.every(request=>!request.path.endsWith('robots.txt')),'Alza does not request robots per explicit owner instruction');
   for(const [status,kind]of [[403,'protected'],[429,'rate_limited']]){
     const rejected=await session({status,headers:{'retry-after':'900'}});

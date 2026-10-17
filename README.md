@@ -2,7 +2,7 @@
 
 Privát, Windows-alapú NAS-munkaterület: rendszeráttekintés, pénzügyek, gyűjtemények, fájlmegosztás, jegyzetek és Pokémon-készletfigyelés egy közös webes felületen és Android-appban.
 
-**Web:** 1.4.6 · **Android:** 1.1.4 · **Technológia:** Next.js / React / TypeScript, Auth.js, Node.js 24, SQLite, Caddy, Firebase Cloud Messaging.
+**Web:** 1.4.7 · **Android:** 1.1.4 · **Technológia:** Next.js / React / TypeScript, Auth.js, Node.js 24, SQLite, Caddy, Firebase Cloud Messaging.
 
 - Dashboard: **[wydrian.hu](https://wydrian.hu)** és **[nas.wydrian.hu](https://nas.wydrian.hu)** — ugyanaz az alkalmazás és adatbázis, külön böngészős munkamenettel.
 - Fejlődéstörténet: **[GitHub Pages](https://wydrian1.github.io/nas_dashboard/)** — önálló, magyar bemutató; a NAS nem szolgál ki `/timeline` oldalt vagy átirányítást.

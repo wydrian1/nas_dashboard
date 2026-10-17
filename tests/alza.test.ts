@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {lookup} from 'node:dns/promises';
-import {parseAlzaPage,scanAlza,alzaProductUrl} from '../lib/pokemon/adapters/alza.ts';
+import {parseAlzaPage,scanAlza,alzaProductUrl,alzaImageUrl} from '../lib/pokemon/adapters/alza.ts';
 import {alzaFetchUrl,shopFetchUrl,ShopRequestError} from '../lib/pokemon/fetch-policy.ts';
 import {alzaResourceAllowed,alzaResolverRules,alzaBrowserHeadless,checkAlzaStatus,type AlzaDocument,type AlzaSession} from '../lib/pokemon/alza-browser.ts';
 import {ALZA_URL,SHOP_IDS,SHOP_NAMES} from '../lib/pokemon/types.ts';
@@ -41,6 +41,15 @@ test('Alza refuses desktop schema, wrong filter/category/count, ambiguous cards,
   ];
   for(const html of bad)assert.throws(()=>parseAlzaPage(html));
   assert.throws(()=>parseAlzaPage('<html><title>CAPTCHA</title></html>'),(error:unknown)=>error instanceof ShopRequestError&&error.kind==='protected');
+});
+test('Alza normalizes only reviewed thumbnail dimensions, never foreign hosts or arbitrary image parameters',()=>{
+  const image='https://image.alza.cz/products/DEMO/DEMO.jpg';
+  for(const query of ['', '?width=190&height=190','?height=190&width=190','?width=1','?height=2000'])assert.equal(alzaImageUrl(image+query),image);
+  for(const query of ['?width=190&width=190','?height=190&height=191','?width=0','?width=-1','?height=2001','?width=1.5','?width=190px','?width=','?width=0190','?width=1e2','?WIDTH=190','?url=https://evil.example/','?width=190&token=x','#fragment'])assert.equal(alzaImageUrl(image+query),null);
+  for(const input of ['', '//image.alza.cz/products/DEMO/DEMO.jpg',image.replace('https:','http:'),image.replace('image.alza.cz','image.alza.cz.evil.example'),image.replace('image.alza.cz','u:p@image.alza.cz'),image.replace('image.alza.cz','image.alza.cz:444'),image.replace('/products/','/api/'),image.replace('/DEMO.jpg','/nested/DEMO.jpg')])assert.equal(alzaImageUrl(input),null);
+  assert.equal(parseAlzaPage(fixture.replace('?width=190&amp;height=190','')).products[0].image,image);
+  assert.equal(parseAlzaPage(fixture.replace('?width=190&amp;height=190','?token=x')).products[0].image,null);
+  assert.equal(parseAlzaPage(fixture.replace('<img class="item__image"','<img class="item__image" src="'+image+'"><img class="item__image"')).products[0].image,null);
 });
 test('Alza navigation/product policies reject desktop/API/cart/archive/foreign/credentials/duplicates and arbitrary pages',()=>{
   assert.equal(alzaFetchUrl(ALZA_URL).href,ALZA_URL);assert.equal(shopFetchUrl(ALZA_URL).href,ALZA_URL);
@@ -90,5 +99,20 @@ test('Alza initializes paused without modifying existing shops/settings/pairings
     assert.equal(run(products.slice(0,1),1400000).events,0);assert.equal(run(products.slice(0,1),2100000).events,0);assert.equal(run(products,2800000).events,1);
     db.exec("UPDATE pokemon_shops SET next_scan=0 WHERE id='alza'");const savedProducts=db.prepare("SELECT * FROM pokemon_products WHERE shop_id='alza'").all();failScan(db,claimScan(db,3500000,'alza')!,'Hozzáférésvédelem',0,3500001,'protected');assert.deepEqual(db.prepare("SELECT * FROM pokemon_products WHERE shop_id='alza'").all(),savedProducts);assert.equal(shop(db,'alza').last_count,2);assert.equal(shop(db,'alza').status,'protected');
     const saved=shop(db,'alza');initializeDatabase(db);assert.deepEqual(shop(db,'alza'),saved);assert.deepEqual(ids.map(id=>shop(db,id)),before);assert.equal(JSON.stringify(db.prepare('SELECT * FROM mobile_devices').all()),phones);assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  }finally{db.close();}
+});
+test('Alza fills missing images on an ordinary scan without a new baseline, event or push',()=>{
+  const db=new DatabaseSync(':memory:');initializeDatabase(db);registerTestPhone(db);
+  try{
+    db.exec("UPDATE pokemon_shops SET enabled=1 WHERE id='alza'");
+    const products=parseAlzaPage(fixture).products,run=(list:typeof products,now:number)=>{db.prepare("UPDATE pokemon_shops SET next_scan=? WHERE id='alza'").run(now);return finishScan(db,claimScan(db,now,'alza')!,{products:list,total:list.length,pages:1,scannedAt:now},now+1);};
+    assert.equal(run(products.map(product=>({...product,image:null})),1000).baseline,true);
+    const baseline=shop(db,'alza').baseline_at,identities=db.prepare("SELECT external_id,first_seen,episode FROM pokemon_products WHERE shop_id='alza' ORDER BY external_id").all(),preferences=db.prepare('SELECT * FROM pokemon_user_notifications').all(),devices=db.prepare('SELECT * FROM mobile_devices').all();
+    assert.deepEqual(run(products,700000),{baseline:false,events:0,deferred:false});
+    assert.equal(db.prepare("SELECT image FROM pokemon_products WHERE shop_id='alza' AND external_id='1001'").get()!.image,products[0].image);
+    assert.equal(readPokemonSnapshot(db,false,700002).shops.find(item=>item.shop.id==='alza')!.products.find(product=>product.external_id==='1001')!.image,products[0].image);
+    assert.equal(shop(db,'alza').baseline_at,baseline);assert.deepEqual(db.prepare("SELECT external_id,first_seen,episode FROM pokemon_products WHERE shop_id='alza' ORDER BY external_id").all(),identities);
+    assert.equal(db.prepare("SELECT count(*) n FROM pokemon_events WHERE shop_id='alza'").get()!.n,0);assert.equal(db.prepare('SELECT count(*) n FROM mobile_push_outbox').get()!.n,0);
+    assert.deepEqual(db.prepare('SELECT * FROM pokemon_user_notifications').all(),preferences);assert.deepEqual(db.prepare('SELECT * FROM mobile_devices').all(),devices);
   }finally{db.close();}
 });
