@@ -1,4 +1,4 @@
-# NULLPONT: ten-minute player review
+# NULLPONT: fifteen-minute player review
 
 `nullpont-player-reviewer` is a blind, player-perspective subagent, separate from
 the pre-release `nullpont-story-steward`. It reviews **story, puzzles, UI and
@@ -41,7 +41,7 @@ release. They become follow-up development suggestions, not automatic edits.
    Controls retain their observed DOM identity even if a hover menu changes the
    control list. Optional screenshot failure sets `screenshotAvailable: false`;
    it does not turn a successful action into a failed one.
-4. The watchdog closes gameplay at **600 seconds** after fixture readiness,
+4. The watchdog closes gameplay at **900 seconds** after fixture readiness,
    including model reasoning and tool latency. It independently records timeout
     even if the agent never responds. The reviewer profile allows **50,000 model
     steps** as a fallback ceiling, not as the clock or a promise of full coverage.
@@ -82,10 +82,21 @@ If no review arrives, the timeout report keeps all unassessed ratings `null`.
 Private developer findings use visible scene/object labels, observed vs expected
 behavior and concrete improvement suggestions, so a developer can locate issues
 without exposing the overarching plot. The reviewer has no storyboard access.
-For extensive coverage beyond ten minutes, request a separate explicitly scoped
+For extensive coverage beyond fifteen minutes, request a separate explicitly scoped
 session; never silently turn this review into a walkthrough or extend its budget.
 
 `smoke` is an operator-only fixture startup check: it does not call a model or
 produce fictional ratings. Policy unit tests use injected time rather than
-waiting ten minutes; the real watchdog uses a monotonic elapsed-time check as
+waiting fifteen minutes; the real watchdog uses a monotonic elapsed-time check as
 well as a timer. This facility is deliberately absent from packaging/CI gates.
+
+## Efficient blind exploration
+
+Every `act` returns the next observation, so no extra `observe` is needed after a
+successful action. Use `observe` for pending renders or uncertainty. Screenshots
+capture only the viewport instead of the entire growing journal/book; visible
+rendered text and all visible controls remain in the observation. Inspect images
+for visual checks and ambiguity, not mechanically after every click. Avoid
+uninformative repeated examinations; never accelerate with solutions, hidden
+state, action batching or a preplanned route. These changes reduce overhead, not
+the player's investigation; they do not guarantee complete coverage.

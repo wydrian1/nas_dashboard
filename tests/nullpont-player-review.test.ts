@@ -7,7 +7,7 @@ function review(): PlayerReview {
   return { status: 'completed', stopReason: 'content_exhausted', reached: 'PRIVATE LOCATION', difficulty: 'balanced', ratings: Object.fromEntries(REVIEW_CATEGORIES.map(category => [category, { score: 7, reason: 'PRIVATE observation' }])) as PlayerReview['ratings'], findings: [{ category: 'puzzles', severity: 'medium', location: 'PRIVATE LOCATION', observed: 'PRIVATE observation', expected: 'PRIVATE expectation', suggestion: 'PRIVATE suggestion' }] };
 }
 test('player review has exactly four quality scores; unavailable observations must not fabricate ratings', () => {
-  assert.equal(PLAYTEST_LIMIT_MS, 600000);
+  assert.equal(PLAYTEST_LIMIT_MS, 900000);
   assert.equal(validatePlayerReview(review()).ratings.difficulty.score, 7);
   const missing = review(); delete (missing.ratings as Partial<PlayerReview['ratings']>).ui;
   assert.throws(() => validatePlayerReview(missing), /four/);
@@ -15,19 +15,20 @@ test('player review has exactly four quality scores; unavailable observations mu
   const unknown = review(); unknown.ratings.story.score = null; assert.equal(validatePlayerReview(unknown).ratings.story.score, null);
   const invalid = review(); invalid.findings[0].location = ''; assert.throws(() => validatePlayerReview(invalid), /findings/);
 });
-test('ten-minute deadline always reports partial timeout, never gates deployment or leaks private findings', () => {
-  const run = { startedAt: 1000, deadline: 601000, release: 'manifest-sha256', status: 'completed' as const };
-  assert.equal(playtestResult(run, review(), 600999).coverage, 'current_content_exhausted');
+test('fifteen-minute deadline always reports partial timeout, never gates deployment or leaks private findings', () => {
+  const run = { startedAt: 1000, deadline: 901000, release: 'manifest-sha256', status: 'completed' as const };
+  assert.equal(playtestResult(run, review(), 900999).coverage, 'current_content_exhausted');
   assert.notEqual(playtestResult(run, review(), 301000).status, 'timed_out');
-  const expired = playtestResult(run, review(), 601000);
+  assert.notEqual(playtestResult(run, review(), 601000).status, 'timed_out');
+  const expired = playtestResult(run, review(), 901000);
   assert.equal(expired.status, 'timed_out'); assert.equal(expired.coverage, 'partial_or_unverified'); assert.equal(expired.nonBlocking, true);
-  assert.match(expired.message, /10 perces/); assert.equal(expired.limitSeconds, 600); assert.equal(expired.stopReason, 'time_limit'); assert.equal(expired.storyFinished, false); assert.doesNotMatch(JSON.stringify(expired), /PRIVATE|suggestion|reason|LOCATION/);
+  assert.match(expired.message, /15 perces/); assert.equal(expired.limitSeconds, 900); assert.equal(expired.stopReason, 'time_limit'); assert.equal(expired.storyFinished, false); assert.doesNotMatch(JSON.stringify(expired), /PRIVATE|suggestion|reason|LOCATION/);
   assert.equal(playtestResult({ ...run, status: 'timed_out' }, review(), 2000).status, 'timed_out');
   assert.equal(playtestResult({ ...run, status: 'blocked' }, undefined, 2000).ratings.story, null);
-  assert.throws(() => playtestResult({ ...run, deadline: 301000 }, review()), /Ten-minute/);
+  assert.throws(() => playtestResult({ ...run, deadline: 601000 }, review()), /Fifteen-minute/);
 });
 test('no-progress stops distinguish unfinished puzzles from the current content boundary, never a story ending', () => {
-  const run = { startedAt: 1000, deadline: 601000, release: 'manifest-sha256', status: 'completed' as const };
+  const run = { startedAt: 1000, deadline: 901000, release: 'manifest-sha256', status: 'completed' as const };
   const complete = playtestResult(run, validatePlayerReview(review()), 10000);
   assert.equal(complete.storyFinished, false); assert.match(complete.message, /nem a történet vége/);
   for (const stopReason of ['stuck', 'technical_block', 'uncertain', 'time_limit'] as const) {
@@ -43,7 +44,7 @@ test('player profile is blind, bounded and advisory; release workflow invokes it
   assert.match(agent, /mode: subagent/); assert.match(agent, /action: "\*"[\s\S]*?effect: deny/);
   assert.match(agent, /^steps: 50000$/m);
   for (const input of ['action.json', 'review.json']) assert.ok(agent.includes(`resource: ".runtime/nullpont-player-review/${input}"`), 'direct relative write allowance');
-  for (const word of ['600-second', 'story', 'puzzles', 'difficulty', 'non-blocking', 'private storyboard', 'never silently implement', 'NO real story ending', 'cannot make further progress', 'content_exhausted', 'stuck']) assert.ok(agent.toLowerCase().includes(word.toLowerCase()), word);
+  for (const word of ['900-second', 'story', 'puzzles', 'difficulty', 'non-blocking', 'private storyboard', 'never silently implement', 'NO real story ending', 'cannot make further progress', 'content_exhausted', 'stuck']) assert.ok(agent.toLowerCase().includes(word.toLowerCase()), word);
   const instructions = readFileSync('apps/nullpont/AGENTS.md', 'utf8');
   assert.match(instructions, /nullpont-player-reviewer/); assert.match(instructions, /not a deployment gate/);
   const runner = readFileSync('scripts/Nullpont-Player-Review.mjs', 'utf8');
@@ -54,6 +55,8 @@ test('player profile is blind, bounded and advisory; release workflow invokes it
   assert.match(runner, /kind === 'finish' && existsSync\(file\('public\.json'\)\)/, 'a summary is only attached to a finished report');
   assert.match(runner, /sessionId: run\.id, release: run\.release, status: 'running'/, 'observations identify their own session and release');
   assert.match(runner, /function writeClosed/, 'closure marks the observation as no longer live');
+  assert.match(runner, /fullPage: false/, 'screenshots stay viewport-sized as the journal grows');
+  assert.match(agent, /instead of calling\s+`observe` again/, 'successful actions already return observations');
   assert.match(runner, /const name of \['review\.json'[\s\S]*?'observation\.json', 'screen\.png'\]/, 'previous observations and screenshots are archived when a new session starts');
   assert.ok(agent.includes('no live playtest session'), 'the reviewer must report the missing live session');
   assert.ok(agent.includes('sessionId'), 'the reviewer can verify the session and release');
@@ -63,7 +66,8 @@ test('player profile is blind, bounded and advisory; release workflow invokes it
 test('an expired or older session is never served as live play, and only the session that just ended may be reported', () => {
   const startedAt = 1000000, deadline = startedAt + PLAYTEST_LIMIT_MS, release = 'manifest-sha256';
   const live = playtestSession({ id: 'run-a', release, status: 'running', startedAt, deadline }, startedAt + 1000);
-  assert.equal(live.live, true); assert.equal(live.status, 'running'); assert.equal(live.remainingSeconds, 599); assert.equal(live.lateReportAllowed, false);
+  assert.equal(live.live, true); assert.equal(live.status, 'running'); assert.equal(live.remainingSeconds, 899); assert.equal(live.lateReportAllowed, false);
+  assert.equal(playtestSession({ status: 'running', startedAt, deadline }, startedAt + 600000).remainingSeconds, 300);
   const expired = playtestSession({ id: 'run-a', release, status: 'running', startedAt, deadline }, deadline + 1000);
   assert.equal(expired.live, false); assert.equal(expired.status, 'timed_out'); assert.equal(expired.remainingSeconds, 0); assert.match(expired.message, /lejárt/);
   const justEnded = playtestSession({ id: 'run-a', release, status: 'timed_out', startedAt, deadline, endedAt: deadline }, deadline + 1000);
