@@ -218,7 +218,9 @@ try{
    await inspectEnvironment('awakening:coats');check(await wingObject('loose-frame').count()===0,'repeat cloakroom inspection does not respawn the frame');
    await travel('awakening:light');await inspectEnvironment('awakening:optics-note');await inspectEnvironment('awakening:relief');
    check(!currentState().flags.includes('awakening:relief-read'),'early optical branch cannot silently solve itself');await travel('awakening:light-back');
-    await travel('awakening:water');await inspectEnvironment('awakening:vessels');check(await page.locator('.story').innerText().then(text=>text.includes('KÉT EGYSÉG TERHELÉS')&&text.includes('ÜRES VISSZATÉRŐ')),'target diagram is available before the first failed lever attempt');await wingAction('float-test');check(!currentState().flags.includes('awakening:flow-latched'),'wrong water test leaves progress recoverable');
+    await travel('awakening:water');await inspectEnvironment('awakening:vessels');check(await page.locator('.story').innerText().then(text=>text.includes('KÉT EGYSÉG TERHELÉS')&&text.includes('ÜRES VISSZATÉRŐ')),'target diagram is available before the first failed lever attempt');
+    await inspectEnvironment('awakening:lock-record');check(await page.locator('.story').innerText().then(text=>text.includes('zárva áll')&&!text.includes('BELSŐ KÉZI')),'bolted service cover is examinable on arrival without revealing the record behind it');await captureEvidence('water-cover');
+    await wingAction('float-test');check(!currentState().flags.includes('awakening:flow-latched'),'wrong water test leaves progress recoverable');
    for(const id of ['empty-large','empty-small','fill','pour-small','empty-small','pour-small','fill','pour-small','empty-small','float-test'])await wingAction(id);
      check(currentState().flags.includes('awakening:flow-latched'),'water transfers latch the passage through real UI controls');
      check(await page.locator('.notebook [role="status"]').innerText().then(text=>text.includes('új emléktöredék')),'new memory acquisition has an announced count');

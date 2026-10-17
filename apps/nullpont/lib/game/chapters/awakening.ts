@@ -200,7 +200,7 @@ water.descriptionVariants = [];
 for (let large = 0; large <= 3; large++) for (let small = 0; small <= 2; small++) {
   const requires = volumes(large, small);
   const waterText = `A hosszú üveghengerben ${large}, a rövidben ${small} egység víz van. A hosszúba három, a rövidbe két egység fér; ezt jelölik a rovátkák. Felül töltőcsap, a hengerek között átöntőcsőrök vannak. Az alsó ürítők a nyitott lefolyóvályúba vezetnek. Az úszók rúdjai az iratpult acélajtajának reteszéhez kapcsolódnak.`;
-  water.descriptionVariants.push({ requires: { ...requires, flags: [...requires.flags!, aw('flow-latched')] }, text: waterText + waterTarget + ' Az ajtót már külön rögzítő tartja nyitva; a víz átállítása nem zárja vissza.' }, { requires, text: waterText + waterTarget });
+  water.descriptionVariants.push({ requires: { ...requires, flags: [...requires.flags!, aw('flow-latched')] }, text: waterText + waterTarget + ' Az ajtót már külön rögzítő tartja nyitva; a víz átállítása nem zárja vissza.' }, { requires, text: waterText + waterTarget + ' A bal oldali szerelőfedél zárva áll; mögé benézni nem lehet.' });
   water.rules.push(awLook('vessels', `A hosszú hengerben ${large}, a rövidben ${small} egység víz van. A hosszúba összesen három, a rövidbe két egység fér. Átöntéskor addig folyik a víz, amíg az egyik henger kiürül, vagy a másik megtelik.` + waterTarget, { id: aw(`look:vessels:${large}:${small}`), requires }));
   for (const [name, nextLarge, nextSmall] of [
     ['fill', 3, small], ['empty-large', 0, small], ['empty-small', large, 0],
@@ -339,12 +339,20 @@ awakening.scenes[aw('corridor-doors')] = {
 // into a personal confession. Existing milestones retain their historical text.
 const lockRecord = 'A külön tartóban a vízkör zárjegyzékének átnyomatát találod; az eredeti a szerelőfedél mögött van. A fejléc: „BELSŐ 09 / ZÁRJEGYZÉK”. Nyolc korábbi ciklusnál a BELSŐ KÉZI oszlopban látszik mély jel. Mellette külön oszlopot kapott a KÜLSŐ ÉBRESZTÉS. A metszetrajzon is külön vezetéken fut a két jel. A mostani állapot: NYITVA. A jegyzék szerint az ajtót nyolcszor belülről, kézzel zárták be, nem az ébresztés zárta automatikusan. Név vagy aláírás nincs a csíkon: azt továbbra sem tudod, ki kezelte a zárat, és volt-e választása.';
 const lockMilestone = { id: aw('lock-record-read'), title: 'A belső jel', text: 'Az iratpult külön tartójában a szerelőfedél mögötti zárjegyzék átnyomatát olvastam. Nyolc lezárt ciklusnál belső kézi bemenetet jelölt, külön a külső ébresztéstől. A mostani kimenet nyitott volt. Már nem csak az ajtó feliratára és egy hangra támaszkodhattam: a helyi berendezés is őrizte a belső zárás nyomát. Azt azonban nem jegyezte fel, ki kezelte, és milyen körülmények között. A belső zárás nem lett ettől önkéntes beleegyezés.' };
-water.environment!.push(awEnv('lock-record', 'Zárjegyzék a szerelőfedél mögött', 'A felnyílt szerelőfedél mögött külön papírcsík fut: „BELSŐ 09 / ZÁRJEGYZÉK”. Nyolc régi sorban BELSŐ KÉZI zárójel áll, a KÜLSŐ ÉBRESZTÉS külön oszlop. A jelenlegi kimenet NYITVA. A csík rögzített, nem a prizma tartozéka. A gép a bemenet helyét őrizte meg, nem a kezelő nevét vagy szándékát.', flowOpen));
+// The bolted service cover belongs to the housing from arrival; the float latch
+// only tips it up. Both physical states therefore carry their own prose.
+const lockRecordClosed = 'A szerelőfedél zárva áll. Sarkain süllyesztett csavarok, a lemezen négy sor bordázat fut; kilincs vagy nyitógomb nincs rajta. Keskeny peremén rés húzódik, mögé benézni nem lehet.';
+water.environment!.push(awEnv('lock-record', 'Szerelőfedél', lockRecordClosed));
+const lockRecordOpen = 'A felnyílt szerelőfedél mögött külön papírcsík fut: „BELSŐ 09 / ZÁRJEGYZÉK”. Nyolc régi sorban BELSŐ KÉZI zárójel áll, a KÜLSŐ ÉBRESZTÉS külön oszlop. A jelenlegi kimenet NYITVA. A csík rögzített, nem a prizma tartozéka. A gép a bemenet helyét őrizte meg, nem a kezelő nevét vagy szándékát.';
+water.environment!.at(-1)!.descriptionVariants = [{ requires: flowOpen, text: lockRecordOpen }];
 water.arrivalDiscoveries!.push(aw('lock-record'));
 const openCover = water.rules.find(rule => rule.id === aw('use:float-test:balanced'))!;
 openCover.discover!.push(aw('lock-record'));
 openCover.message += ' A fedél mögött külön zárjegyzék is látszik: nyolc régi BELSŐ KÉZI zárójel, a külső ébresztéstől elkülönítve. Az iratpult falán ennek átnyomatát rögzítették.';
-water.rules.push(awLook('lock-record', water.environment!.at(-1)!.description!, { requires: flowOpen, addFlags: [aw('lock-log-seen')] }));
+water.rules.push(
+  awLook('lock-record', lockRecordClosed, { id: aw('look:lock-record:closed'), requires: awPhase([], ['flow-latched']) }),
+  awLook('lock-record', lockRecordOpen, { requires: flowOpen, addFlags: [aw('lock-log-seen')] }),
+);
 for (const variant of water.descriptionVariants!) if (variant.requires.flags?.includes(aw('flow-latched'))) variant.text += ' A szerelőfedél nyitva maradt; mögötte a külön BELSŐ 09 zárjegyzék nyolc régi belső kézi zárójele és a mostani NYITVA kimenet látszik.';
 source.environment!.push(awEnv('lock-rubbing', 'Zárjegyzék és a két bemenet metszete', lockRecord));
 source.arrivalDiscoveries!.push(aw('lock-rubbing'));

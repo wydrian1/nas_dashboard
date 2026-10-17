@@ -179,7 +179,11 @@ test('old advanced room/focus saves gain no retrospective evidence, turns, flags
 
 test('new evidence objects appear in the right physical state without respawning old pickups', () => {
   let state = go(enterWing(), 'water');
-  assert.ok(!view(state).environment.some(entity => entity.id === aw('lock-record')));
+  assert.ok(view(state).environment.some(entity => entity.id === aw('lock-record')), 'the bolted service cover stands in the room from arrival');
+  assert.doesNotMatch(glyph(state, aw('lock-record')), /ZARJEGYZEK/);
+  const closedCover = act(state, 'look', aw('lock-record')).message;
+  assert.match(closedCover, /zárva áll/);
+  assert.doesNotMatch(closedCover, /BELSŐ KÉZI|ZÁRJEGYZÉK/);
   state = solveWater(state);
   assert.match(glyph(state, aw('lock-record')), /ZARJEGYZEK/);
   assert.match(act(reload(state), 'look', aw('lock-record')).message, /BELSŐ KÉZI.*KÜLSŐ ÉBRESZTÉS/);
