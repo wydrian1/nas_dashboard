@@ -83,7 +83,7 @@ After every successful NULLPONT deployment/release, launch a fresh
 and the isolated fixture procedure in `docs/nullpont-player-review.md`. Bind the
 review to the actual installed manifest hash; never use a real player's save or
 provide puzzle solutions, chapter source or private story memory to the reviewer.
-Its external ten-minute watchdog includes reasoning/tool time and must report
+Its external fifteen-minute watchdog includes reasoning/tool time and must report
 incomplete/timeout honestly. Collect story, puzzles, UI and difficulty quality
 scores, perceived hardness and actionable developer-only findings.
 

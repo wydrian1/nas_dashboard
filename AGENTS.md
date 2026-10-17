@@ -27,7 +27,7 @@ The owner requires every project modification to be represented in GitHub after 
 After every successful NULLPONT deployment/release, launch the fresh blind
 `nullpont-player-reviewer` subagent using `docs/nullpont-player-review.md` and
 `.opencode/agents/nullpont-player-reviewer.md`. It plays an isolated synthetic
-copy of the exact installed release for at most ten minutes and reports story,
+copy of the exact installed release for at most fifteen minutes and reports story,
 puzzles, UI and difficulty scores plus actionable developer-only observations.
 This is advisory, not a deployment/notification gate: timeout, low scores or
 unavailability must be recorded honestly but do not delay success announcements

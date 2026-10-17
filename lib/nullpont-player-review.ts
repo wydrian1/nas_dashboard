@@ -1,5 +1,5 @@
 // Operator-only playtest policy. This is not a release/deployment gate.
-export const PLAYTEST_LIMIT_MS = 10 * 60 * 1000;
+export const PLAYTEST_LIMIT_MS = 15 * 60 * 1000;
 export const REVIEW_CATEGORIES = ['story', 'puzzles', 'ui', 'difficulty'] as const;
 export type PlaytestStatus = 'completed' | 'incomplete' | 'timed_out' | 'blocked';
 export type PlayerReview = {
@@ -51,12 +51,12 @@ export function playtestSession(active: unknown, now = Date.now()): PlaytestSess
   const deadline = run.deadline as number;
   if (run.status === 'running') {
     if (now < deadline) return { live: true, status: 'running', remainingSeconds: Math.max(0, Math.ceil((deadline - now) / 1000)), endedAt: null, lateReportAllowed: false, message: 'A játékpróba fut.' };
-    return closed('timed_out', deadline, 'A 10 perces keret lejárt; további játék nem lehetséges, csak a megfigyelt anyagról szóló jelentés.');
+    return closed('timed_out', deadline, 'A 15 perces keret lejárt; további játék nem lehetséges, csak a megfigyelt anyagról szóló jelentés.');
   }
   return closed(run.status, Number.isFinite(run.endedAt) ? run.endedAt as number : deadline, LATE_SESSION(run.status));
 }
 export function playtestResult(run: { startedAt: number; deadline: number; release: string; status: PlaytestStatus }, review?: PlayerReview, now = Date.now()) {
-  if (run.deadline !== run.startedAt + PLAYTEST_LIMIT_MS) throw new Error('Ten-minute deadline required');
+  if (run.deadline !== run.startedAt + PLAYTEST_LIMIT_MS) throw new Error('Fifteen-minute deadline required');
   const status: PlaytestStatus = run.status === 'timed_out' || now >= run.deadline ? 'timed_out' : run.status;
   // Do not copy arbitrary reviewer prose/locations into the user-facing summary.
   return {
@@ -71,6 +71,6 @@ export function playtestResult(run: { startedAt: number; deadline: number; relea
       return [category, score == null ? 'Nem értékelhető.' : score <= 3 ? 'A megfigyelt rész gyenge; javításra szorul.' : score <= 6 ? 'A megfigyelt rész vegyes minőségű.' : score <= 8 ? 'A megfigyelt rész jó minőségű.' : 'A megfigyelt rész kiváló minőségű.'];
     })),
     difficulty: review?.difficulty ?? 'unassessed', findings: review?.findings.length ?? 0,
-    message: status === 'timed_out' ? 'A 10 perces keret lejárt; a játékpróba időkorlát miatt lezárult.' : status === 'completed' ? 'A jelenleg elérhető tartalom határán nincs további előrehaladás; ez nem a történet vége.' : 'A játékpróba elakadás vagy bizonytalan továbbhaladás miatt lezárult; ez nem jelenti a történet végét.',
+    message: status === 'timed_out' ? 'A 15 perces keret lejárt; a játékpróba időkorlát miatt lezárult.' : status === 'completed' ? 'A jelenleg elérhető tartalom határán nincs további előrehaladás; ez nem a történet vége.' : 'A játékpróba elakadás vagy bizonytalan továbbhaladás miatt lezárult; ez nem jelenti a történet végét.',
   };
 }

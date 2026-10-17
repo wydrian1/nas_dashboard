@@ -119,7 +119,7 @@ async function run(smoke) {
     page = await context.newPage(); page.setDefaultTimeout(4000); await page.goto(url, { timeout: 15000 }); await page.locator('.game-grid').waitFor();
     const started = performance.now(); run = { ...run, status: 'running', startedAt: Date.now(), deadline: Date.now() + PLAYTEST_LIMIT_MS }; run.deadline = run.startedAt + PLAYTEST_LIMIT_MS;
     write('active.json', run);
-    timer = setTimeout(() => { if (!done) { done = true; publish('timed_out'); void context.close().catch(() => {}); console.log(JSON.stringify({ nonBlocking: true, status: 'timed_out', message: 'A 10 perces keret lejárt; a játékpróba időkorlát miatt lezárult.' })); } }, PLAYTEST_LIMIT_MS);
+    timer = setTimeout(() => { if (!done) { done = true; publish('timed_out'); void context.close().catch(() => {}); console.log(JSON.stringify({ nonBlocking: true, status: 'timed_out', message: 'A 15 perces keret lejárt; a játékpróba időkorlát miatt lezárult.' })); } }, PLAYTEST_LIMIT_MS);
     async function snapshot() {
       // Only visible rendered text and labels; no game catalog, state, DOM attributes
       // holding internal IDs, network payloads, hidden controls or JS evaluation.
@@ -134,7 +134,7 @@ async function run(smoke) {
       }
       safe(file('screen.png'));
       let screenshotAvailable = false;
-      try { await page.screenshot({ path: file('screen.png'), fullPage: true, timeout: 4000 }); screenshotAvailable = true; }
+      try { await page.screenshot({ path: file('screen.png'), fullPage: false, timeout: 4000 }); screenshotAvailable = true; }
       catch { if (existsSync(file('screen.png'))) unlinkSync(file('screen.png')); }
       return { sessionId: run.id, release: run.release, status: 'running', screenshotAvailable, remainingSeconds: Math.max(0, Math.ceil((PLAYTEST_LIMIT_MS - (performance.now() - started)) / 1000)), text: (await page.locator('body').innerText()).slice(0, 24000), sceneDescription: await page.locator('.ascii-canvas').getAttribute('aria-label'), controls: visible };
     }
