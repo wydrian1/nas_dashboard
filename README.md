@@ -18,7 +18,7 @@ Privát, Windows-alapú NAS-munkaterület: rendszeráttekintés, pénzügyek, gy
 | **Gyűjtemények** · `/collections` | LEGO- és Pokémon-bekerülési tételek, darabszám, ár, beszerzési dátum | Admin |
 | **Fájlok** · `/files` | Mappák, többfájlos feltöltés, letöltés, megosztási linkek, megerősített fájltörlés | Admin |
 | **Jegyzetek / teendők** · `/notes` | Közös adminjegyzetek, saját feladatok és határidők | Admin |
-| **Pokémon figyelő** · `/pokemon` | 15 webshop készlete, keresés/szűrők, új és visszakészletezett termékek | Admin, Pokémon-olvasó |
+| **Pokémon figyelő** · `/pokemon` | 16 webshopforrás (Alza alapból szünetel), keresés/szűrők, új és visszakészletezett termékek | Admin, Pokémon-olvasó |
 | **Értesítési központ** · `/config#notifications` | Saját figyelőlista, pushszabályok, csendes idő, összefoglaló és küldési előzmény | Admin; Pokémon-olvasónak `/notifications` |
 | **Fontos infók** · `/important-info` | Közös formázott tájékoztató és a legfrissebb mentett pénzügyi állapot kijelölt adatai | Admin szerkeszti; infóolvasó olvassa |
 | **Keresés** · `/#dashboard-search` | Szerepkör szerint elérhető modulok közös keresője, külön menüpont nélkül; admin régi `/search` címe ide irányít | Admin; olvasóknak a jogosultságszűrt `/search` továbbra is elérhető |
@@ -40,14 +40,15 @@ Részletek: [Pénzügy](docs/finance.md), [Gyűjtemények](docs/collections.md).
 
 ### Pokémon-készletfigyelés
 
-**GameRunner · MythGames · Pöttyös Zebra · GrandLine · Krodom Cards · JátékNet · Reflexshop · GeekEmpire · TCG Futár · Sport Kártya Bolt · RT Collectors Club · Cardverse · Metagames · TCG Bolt · Bloomrift.**
+**GameRunner · MythGames · Pöttyös Zebra · GrandLine · Krodom Cards · JátékNet · Reflexshop · GeekEmpire · TCG Futár · Sport Kártya Bolt · RT Collectors Club · Cardverse · Metagames · TCG Bolt · Bloomrift · Alza.**
 
-- A külön `WydrianPokemon` worker böngésző és oldalmegnyitás nélkül működik. Alapintervallum **3 perc**, admin által **3–60 perc** között állítható; a robots-késleltetés, soros feldolgozás és hibavárakozás miatt ez nem garantált 180 másodperces falióra-ütem.
-- Az adapterek csak előre engedélyezett útvonalakat olvasnak, a robots.txt szabályait betartva. Teljes listát és igazolt lapozást fogadnak el; hibás/hiányos vizsgálat nem írja felül a korábbi állapotot.
+- A külön `WydrianPokemon` worker a dashboard megnyitása nélkül működik. Az Alza-adapter külön Chromiumot használ (Windows alatt alapból normál mód, a szolgáltatás saját munkamenetében); a többi forrás HTTP-alapú. Alapintervallum **3 perc**, admin által **3–60 perc** között állítható; a robots-késleltetés, soros feldolgozás és hibavárakozás miatt ez nem garantált 180 másodperces falióra-ütem.
+- Az adapterek csak előre engedélyezett útvonalakat olvasnak, a robots.txt szabályait betartva; **kivétel az Alza**, ahol a tulajdonos külön kérésére nincs robots.txt-lekérés/ellenőrzés. Teljes listát és igazolt lapozást fogadnak el; hibás/hiányos vizsgálat nem írja felül a korábbi állapotot.
 - Az elérhetőség boltonként igazolt kosárgomb vagy a dokumentált készletszűrt lista alapján dől el. Előrendelést nem következtetünk pusztán a terméknévből. Az első teljes baseline csendes; nincs visszamenőleges push.
 - Egy termék elfogyását két sikeres hiányzó vizsgálat igazolja; nagy készletcsökkenés újabb teljes ellenőrzésre vár. A változáslisták csak az elmúlt **24 óra továbbra is elérhető** termékeinek aktuális eseményeit mutatják; a tárolt előzmény megmarad.
 - Sikertelen, szüneteltetett vagy elavult vizsgálatnál a felület **utolsó ismert / elavult készletadatot** jelöl, nem friss készletet. HTTP 403, 429, ismert karbantartás és technikai hiba külön kategória; hozzáférésvédelmet nem kerül meg.
 - A Bloomrift angol kategóriáját teljes lapozással ellenőrzi. A privát kulcsfájllal hitelesített katalógust is olvas; lejárt/sikertelen belépést nem ment hiányzó készletként. Nyilvános, belépéshez kötött kártyát csak kifejezett **Nincs raktáron** állapot esetén tekint nem elérhetőnek.
+- Az [Alza mobil készletes kategóriája](docs/pokemon-shops/alza.md) külön, **alapból szüneteltetett** forrás. Teljes egyoldalas listát, egyező darabszámot, készletfeliratot és látható kosárgombot követel; nem igazolt üres/többoldalas lista, 403 vagy CAPTCHA esetén megőrzi a korábbi állapotot. A tényleges workerfiókkal végzett izolált próba sikeres; élesítéskor a Chromiumot és a futásidejű függőségeket külön telepíteni/ellenőrizni kell.
 
 Boltonkénti szabályok: [webshopdokumentációk](docs/pokemon-shops/), [Bloomrift hitelesítés](docs/pokemon-shops/bloomrift.md), [frissesség és személyes eszközök](docs/reliability-and-tools.md).
 

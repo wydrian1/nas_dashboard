@@ -3,7 +3,7 @@ import { request } from "node:https";
 import { pinnedAddressOptions } from "../feed-download.ts";
 import { isPublicAddress } from "../url-policy.ts";
 import {interruptionRedirect,type ShopFailureKind} from './health.ts';
-import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY, TCGBOLT_CATEGORY, BLOOMRIFT_CATEGORY } from "./types.ts";
+import { MYTHGAMES_COLLECTION, POTTYOSZEBRA_CATEGORY, KRODOMCARDS_FILTER, RTCOLLECTORSCLUB_COLLECTION, CARDVERSE_CATEGORY, METAGAMES_CATEGORY, TCGBOLT_CATEGORY, BLOOMRIFT_CATEGORY, ALZA_CATEGORY } from "./types.ts";
 
 export class ShopRequestError extends Error {
   retryAfterMs: number;
@@ -70,6 +70,7 @@ export function mythgamesFetchUrl(input:string):URL {
 }
 export function shopFetchUrl(input:string):URL {
   const origin=new URL(input).origin;
+  if(origin==='https://m.alza.hu')return alzaFetchUrl(input);
   if(origin==='https://mythgames.eu')return mythgamesFetchUrl(input);
   if(origin==='https://pottyoszebra.hu')return pottyoszebraFetchUrl(input);
   if(origin==='https://www.grandline.hu')return grandlineFetchUrl(input);
@@ -85,6 +86,12 @@ export function shopFetchUrl(input:string):URL {
   if(origin==='https://tcgbolt.hu')return tcgboltFetchUrl(input);
   if(origin==='https://bloomrift.eu')return bloomriftFetchUrl(input);
   return gamerunnerFetchUrl(input);
+}
+export function alzaFetchUrl(input:string):URL {
+  const url=new URL(input);
+  if(url.origin!=='https://m.alza.hu' || url.username || url.password || url.hash)throw new ShopRequestError('Nem engedélyezett Alza-cím.');
+  if(url.pathname!==ALZA_CATEGORY || url.searchParams.get('availabilityFilterValue')!=='2' || [...url.searchParams.keys()].length!==1 || url.searchParams.getAll('availabilityFilterValue').length!==1)throw new ShopRequestError('Nem igazolt Alza-készletszűrő vagy lapozás.');
+  return url;
 }
 export function pottyoszebraFetchUrl(input:string):URL {
   const url=new URL(input);

@@ -2,7 +2,7 @@
 
 Állapot: az első GameRunner-adapter, összehasonlító motor, külön Windows-worker, dashboard és SMTP-kimeneti sor elkészült. Az e-mail-küldés külön konfigurációhoz és engedélyezéshez kötött, alapból kikapcsolva. A következő részek az eredeti modultervet őrzik; az első verzió konkrét szabályai és korlátai: `pokemon-shops/gamerunner.md`, üzemeltetés: `../README.md`.
 
-Második forrás elemzése: `pokemon-shops/alza.md`. Az Alza normál HTTP-próbája és a külön jóváhagyott egyszeri Playwright/headless Chromium próba is HTTP 403-at adott, ezért a forrás nincs bekapcsolva; a böngészőben korábban megfigyelt készletszűrő és termékazonosítók dokumentálva vannak.
+Alza: `pokemon-shops/alza.md`. Külön, alapból szüneteltetett böngészős adapter készült; a normál Chromium a valódi `LocalService` workerfiókkal, nem interaktív Windows-környezetben is sikeresen olvasta a hat terméket. Külön tulajdonosi kérésre nincs Alza robots.txt-lekérés/ellenőrzés, más boltoknál ez változatlan. A forrás csak teljes, igazolt egyoldalas mobil készletlistát fogad el; hiányos/üres/ismeretlenül lapozott lista vagy hozzáférésvédelem nem írja felül az előző állapotot. Az élesítés külön jóváhagyást és a futásidejű Chromium telepítését igényli.
 
 MythGames: `pokemon-shops/mythgames.md`. A felhasználó itt külön listaalapú szabályt adott: a készletszűrt listán való szereplés az elérhetőség, külön kosárgomb-/termékoldal-ellenőrzés nélkül. A HTTP-adapter teljes próbája 15 terméket adott; a közös motor/UI több webshop önálló kezelésére bővült. Az alábbi általános tervnél az egyes webshoplapok konkrét szabályai az irányadók.
 
