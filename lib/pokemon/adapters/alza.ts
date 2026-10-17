@@ -3,7 +3,7 @@ import {ALZA_URL,ALZA_CATEGORY,type PokemonProduct,type ShopScan} from '../types
 import {alzaFetchUrl,ShopRequestError} from '../fetch-policy.ts';
 import {openAlzaBrowser,type AlzaSession} from '../alza-browser.ts';
 
-export const ALZA_ADAPTER_VERSION='1.0.0';
+export const ALZA_ADAPTER_VERSION='1.0.1';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 const archive='https://m.alza.hu/jatekok/pokemon-kartyak/a18879069.htm';
 const archiveLink=(input:string|undefined)=>input===archive || input===archive+'?availabilityFilterValue=2';
@@ -11,6 +11,16 @@ export function alzaProductUrl(input:string,id:string):string {
   const url=new URL(input,ALZA_URL);
   if(url.origin!=='https://m.alza.hu' || url.username || url.password || url.search || url.hash || !/^[1-9]\d*$/.test(id) || !/^\/jatekok\/[a-z0-9-]+-d[1-9]\d*\.htm$/i.test(url.pathname) || !url.pathname.endsWith('-d'+id+'.htm'))throw new Error('Érvénytelen Alza-terméklink vagy azonosító.');
   return url.href;
+}
+export function alzaImageUrl(input:string):string|null {
+  try{
+    const url=new URL(input),keys=[...url.searchParams.keys()];
+    if(url.origin!=='https://image.alza.cz' || url.username || url.password || url.hash || !/^\/products\/[a-z0-9_-]+\/[a-z0-9_.-]+$/i.test(url.pathname))return null;
+    // Alza's rendered DOM adds thumbnail dimensions. Accept only bounded, unique
+    // width/height values, then store the original image URL without resizing.
+    if(new Set(keys).size!==keys.length || keys.some(key=>!['width','height'].includes(key) || !/^[1-9]\d{0,3}$/.test(url.searchParams.get(key)!) || Number(url.searchParams.get(key))>2000))return null;
+    url.search='';return url.href;
+  }catch{return null;}
 }
 export function parseAlzaPage(html:string,input=ALZA_URL) {
   if(alzaFetchUrl(input).pathname!==ALZA_CATEGORY)throw new Error('Nem Alza-kategória.');
@@ -35,8 +45,7 @@ export function parseAlzaPage(html:string,input=ALZA_URL) {
     const chain=cart.add(cart.parentsUntil(lists));
     if(chain.toArray().some(node=>$(node).is('.disabled,.hidden,.d-none,[disabled],[hidden],[aria-disabled="true"],[aria-hidden="true"]') || /display\s*:\s*none|visibility\s*:\s*(hidden|collapse)|opacity\s*:\s*0(?:\s|;|$)/i.test($(node).attr('style')||'')))return;
     const prices=card.find('.js-price-withVat'),price=normalize(prices.text()),raw=price.match(/^((?:\d{1,3}(?: \d{3})+|\d+)(?:,\d{1,2})?) Ft$/),amount=raw&&prices.length===1?Number(raw[1].replace(/ /g,'').replace(',','.')):NaN;
-    let image:string|null=null;
-    try{const images=card.find('img.item__image'),candidate=new URL(images.attr('src')||'');if(images.length===1&&candidate.origin==='https://image.alza.cz'&&!candidate.username&&!candidate.password&&!candidate.search&&!candidate.hash&&/^\/products\/[a-z0-9_-]+\/[a-z0-9_.-]+$/i.test(candidate.pathname))image=candidate.href;}catch{/* Optional image, never fetched separately by the worker. */}
+    const images=card.find('img.item__image'),image=images.length===1?alzaImageUrl(images.attr('src')||''):null;
     products.push({externalID:id,sku:id,title,url,image,priceHuf:Number.isFinite(amount)&&amount>=0&&amount<=100_000_000?amount:null,availability:'in_stock'});
   });
   if(new Set(cardIDs).size!==cardIDs.length)throw new Error('Duplikált Alza-termékazonosító.');
