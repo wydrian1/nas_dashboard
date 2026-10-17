@@ -39,7 +39,7 @@ test('eleven other corridor doors support separate inspection, opening attempts 
 
 test('the machinery explains volume, supply, drain, float rods and an independently held-open steel route', () => {
   let state = go(enterWing(), 'water');
-  assert.match(view(state).scene.description, /vízkör.*térfogat.*töltőcsap.*lefolyóvályú.*úszórudak/i);
+  assert.match(view(state).scene.description, /üveghengerben.*töltőcsap.*lefolyóvályúba.*úszók rúdjai/i);
   assert.match(look(state, 'float-test').message, /bevágás.*retesz/);
   state = solveWater(state);
   assert.match(state.message, /rudak bevágásai.*kar.*acélajtó.*rögzítő/i);

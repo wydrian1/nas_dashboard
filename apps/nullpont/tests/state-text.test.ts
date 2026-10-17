@@ -50,7 +50,7 @@ test('opened doors, latched lift, controls and visible inscriptions reflect curr
   assert.match(applyAction(at('threshold', ['door-open']), 'look:hall').message, /NEM VAGY EGYEDÜL/);
   const lift = at('relay:well-room', ['relay:lift-ready']);
   assert.match(applyAction(lift, 'relay:look:alignment').message, /rögzítőfék/);
-  assert.match(view(lift).scene.description, /rögzítve/);
+  assert.match(view(lift).scene.description, /fék rögzíti a járdához/);
   const controls = at('archive:signal-room', ['archive:route-bridge']);
   assert.match(view(controls).scene.spots.find(spot => spot.environment === 'archive:route')!.glyph!, /HID/);
   const request = at('relay:dispatch-room', ['relay:request-sent']);

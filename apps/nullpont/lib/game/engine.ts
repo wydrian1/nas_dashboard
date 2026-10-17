@@ -42,19 +42,19 @@ export function availableActions(state: GameState, catalog: AdventureCatalog = C
 export function applyAction(current: GameState, actionId: string, catalog: AdventureCatalog = CATALOG, submittedInput?: string): GameState {
   const rule = contextRules(current, catalog).find(rule => rule.id === actionId && meets(current, rule.requires));
   if (!rule) throw new Error('Ez a művelet most nem érhető el.');
-  if (rule.kind === 'submit' && (submittedInput === undefined || submittedInput !== rule.interaction?.input)) throw new Error('A művelethez pontos bevitel szükséges.');
+  if (rule.kind === 'submit' && (submittedInput === undefined || submittedInput !== rule.interaction?.input)) throw new Error('Ehhez a művelethez a megfelelő értéket kell megadnod.');
   const state: GameState = { ...current, inventory: [...current.inventory], flags: [...current.flags], discoveries: [...current.discoveries], journal: [...current.journal], book: [...current.book], turns: current.turns + 1, message: textFor(current, rule.message, rule.messageVariants) };
   state.inventory = [...new Set([...state.inventory.filter(item => !(rule.removeItems ?? []).includes(item)), ...rule.addItems ?? []])];
   state.flags = [...new Set([...state.flags.filter(flag => !(rule.removeFlags ?? []).includes(flag)), ...rule.addFlags ?? []])];
   state.discoveries = [...new Set([...state.discoveries, ...rule.discover ?? []])];
   state.journal = [...new Set([...state.journal, ...rule.notes ?? []])];
   if (rule.moveTo) {
-    if (!meets(state, catalog.scenes[rule.moveTo].requires)) throw new Error('A célhelyszín még nem érhető el.');
+    if (!meets(state, catalog.scenes[rule.moveTo].requires)) throw new Error('Oda még nem tudsz eljutni.');
     state.room = rule.moveTo;
     delete state.focus;
   }
   if (rule.focusTo) {
-    if (!meets(state, catalog.scenes[rule.focusTo].requires)) throw new Error('A részlet még nem érhető el.');
+    if (!meets(state, catalog.scenes[rule.focusTo].requires)) throw new Error('Ezt még nem tudod közelebbről megvizsgálni.');
     state.focus = [...current.focus ?? [], rule.focusTo];
   }
   if (rule.milestone && !state.book.some(entry => entry.id === rule.milestone!.id)) {
@@ -124,7 +124,7 @@ export function applyCommand(state: GameState, command: PlayerCommand, catalog: 
     return pattern.verb === 'combine' && pattern.target?.kind === 'item' && pattern.item === command.target!.id && pattern.target.id === command.item;
   }) : undefined);
   if (rule) return applyAction(state, rule.id, catalog, command.input);
-  if (command.verb === 'submit') return { ...state, message: 'A bevitel nem nyitja meg.' };
+  if (command.verb === 'submit') return { ...state, message: 'Erre a beállításra nem nyílik ki.' };
   if (command.verb === 'look' && command.target?.kind === 'environment' && !command.item && !command.topic) {
     const entity = scene.environment!.find(entry => entry.id === command.target!.id)!;
     return { ...state, turns: state.turns + 1, message: textFor(state, entity.description || `${entity.label}. ${textFor(state, scene.description, scene.descriptionVariants)}`, entity.descriptionVariants) };

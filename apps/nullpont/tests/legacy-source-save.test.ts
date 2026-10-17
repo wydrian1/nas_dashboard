@@ -22,7 +22,7 @@ test('installed-release accepted source save keeps wrist evidence and the exact 
   };
   verify();
   state = look(state, 'wrist-source'); assert.match(state.message, /kilenc apró heg/); verify();
-  state = use(state, 'source-check'); assert.match(state.message, /korábbi másolatot nem írják át/); verify();
+  state = use(state, 'source-check'); assert.match(state.message, /leadott lap nem változik meg/); verify();
   state = use(state, 'wrist-source'); state = reload(state); verify();
   state = reload(go(go(state, 'source-back'), 'sorting')); verify();
   assert.equal(state.book.filter(entry => entry.id === aw('lock-record-read')).length, 1, 'a new actual arrival can add the new separate evidence page');

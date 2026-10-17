@@ -88,7 +88,7 @@ test('semantic missing-document request needs no name, preserves optional items 
   assert.ok(!JSON.stringify(view(state).inputs).includes('09'));
   state = command(state, 'submit', 'missing-tray', '09');assert.deepEqual(state.book.slice(0, before.length), before);
   state = command(state, 'move', 'receiver');assert.equal(state.room, 'relay:receiver-room');
-  state = command(state, 'look', 'reply');assert.match(view(state).goal!, /eredetijét.*olvasó/);
+  state = command(state, 'look', 'reply');assert.match(view(state).goal!, /eredeti ébresztési kérelmet.*olvasóhoz/);
   assert.match(state.message, /kérelem és az engedély/i);assert.match(state.message, /nem igazolja/);
   const book = [...state.book];state = command(command(state, 'look', 'reply'), 'look', 'reply');assert.deepEqual(state.book, book);
   state = { ...state, inventory: ['archive:witness'] };

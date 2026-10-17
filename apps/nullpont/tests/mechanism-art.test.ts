@@ -24,9 +24,9 @@ test('counterweight art shows all nine rope positions independently of the latch
     assert.equal(lines.findIndex(line => line.includes('|_|_|')), [9, 6, 3][left]);
     assert.equal(lines.findIndex(line => line.includes('|___|')), [9, 6, 3][right]);
     assert.equal(lines.findIndex(line => line.includes('.--------.')), ready ? 3 : 11);
-    assert.ok(view(state).scene.description.includes(`villa a${left === 0 ? 'z' : ''} ${names[left]} jelhez`));
-    assert.ok(view(state).scene.description.includes(`keresztgerenda a${right === 0 ? 'z' : ''} ${names[right]} jelhez`));
-    assert.match(view(state).scene.description, ready ? /rögzítve/ : /járda alatt/);
+    assert.ok(view(state).scene.description.includes(`villa a${left === 0 ? 'z' : ''} ${names[left]} jelnél áll`));
+    assert.ok(view(state).scene.description.includes(`keresztgerenda pedig a${right === 0 ? 'z' : ''} ${names[right]} jelnél`));
+    assert.match(view(state).scene.description, ready ? /fék rögzíti a járdához/ : /járda alatt függ/);
     assert.equal(glyph(parseState(JSON.stringify(state)), 'relay:alignment'), art);
     pictures.add(art);
   }
