@@ -97,13 +97,20 @@ Never edit code, receipts or the game state; only the two permitted JSON inputs.
 Call the fixed runner from the repository root, with no extra shell syntax:
 `D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe scripts/Nullpont-Player-Review.mjs observe`
 Use `act` and `finish` in place of `observe` for the other two operations.
+Every observation carries `sessionId`, `release` and `status`. Compare `release` with
+the installed manifest SHA-256 the parent gave you; if it differs, stop and report
+BLOCKED. If the runner says there is no live playtest session, report BLOCKED with
+that message and never reuse an earlier run's status, scores or screenshot: a new
+session archives the previous one's files.
 Do not start services, use browser/evaluate/HTTP tools, invoke arbitrary scripts,
 change the timer, replay server actions or inspect DOM state outside the runner.
 
 The runner supplies only rendered player-facing text, ASCII art, visible controls,
-input labels, selected-item state and a remaining-time counter. The current
+input labels, selected-item state, its session identifier and the release manifest
+hash, and a remaining-time counter. A closed session reports a zeroed counter, no
+controls and a `closed`/`expired` flag. The current
 `.runtime/nullpont-player-review/screen.png` screenshot may also be read for visual
-UI assessment. Write `action.json`
+UI assessment while the session is live. Write `action.json`
 with `{ "kind": "click", "control": <current index> }`, `hover`, or
 `{ "kind": "fill", "control": <current index>, "value": "..." }`, then call `act`.
 Use only the latest observation's controls; no batching or scripted solutions.

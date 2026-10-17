@@ -15,14 +15,23 @@ the review to declare deployment success or send its ordinary completion push.
 Low scores, timeout and infrastructure failure **do not block or roll back** a
 release. They become follow-up development suggestions, not automatic edits.
 
-1. From the repository root, launch (as a background shell command):
+1. From the repository root, launch (as a background shell command), immediately
+   before delegating:
    `D:/!nas/.runtime/node-v24.21.0-win-x64/node.exe scripts/Nullpont-Player-Review.mjs start`.
+   `start` refuses while a live playtest exists, archives every file of the previous
+   session and prints the new session id, the release manifest hash and the deadline.
+   `observe`/`act` **refuse** without a live session instead of returning an earlier
+   run's status, scores or screenshot, and a report is accepted only for the session
+   that just ended.
 2. Delegate a **fresh** session to `nullpont-player-reviewer`, providing only the
    release manifest hash, this profile's identity and that the fixture is starting.
    Do not pass chapter source, prior detailed reviews, routes, codes or answers.
    If not discovered yet, use a fresh `general` subagent executing the exact
    `.opencode/agents/nullpont-player-reviewer.md` profile.
 3. The reviewer calls the fixed `observe`, `act`, `finish` runner operations.
+   `observe`/`act` identify their own session: every observation carries `sessionId`,
+   `release` (the installed manifest SHA-256) and `status`, so the reviewer can compare
+   `release` with the manifest hash the operator passed and stop if they differ.
    `act` reads the permitted `.runtime/nullpont-player-review/action.json` file.
    Actions target only a currently visible UI control: `{kind:"click"|"hover",
    control:0}` or `{kind:"fill",control:0,value:"..."}`. No evaluate, network,
@@ -31,9 +40,15 @@ release. They become follow-up development suggestions, not automatic edits.
    including model reasoning and tool latency. It independently records timeout
     even if the agent never responds. The reviewer profile allows **50,000 model
     steps** as a fallback ceiling, not as the clock or a promise of full coverage.
-    The deadline cannot be reset/extended by the reviewer. Reporting on
-   already observed material is allowed after timeout; further play is not.
-5. The reviewer writes `review.json` per its profile and calls `finish`. The runner
+    The deadline cannot be reset/extended by the reviewer, and a later observation
+    never shows someone else's remaining time. At closure the observation is marked
+    `closed`/`expired` with a zeroed counter, cleared controls and no screenshot, so
+    an ended run cannot look like a live game. Reporting on already observed material
+    is allowed after timeout; further play is not.
+5. The reviewer writes `review.json` per its profile and calls `finish`. A report is
+   accepted only for the live session or, after a timeout or blockage, within fifteen
+   minutes of the session that just ended; an older session is refused rather than
+   re-published, so one run's scores can never be attributed to another. The runner
    keeps detailed findings in an ignored UUID-named `*-developer.json`; only the
    generated `public.json` goes into user-facing messages. Do not copy private
    text, plot details, codes or puzzle solutions into Git, PRs or pushes.

@@ -23,6 +23,38 @@ export function validatePlayerReview(value: unknown): PlayerReview {
   if (!Array.isArray(report.findings) || report.findings.length > 30 || report.findings.some(finding => !finding || !REVIEW_CATEGORIES.includes(finding.category) || !['low', 'medium', 'high'].includes(finding.severity) || !['location', 'observed', 'expected', 'suggestion'].every(key => text(finding[key as keyof typeof finding])))) throw new Error('Invalid developer findings');
   return report;
 }
+export const PLAYTEST_REPORT_GRACE_MS = 15 * 60 * 1000;
+export type PlaytestSessionStatus = 'none' | 'starting' | 'running' | PlaytestStatus;
+export type PlaytestSession = {
+  live: boolean;
+  status: PlaytestSessionStatus;
+  remainingSeconds: number;
+  endedAt: number | null;
+  lateReportAllowed: boolean;
+  message: string;
+};
+const NO_SESSION = 'Nincs aktív játékpróba. Új játékhoz indítsd el a start műveletet; korábbi futás eredménye nem használható fel újra.';
+const LATE_SESSION = (status: string) => `A legutóbbi játékpróba már lezárult (${status}). Új játékhoz indítsd el a start műveletet; korábbi eredmény nem használható fel újra.`;
+
+// The playtest may only be driven while its own fixture is live, and a report is
+// accepted only for the session that just ended. A previous run's recorded status,
+// summary or screenshot is never served as if it were the current game, so an
+// expired session cannot be mistaken for live play by a fresh blind reviewer.
+export function playtestSession(active: unknown, now = Date.now()): PlaytestSession {
+  const run = (active ?? {}) as { id?: unknown; status?: unknown; startedAt?: unknown; deadline?: unknown; endedAt?: unknown };
+  const closed = (status: string, endedAt: number | null, message: string): PlaytestSession => ({
+    live: false, status: status as PlaytestSessionStatus, remainingSeconds: 0, endedAt, message,
+    lateReportAllowed: endedAt !== null && Number.isFinite(endedAt) && now - endedAt >= -60000 && now - endedAt <= PLAYTEST_REPORT_GRACE_MS,
+  });
+  if (run.status === 'starting') return { live: false, status: 'starting', remainingSeconds: PLAYTEST_LIMIT_MS / 1000, endedAt: null, lateReportAllowed: false, message: 'Az elkülönített játékpróba-fixture még indul; néhány másodperc múlva próbáld újra.' };
+  if (!active || typeof run.status !== 'string' || !Number.isFinite(run.startedAt) || run.deadline !== (run.startedAt as number) + PLAYTEST_LIMIT_MS) return { live: false, status: 'none', remainingSeconds: 0, endedAt: null, lateReportAllowed: false, message: NO_SESSION };
+  const deadline = run.deadline as number;
+  if (run.status === 'running') {
+    if (now < deadline) return { live: true, status: 'running', remainingSeconds: Math.max(0, Math.ceil((deadline - now) / 1000)), endedAt: null, lateReportAllowed: false, message: 'A játékpróba fut.' };
+    return closed('timed_out', deadline, 'A 10 perces keret lejárt; további játék nem lehetséges, csak a megfigyelt anyagról szóló jelentés.');
+  }
+  return closed(run.status, Number.isFinite(run.endedAt) ? run.endedAt as number : deadline, LATE_SESSION(run.status));
+}
 export function playtestResult(run: { startedAt: number; deadline: number; release: string; status: PlaytestStatus }, review?: PlayerReview, now = Date.now()) {
   if (run.deadline !== run.startedAt + PLAYTEST_LIMIT_MS) throw new Error('Ten-minute deadline required');
   const status: PlaytestStatus = run.status === 'timed_out' || now >= run.deadline ? 'timed_out' : run.status;
