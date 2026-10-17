@@ -99,6 +99,58 @@ inside the asset. Text in an inscription must match the brief's approved wording
 (ASCII transliteration where necessary); prose acknowledgement is the designer's
 responsibility and missing evidence must be reported, not silently invented.
 
+### Character-grid geometry (required by default)
+
+Treat every drawing as a two-dimensional character grid, not a sequence of
+independently spaced text lines. Choose anchors for each object's edges before
+drawing its rows. An intended vertical edge must stay in the same character
+column throughout its span; a perspective diagonal must follow a deliberate,
+consistent step pattern. A changing line length, inscription or shading run must
+never push the next object's edge sideways. Check corners, frame thickness,
+window jambs, door leaves, pipes and their joins, not only the outer dimensions.
+
+This is a geometric requirement, NOT a requirement to draw everything with `|`.
+An aligned edge may use `:`, `.`, `#`, `I`, shading clusters or another intentional
+ASCII treatment. Retain the chosen technique and its tonal transitions; do not
+repair alignment by replacing every style with the same pipe-character boxes.
+Monospaced fonts, letter spacing and line height cannot fix incorrect columns.
+Distinguish glyph-level vertical gaps from actual horizontal column drift.
+
+Before handing off, count the occupied columns along every important straight
+edge and check that object silhouettes, inscriptions and neighbouring objects do
+not collide. For style studies, supply a small zero-based geometry receipt for
+each drawing: important edge columns, inclusive row spans and the expected edge
+characters or deliberate alternating pattern. This is verification metadata
+outside the art, never gameplay logic. Do not claim a check ran if it did not.
+
+### Scale, lettering and genuinely different compositions
+
+Size objects relative to the architecture and to one another. A foreground door
+can be larger than a distant door, but a return doorway must not dominate most of
+the canvas merely because it is interactive. Preserve clear differences between
+a full-height room door, a low maintenance door and a narrow side entrance.
+
+Place inscriptions on their physical carriers whenever space permits: a door
+number on its door leaf, a window label on the window frame, a control label at
+the control, directions on the nearby sign. Keep approved wording and the
+current saved state. If an open door's leaf remains visible, its number may sit
+on that leaf; do not silently change an established number. Do not float labels
+in unrelated floor space or collect them into a disconnected legend. If an
+approved inscription cannot fit legibly, report the constraint to the designer.
+
+When asked for multiple styles, create new compositions and genuinely different
+mark-making, silhouettes, viewpoints, tonal masses and use of negative space.
+Do not recolour, retexture, repair or trace one common drawing ten times and call
+that ten new styles. Preserve the same required scene facts across variants,
+but let their spatial arrangements vary within the approved brief. A request
+for new drawings is not permission to substitute patched older sketches.
+
+For an explicitly requested temporary response-only study, return the new art
+and its geometry receipts to the designer without editing production assets.
+The designer may right-pad rows and render the exact supplied art; alignment
+defects should be returned for illustration revision, not silently redrawn into
+a common template by the coding agent. Such a study is not production acceptance.
+
 ## Interactive handlers and saved-world consistency
 
 Every required element has exactly one stable, neutral handler. Preserve all

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PLAYTEST_LIMIT_MS, REVIEW_CATEGORIES, validatePlayerReview, playtestResult, type PlayerReview } from '../lib/nullpont-player-review.ts';
+import { PLAYTEST_LIMIT_MS, PLAYTEST_REPORT_GRACE_MS, REVIEW_CATEGORIES, validatePlayerReview, playtestResult, playtestSession, type PlayerReview } from '../lib/nullpont-player-review.ts';
 
 function review(): PlayerReview {
   return { status: 'completed', stopReason: 'content_exhausted', reached: 'PRIVATE LOCATION', difficulty: 'balanced', ratings: Object.fromEntries(REVIEW_CATEGORIES.map(category => [category, { score: 7, reason: 'PRIVATE observation' }])) as PlayerReview['ratings'], findings: [{ category: 'puzzles', severity: 'medium', location: 'PRIVATE LOCATION', observed: 'PRIVATE observation', expected: 'PRIVATE expectation', suggestion: 'PRIVATE suggestion' }] };
@@ -50,4 +50,32 @@ test('player profile is blind, bounded and advisory; release workflow invokes it
   assert.match(runner, /setTimeout\([\s\S]*?PLAYTEST_LIMIT_MS\)/);
   assert.match(runner, /data\/nullpont.sqlite/); assert.match(runner, /player-review@example.test/);
   assert.doesNotMatch(runner, /Stop-Service|Start-Service|adventure_saves.*SELECT|lib\/game\/catalog/);
+  assert.match(runner, /if \(!session\.live\) throw Error\(session\.message\)/);
+  assert.match(runner, /kind === 'finish' && existsSync\(file\('public\.json'\)\)/, 'a summary is only attached to a finished report');
+  assert.match(runner, /sessionId: run\.id, release: run\.release, status: 'running'/, 'observations identify their own session and release');
+  assert.match(runner, /function writeClosed/, 'closure marks the observation as no longer live');
+  assert.match(runner, /const name of \['review\.json'[\s\S]*?'observation\.json', 'screen\.png'\]/, 'previous observations and screenshots are archived when a new session starts');
+  assert.ok(agent.includes('no live playtest session'), 'the reviewer must report the missing live session');
+  assert.ok(agent.includes('sessionId'), 'the reviewer can verify the session and release');
+  const guide = readFileSync('docs/nullpont-player-review.md', 'utf8').replace(/\s+/g, ' ');
+  for (const phrase of ['archives every file of the previous session', 'refuse** without a live session', 'zeroed counter', 'within fifteen minutes']) assert.ok(guide.includes(phrase), phrase);
+});
+test('an expired or older session is never served as live play, and only the session that just ended may be reported', () => {
+  const startedAt = 1000000, deadline = startedAt + PLAYTEST_LIMIT_MS, release = 'manifest-sha256';
+  const live = playtestSession({ id: 'run-a', release, status: 'running', startedAt, deadline }, startedAt + 1000);
+  assert.equal(live.live, true); assert.equal(live.status, 'running'); assert.equal(live.remainingSeconds, 599); assert.equal(live.lateReportAllowed, false);
+  const expired = playtestSession({ id: 'run-a', release, status: 'running', startedAt, deadline }, deadline + 1000);
+  assert.equal(expired.live, false); assert.equal(expired.status, 'timed_out'); assert.equal(expired.remainingSeconds, 0); assert.match(expired.message, /lejárt/);
+  const justEnded = playtestSession({ id: 'run-a', release, status: 'timed_out', startedAt, deadline, endedAt: deadline }, deadline + 1000);
+  assert.equal(justEnded.live, false); assert.equal(justEnded.lateReportAllowed, true);
+  const older = playtestSession({ id: 'run-b', release, status: 'completed', startedAt, deadline, endedAt: deadline }, deadline + PLAYTEST_REPORT_GRACE_MS + 1);
+  assert.equal(older.live, false); assert.equal(older.lateReportAllowed, false); assert.match(older.message, /nem használható fel újra/);
+  for (const missing of [undefined, {}, { status: 'running' }, { status: 'running', startedAt, deadline: deadline + 1 }, { id: 'run-c', status: 'blocked', startedAt: 'x', deadline }]) {
+    const session = playtestSession(missing, startedAt);
+    assert.equal(session.live, false); assert.equal(session.status, 'none'); assert.equal(session.lateReportAllowed, false); assert.match(session.message, /Nincs aktív játékpróba/);
+  }
+  const starting = playtestSession({ status: 'starting', startedAt: 0, deadline: 0 }, startedAt);
+  assert.equal(starting.live, false); assert.equal(starting.status, 'starting'); assert.match(starting.message, /még indul/);
+  const blocked = playtestSession({ id: 'run-d', release, status: 'blocked', startedAt, deadline, endedAt: deadline + 5000 }, deadline + 6000);
+  assert.equal(blocked.live, false); assert.equal(blocked.status, 'blocked'); assert.equal(blocked.lateReportAllowed, true);
 });

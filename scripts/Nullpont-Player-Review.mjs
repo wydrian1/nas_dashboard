@@ -10,7 +10,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { chromium } from 'playwright';
 import { initializeDatabase } from '../apps/nullpont/lib/schema.ts';
 import { sessionToken } from '../apps/nullpont/lib/session.ts';
-import { PLAYTEST_LIMIT_MS, playtestResult, validatePlayerReview } from '../lib/nullpont-player-review.ts';
+import { PLAYTEST_LIMIT_MS, playtestResult, playtestSession, validatePlayerReview } from '../lib/nullpont-player-review.ts';
+import { performReviewAction } from './nullpont-player-review-action.mjs';
+import { writeReviewFile } from './nullpont-player-review-io.mjs';
 
 const root = process.cwd(), folder = join(root, '.runtime/nullpont-player-review');
 const command = process.argv[2];
@@ -25,23 +27,47 @@ function safe(path) {
 }
 const file = name => join(folder, name);
 function read(name) { const path = file(name); safe(path); if (lstatSync(path).size > 128 * 1024) throw Error('Oversized review input'); return JSON.parse(readFileSync(path, 'utf8')); }
-function write(name, value) { const path = file(name); safe(path); const temp = path + '.' + randomUUID() + '.tmp'; writeFileSync(temp, JSON.stringify(value, null, 2), { flag: 'wx' }); renameSync(temp, path); }
+function write(name, value) { const path = file(name); safe(path); writeReviewFile(path, value); }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
-async function request(kind, action) {
+async function request(kind, action, sessionId) {
   const id = randomUUID(); write('request.json', { id, kind, action });
   const end = performance.now() + 20000;
   while (performance.now() < end) {
     if (existsSync(file('response.json'))) { const response = read('response.json'); if (response.id === id) { if (response.error) throw Error(response.error); return response.value; } }
-    if (existsSync(file('active.json')) && read('active.json').status !== 'running') return { ...read('active.json'), ...(existsSync(file('public.json')) ? { summary: read('public.json') } : {}) };
+    // Only the session that was live when this call started may end while we wait.
+    // Any other, older run is never served as the current game, and a summary is
+    // returned for a finished report only.
+    if (existsSync(file('active.json'))) {
+      const current = read('active.json');
+      if (current.id === sessionId && current.status !== 'running') return { sessionId: current.id, status: current.status, ended: true, message: 'A játékpróba lezárult.', ...(kind === 'finish' && existsSync(file('public.json')) ? { summary: read('public.json') } : {}) };
+    }
     await delay(100);
   }
   throw Error('Review fixture unavailable (20-second control timeout)');
 }
 
+// A finished session keeps its recorded result, but the observation must not look
+// playable again: the counter is zeroed, the controls are cleared and the closure
+// is flagged, so a later reviewer cannot mistake it for a live game.
+function writeClosed(run, summary, review) {
+  write('public.json', summary); write(`${run.id}-public.json`, summary);
+  if (review) write(`${run.id}-developer.json`, { run, review });
+  const previous = existsSync(file('observation.json')) ? read('observation.json') : {};
+  write('observation.json', {
+    sessionId: run.id, release: run.release, status: run.status, closed: true,
+    expired: run.status === 'timed_out' || summary.status === 'timed_out',
+    remainingSeconds: 0, controls: [],
+    text: typeof previous.text === 'string' ? previous.text : '',
+    sceneDescription: previous.sceneDescription ?? null,
+    note: 'A játékpróba lezárult; ez a megfigyelés már nem élő, a korábbi eredmény nem használható fel újra.',
+  });
+  if (existsSync(file('screen.png'))) { safe(file('screen.png')); unlinkSync(file('screen.png')); }
+}
+
 async function run(smoke) {
-  if (existsSync(file('active.json')) && ['starting', 'running'].includes(read('active.json').status)) throw Error('A playtest is already active; never extend or restart its timer');
+  if (existsSync(file('active.json'))) { const previous = read('active.json'); if (previous.status === 'starting' || playtestSession(previous).live) throw Error('A playtest is already active; never extend or restart its timer'); }
   const installed = 'D:/!nullpont';
   const manifestBytes = readFileSync(join(installed, 'release-manifest.json'));
   const manifest = JSON.parse(manifestBytes);
@@ -55,16 +81,15 @@ async function run(smoke) {
   const id = randomUUID(), release = hash(manifestBytes);
   let run = { id, release, status: 'starting', startedAt: 0, deadline: 0 };
   write('active.json', run);
-  for (const name of ['review.json', 'action.json', 'request.json', 'response.json', 'public.json']) if (existsSync(file(name))) { safe(file(name)); renameSync(file(name), file(`${id}-previous-${name}`)); }
+  for (const name of ['review.json', 'action.json', 'request.json', 'response.json', 'public.json', 'observation.json', 'screen.png']) if (existsSync(file(name))) { safe(file(name)); renameSync(file(name), file(`${id}-previous-${name}`)); }
   const base = join(tmpdir(), 'opencode'); mkdirSync(base, { recursive: true });
   const fixture = mkdtempSync(join(base, 'nullpont-player-'));
   let server, browser, context, page, timer, controls = [], done = false, processed;
   const secret = randomBytes(32).toString('base64url');
   function publish(status, review) {
-    run = { ...run, status }; write('active.json', run);
+    run = { ...run, status, endedAt: Date.now() }; write('active.json', run);
     const summary = playtestResult(run, review);
-    write('public.json', summary); write(`${id}-public.json`, summary);
-    if (review) write(`${id}-developer.json`, { run, review });
+    writeClosed(run, summary, review);
     return summary;
   }
   try {
@@ -98,14 +123,20 @@ async function run(smoke) {
     async function snapshot() {
       // Only visible rendered text and labels; no game catalog, state, DOM attributes
       // holding internal IDs, network payloads, hidden controls or JS evaluation.
+      for (const control of controls) await control.dispose().catch(() => {});
       controls = []; const visible = [];
       for (const locator of await page.locator('button, input, summary').all()) {
         if (!await locator.isVisible() || await locator.isDisabled()) continue;
         const label = await locator.getAttribute('aria-label') || await locator.getAttribute('title') || await locator.innerText() || await locator.getAttribute('placeholder') || 'Szövegmező';
-        controls.push(locator); visible.push({ control: controls.length - 1, label, input: await locator.evaluate(element => element.tagName === 'INPUT') });
+        const handle = await locator.elementHandle();
+        if (!handle) continue;
+        controls.push(handle); visible.push({ control: controls.length - 1, label, input: await handle.evaluate(element => element.tagName === 'INPUT') });
       }
-      safe(file('screen.png')); await page.screenshot({ path: file('screen.png'), fullPage: true, timeout: 4000 });
-      return { remainingSeconds: Math.max(0, Math.ceil((PLAYTEST_LIMIT_MS - (performance.now() - started)) / 1000)), text: (await page.locator('body').innerText()).slice(0, 24000), sceneDescription: await page.locator('.ascii-canvas').getAttribute('aria-label'), controls: visible };
+      safe(file('screen.png'));
+      let screenshotAvailable = false;
+      try { await page.screenshot({ path: file('screen.png'), fullPage: true, timeout: 4000 }); screenshotAvailable = true; }
+      catch { if (existsSync(file('screen.png'))) unlinkSync(file('screen.png')); }
+      return { sessionId: run.id, release: run.release, status: 'running', screenshotAvailable, remainingSeconds: Math.max(0, Math.ceil((PLAYTEST_LIMIT_MS - (performance.now() - started)) / 1000)), text: (await page.locator('body').innerText()).slice(0, 24000), sceneDescription: await page.locator('.ascii-canvas').getAttribute('aria-label'), controls: visible };
     }
     const first = await snapshot(); write('observation.json', first);
     console.log(JSON.stringify({ ready: true, release, deadline: run.deadline, nonBlocking: true, isolatedSyntheticAccount: true }));
@@ -125,9 +156,9 @@ async function run(smoke) {
           const action = request.action;
           if (!action || !['click', 'hover', 'fill'].includes(action.kind) || !Number.isSafeInteger(action.control) || !controls[action.control]) throw Error('Use a current visible control index');
           const target = controls[action.control];
-          if (action.kind === 'fill') { if (typeof action.value !== 'string' || action.value.length > 80) throw Error('Input too long'); await target.fill(action.value); }
-          else await target[action.kind]();
-          await page.locator('.game-grid[aria-busy="false"]').waitFor(); value = await snapshot();
+          if (action.kind === 'fill' && (typeof action.value !== 'string' || action.value.length > 80)) throw Error('Input too long');
+          const outcome = await performReviewAction(page, target, action, Math.max(1, Math.min(10000, PLAYTEST_LIMIT_MS - (performance.now() - started))));
+          value = { ...await snapshot(), ...outcome };
         } else throw Error('Unknown playtest operation');
         if (!done && performance.now() - started >= PLAYTEST_LIMIT_MS) { done = true; value = publish('timed_out'); }
         write('response.json', { id: request.id, value });
@@ -149,8 +180,20 @@ async function run(smoke) {
 }
 
 if (command === 'start' || command === 'smoke') await run(command === 'smoke');
-else if (command === 'finish') {
-  const review = validatePlayerReview(read('review.json')), active = read('active.json');
-  if (active.status === 'running') console.log(JSON.stringify(await request('finish')));
-  else { const summary = playtestResult(active, review); write('public.json', summary); write(`${active.id}-public.json`, summary); write(`${active.id}-developer.json`, { run: active, review }); console.log(JSON.stringify(summary)); }
-} else console.log(JSON.stringify(await request(command, command === 'act' ? read('action.json') : undefined)));
+else {
+  // A previous run's files are never served as the current game: gameplay and
+  // reports require the session started for this playtest.
+  const active = existsSync(file('active.json')) ? read('active.json') : undefined;
+  const session = playtestSession(active);
+  if (command === 'observe' || command === 'act') {
+    if (!session.live) throw Error(session.message);
+    console.log(JSON.stringify(await request(command, command === 'act' ? read('action.json') : undefined, active.id)));
+  } else {
+    const review = validatePlayerReview(read('review.json'));
+    if (session.live) console.log(JSON.stringify(await request('finish', undefined, active.id)));
+    else if (session.lateReportAllowed) {
+      const summary = playtestResult(active, review); writeClosed(active, summary, review);
+      console.log(JSON.stringify(summary));
+    } else throw Error(session.message);
+  }
+}

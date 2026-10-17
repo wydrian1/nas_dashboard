@@ -26,9 +26,11 @@ const useIsomorphicLayoutEffect=typeof window!=='undefined'?useLayoutEffect:useE
 export default function Game({ initialGame }: { initialGame: GameView }) {
   const [game,setGame]=useState(initialGame),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [source,setSource]=useState<string|null>(null),[mode,setMode]=useState<'use'|'combine'|null>(null),[target,setTarget]=useState<string|null>(null);
-  const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(14),[resetOpen,setResetOpen]=useState(false);
+  const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(11),[resetOpen,setResetOpen]=useState(false);
   const lock=useRef(false),closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null),anchor=useRef<HTMLElement|null>(null),anchorRect=useRef<DOMRect|null>(null),popupRef=useRef<HTMLElement|null>(null),dialog=useRef<HTMLDialogElement|null>(null);
   const restoringFocus=useRef(false);
+  const [bookOpen,setBookOpen]=useState(false),[journalOpen,setJournalOpen]=useState(false),[newMemories,setNewMemories]=useState<string[]>([]);
+  useEffect(()=>{setBookOpen(false);setJournalOpen(false);},[game.scene.id]);
   const touch=useRef<{timer:ReturnType<typeof setTimeout>|null;x:number;y:number;opened:boolean}|null>(null);
   const item=game.inventory.find(entry=>entry.id===source);
   const spot=popup?.kind==='scene'?game.scene.spots.find(entry=>entry.id===popup.id):undefined;
@@ -83,10 +85,10 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     press.timer=setTimeout(()=>{press.timer=null;press.opened=true;setTarget(entry.id);show('scene',entry.id,element,true);},600);
   }
   async function send(command?:PlayerCommand,reopen?:{id:string;element:HTMLElement}){
-    if(lock.current)return;lock.current=true;setBusy(true);setNotice('');setPopup(null);
+    if(lock.current)return;lock.current=true;setBusy(true);setNotice('');setPopup(null);setNewMemories([]);
     try{
       const result=command?await play(game.revision,command):await restart(game.revision,true);
-      if(result.game){setGame(result.game);clearSelection();
+      if(result.game){setNewMemories(result.game.journal.filter(entry=>!game.journal.includes(entry)));setGame(result.game);clearSelection();
         if(reopen&&!result.conflict&&!result.error&&result.game.scene.id===game.scene.id&&result.game.scene.spots.some(entry=>entry.id===reopen.id))show('scene',reopen.id,reopen.element,true);
       }
       if(!command&&result.game)setResetOpen(false);
@@ -115,9 +117,9 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       <div className="scene-heading"><h2>{game.scene.title}</h2><div className="map-zoom"><button aria-label="ASCII kicsinyítése" title="Kicsinyítés" disabled={zoom<=10} onClick={()=>setZoom(value=>value-1)}>−</button><button aria-label="ASCII nagyítása" title="Nagyítás" disabled={zoom>=20} onClick={()=>setZoom(value=>value+1)}>+</button></div></div>
       <nav className="scene-path" aria-label="Helyzet"><button className="icon-action quiet" aria-label="Vissza egy szinttel" title="Vissza" disabled={busy||game.breadcrumbs.length<2} onClick={()=>void send({verb:'back'})}><ActionIcon name="back"/></button><ol>{game.breadcrumbs.map((entry,index)=><li key={entry.id}>{index>0&&<span aria-hidden="true">›</span>}{index===game.breadcrumbs.length-1?<span aria-current="location">{entry.title}</span>:<button disabled={busy} onClick={()=>void send({verb:'back',levels:game.breadcrumbs.length-1-index})}>{entry.title}</button>}</li>)}</ol></nav>
       <div className="ascii-scroll" onScroll={()=>{if(popup&&anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);}}>
-        <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows*1.45}em`}}>
+        <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows}em`}}>
           <pre aria-hidden="true">{game.scene.art}</pre>
-          {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row*1.45}em`,width:`${entry.width}ch`,height:`${entry.height*1.45}em`}}>
+          {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row}em`,width:`${entry.width}ch`,height:`${entry.height}em`}}>
             <button className="ascii-hotspot" data-spot={entry.id} data-environment={entry.environment} data-exit={entry.exit?.id} aria-label={entry.label} aria-describedby={`spot-help-${entry.id}`} aria-pressed={target===entry.id} disabled={busy}
             onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard}
             onPointerDown={event=>startTouch(event,entry)} onPointerMove={event=>{if(touch.current&&Math.hypot(event.clientX-touch.current.x,event.clientY-touch.current.y)>10)stopTouch();}} onPointerUp={stopTouch} onPointerCancel={()=>{stopTouch();touch.current=null;}}
@@ -136,8 +138,8 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       {game.inventory.length?<div className="inventory-grid">{game.inventory.map(entry=><button className="inventory-item" key={entry.id} data-item={entry.id} aria-label={entry.label} aria-pressed={source===entry.id} aria-haspopup="dialog" disabled={busy}
         onMouseEnter={event=>show('item',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('item',entry.id,event.currentTarget)} onKeyDown={keyboard} onClick={event=>clickItem(entry.id,event.currentTarget)}><pre aria-hidden="true">{entry.art}</pre></button>)}</div>:<p>A zsebeid üresek.</p>}
     </section>
-    <section className="notebook panel"><details><summary>Emléktöredékek <small>{game.journal.length}</small></summary><ol>{game.journal.map(entry=><li key={entry}>{entry}</li>)}</ol></details></section>
-    <section className="book panel" aria-label="Történetkönyv"><details><summary>Történetkönyv <small>{game.book.length} emléklap</small></summary><div>{game.book.map((entry,index)=><article key={entry.id}><span className="eyebrow">{entry.chapter} · {index+1}. emléklap</span><h2>{entry.title}</h2><p>{entry.text}</p></article>)}</div></details></section>
+    <section className="notebook panel"><p role="status" aria-live="polite">{newMemories.length?`${newMemories.length} új emléktöredék`:''}</p><details open={journalOpen} onToggle={event=>setJournalOpen(event.currentTarget.open)}><summary>Emléktöredékek <small>{game.journal.length}</small></summary><button className="quiet" onClick={()=>setJournalOpen(false)}>Napló bezárása</button><ol>{game.journal.map(entry=><li key={entry}>{newMemories.includes(entry)&&<strong>Új: </strong>}{entry}</li>)}</ol></details></section>
+    <section className="book panel" aria-label="Történetkönyv"><details open={bookOpen} onToggle={event=>setBookOpen(event.currentTarget.open)}><summary>Történetkönyv <small>{game.book.length} emléklap</small></summary><button className="quiet" onClick={()=>setBookOpen(false)}>Történetkönyv bezárása</button><div>{game.book.map((entry,index)=><article key={entry.id}><span className="eyebrow">{entry.chapter} · {index+1}. emléklap</span><h2>{entry.title}</h2><p>{entry.text}</p></article>)}</div></details></section>
     <section className="reset panel"><div><h2>Újrakezdés</h2><small>Csak a saját játékállásodat állítja alaphelyzetbe.</small></div><button className="quiet" disabled={busy} onClick={()=>{setPopup(null);setResetOpen(true);}}>Játék újrakezdése</button></section>
     <dialog ref={dialog} className="reset-dialog" aria-labelledby="reset-title" onCancel={event=>{if(busy)event.preventDefault();else setResetOpen(false);}} onClose={()=>setResetOpen(false)}>
       <h2 id="reset-title">Biztosan elölről kezded?</h2><p>A saját felszerelésed, haladásod, emléktöredékeid és történetkönyved visszaáll a nyitóállapotra. Más játékos mentése nem változik. Ez a művelet nem vonható vissza a játékból.</p><div className="execute"><button autoFocus disabled={busy} onClick={()=>setResetOpen(false)}>Mégsem</button><button className="danger" disabled={busy} onClick={()=>void send()}>Igen, elölről kezdem</button></div>{notice&&<p role="alert">{notice}</p>}
@@ -147,7 +149,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       {spot&&<>{spot.exit&&<small className="exit-label">→ {spot.exit.label}</small>}<div className="popup-actions">
         {mode==='use'&&item&&spot.environment&&<button className="icon-action" aria-label="Használom itt" title={`${item.label} · használat`} disabled={busy} onClick={()=>void send({verb:'use',item:item.id,target:{kind:'environment',id:spot.environment!}})}><ActionIcon name="use"/></button>}
         {spot.exit&&<button className="icon-action" aria-label="Átmegyek" title={spot.exit.label} disabled={busy} onClick={()=>void send({verb:'move',target:{kind:'exit',id:spot.exit!.id}})}><ActionIcon name="move"/></button>}
-        {spot.environment&&spot.actions.map(verb=><button className="icon-action" key={verb} aria-label={LABELS[verb]} title={LABELS[verb]} disabled={busy} onClick={()=>void send({verb,target:{kind:'environment',id:spot.environment!}})}><ActionIcon name={verb}/></button>)}
+        {spot.environment&&spot.actions.map(verb=>{const knock=verb==='talk'&&spot.environment?.startsWith('awakening:hall-door-');const label=knock?'Beszólok és kopogok':LABELS[verb];return <button className={knock?'icon-action named-action':'icon-action'} key={verb} aria-label={label} title={label} disabled={busy} onClick={()=>void send({verb,target:{kind:'environment',id:spot.environment!}})}><ActionIcon name={verb}/>{knock&&<span>{label}</span>}</button>;})}
         {spot.environment&&game.topics.filter(topic=>topic.target===spot.environment).map(topic=><button className="icon-action" key={topic.id} aria-label={topic.label} title={topic.label} disabled={busy} onClick={()=>void send({verb:'talk',target:{kind:'environment',id:spot.environment!},topic:topic.id})}><ActionIcon name={topic.id==='identity'?'identity':topic.id==='help'?'help':'talk'}/></button>)}
       </div></>}
       {input&&<form key={input.id} className="scene-input" onSubmit={event=>{event.preventDefault();const value=new FormData(event.currentTarget).get('input');if(typeof value==='string')void send({verb:'submit',target:{kind:'environment',id:input.id},input:value});}} onFocus={()=>{stopClose();setPopup(current=>current?{...current,pinned:true}:current);}}><label htmlFor={`input-${input.id}`}>{input.label}</label><small id={`prompt-${input.id}`}>{input.prompt}</small><div><input id={`input-${input.id}`} name="input" type="text" inputMode={input.format==='digits'?'numeric':'text'} pattern={input.format==='digits'?'[0-9]+':undefined} maxLength={input.maxLength} aria-describedby={`prompt-${input.id}`} autoComplete="off" required disabled={busy}/><button className="icon-action" type="submit" aria-label="Bevitel elküldése" title="Elküldés" disabled={busy}><ActionIcon name="move"/></button></div></form>}

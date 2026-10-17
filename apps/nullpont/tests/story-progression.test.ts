@@ -31,6 +31,29 @@ function receiver(state: GameState) {
   state = act(state, 'submit', 'relay:missing-tray', '09');
   return act(state, 'move', 'relay:receiver');
 }
+test('a picked-up plate left in the reader never respawns on return or reload, including legacy saves', () => {
+  let state=records(closeAwakening(openOriginal()));
+  state=act(state,'move','archive:records-return');
+  for(const target of ['archive:board','archive:margin','archive:pencil']) state=act(state,'look',target);
+  state=act(state,'take','archive:loose-witness');
+  assert.ok(state.flags.includes('archive:witness-taken'));
+  state=applyCommand(applyCommand(state,{verb:'back'}),{verb:'back'});
+  state=act(state,'move','archive:records');
+  state=receiver(dispatch(state));
+  state=act(state,'use','relay:card-reader',undefined,'archive:witness');
+  assert.ok(!state.inventory.includes('archive:witness'));
+  for(const exit of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return']) state=act(state,'move',exit);
+  for(const legacy of [false,true]) {
+    let returned=reload(legacy?{...state,flags:state.flags.filter(flag=>flag!=='archive:witness-taken')}:state);
+    for(const target of ['archive:board','archive:margin','archive:pencil']) returned=act(returned,'look',target);
+    assert.match(view(returned).scene.description,/üres a lemez helye/);
+    assert.match(returned.message,/üres bemetszés/);
+    assert.ok(!view(returned).environment.some(entity=>entity.id==='archive:loose-witness'));
+    assert.throws(()=>act(returned,'take','archive:loose-witness'),/nem érhető el/);
+    assert.ok(!returned.inventory.includes('archive:witness'));
+    assert.deepEqual(reload(returned).inventory,returned.inventory);
+  }
+});
 test('minimum route yields three bounded answers without optional dialogue, directory, signal puzzle or frame craft', () => {
   const start = openOriginal();
   let state = closeAwakening(start, { craft: false });
@@ -97,23 +120,40 @@ test('the separate monitor experiment is reversible and cannot operate the old p
   assert.equal(state.book.filter(entry => entry.id === 'archive:monitor-tested').length, 1);
 });
 
-test('the optional witness pays off at a separate reader, remains reusable, and leaves a persistent printed result', () => {
+test('the optional witness pays off at a separate reader, stays in its socket, and leaves a persistent printed result', () => {
   let state = receiver(dispatch(records(closeAwakening(openOriginal()))));
   state = { ...state, inventory: [...state.inventory, 'archive:witness'] };
-  const inventory = [...state.inventory], book = [...state.book], emptyArt = glyph(state, 'relay:card-reader');
+  const book = [...state.book], emptyArt = glyph(state, 'relay:card-reader');
   state = act(state, 'use', 'relay:tube-mouth', undefined, 'archive:witness');
   assert.match(state.message, /hiányzik a foglalat/);
   assert.deepEqual(state.book, book);
   state = act(state, 'use', 'relay:card-reader', undefined, 'archive:witness');
   assert.match(state.message, /E-09\/1.*CSAK KIVONAT ADHATÓ KI/);
-  assert.deepEqual(state.inventory, inventory);
+  assert.ok(!state.inventory.includes('archive:witness'), 'the plate stays in the reader socket');
   assert.notEqual(glyph(state, 'relay:card-reader'), emptyArt);
-  for (let i = 0; i < 3; i++) state = act(reload(state), 'use', 'relay:card-reader', undefined, 'archive:witness');
+  for (let i = 0; i < 3; i++) state = reload(state);
   assert.equal(state.book.filter(entry => entry.id === 'relay:witness-read').length, 1);
-  assert.match(view(state).scene.description, /lemezt visszavetted.*ÁTVÉTEL \/ E-09\/1/);
+  assert.match(view(state).scene.description, /foglalatában ott a lemez.*ÁTVÉTEL \/ E-09\/1/);
   assert.doesNotMatch(view(state).scene.description, /kimeneti rése üres/);
+  assert.ok(!reload(state).inventory.includes('archive:witness'));
   state = receiver(act(state, 'move', 'relay:receiver-back'));
   assert.match(glyph(reload(state), 'relay:card-reader'), /E-09\/1/);
+});
+
+test('a save that read the plate before the plate stayed behind keeps an honest taken-back wording in scene and reader', () => {
+  const legacy = observeRoom({ ...initialState(), room: 'relay:receiver-room', flags: ['door-open', 'relay:request-sent', 'relay:received', 'relay:witness-read'], inventory: ['archive:witness'] });
+  const description = view(legacy).scene.description;
+  assert.match(description, /foglalata üres; a lemezt visszavetted/);
+  assert.match(description, /ÁTVÉTEL \/ E-09\/1/);
+  assert.doesNotMatch(description, /foglalatában ott a lemez/);
+  const looked = act(legacy, 'look', 'relay:card-reader');
+  assert.match(looked.message, /foglalata üres; a lemezt visszavetted/);
+  assert.match(looked.message, /E-09\/1/);
+  assert.doesNotMatch(looked.message, /foglalatában ott a lemez/);
+  const reopened = reload(legacy);
+  assert.deepEqual(reopened.inventory, ['archive:witness']);
+  assert.equal(view(reopened).scene.description, description, 'reloading an old save changes nothing');
+  assert.equal(reopened.book.length, legacy.book.length, 'an old save gains no retrospective page');
 });
 
 test('old advanced room/focus saves gain no retrospective evidence, turns, flags or rewritten history on load', () => {
@@ -209,7 +249,9 @@ test('permit-first, execution-first and witness-first legacy routes keep every n
       } else {
         state = act(reload(state), 'use', 'relay:card-reader', undefined, 'archive:witness');
         assert.match(state.message, /engedélykivonat itt.*végrehajtási másolat a küldeményfülke/);
-        for (let repeat = 0; repeat < 3; repeat++) state = act(reload(state), 'use', 'relay:card-reader', undefined, 'archive:witness');
+        assert.ok(!state.inventory.includes('archive:witness'), 'the plate stays in the reader socket');
+        for (let repeat = 0; repeat < 3; repeat++) state = reload(state);
+        assert.match(view(state).scene.description, /foglalatában ott a lemez/);
         const text = state.book.find(page => page.id === witnessId)!.text;
         assert.match(text, /csík maga nevezte meg/);
         assert.doesNotMatch(text, /ugyanarra.*mint a papírok|pulton fekvő helyi lapok/);
@@ -217,7 +259,7 @@ test('permit-first, execution-first and witness-first legacy routes keep every n
     }
     for (const id of [executionId, permitId, witnessId]) assert.equal(state.book.filter(page => page.id === id).length, 1);
     assert.deepEqual(state.book.slice(0, originalBook.length), originalBook);
-    assert.ok(state.inventory.includes('archive:witness'));
+    assert.ok(!state.inventory.includes('archive:witness'), 'the plate stays in the reader socket');
     assert.deepEqual(reload(state), state);
   }
 });

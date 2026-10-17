@@ -14,6 +14,35 @@ const glyph = (state: GameState, name: string) => view(state).scene.spots.find(s
 const volume = (state: GameState, prefix: string, max: number) => Array.from({ length: max }, (_, i) => i + 1).find(i => state.flags.includes(aw(`${prefix}-${i}`))) ?? 0;
 const controlKey = (state: GameState) => JSON.stringify(state.flags.filter(flag => flag.startsWith('awakening:')).sort());
 
+test('the existing water diagram is readable before any failed attempt, at every saved volume', () => {
+  for (let large=0;large<=3;large++) for (let small=0;small<=2;small++) for (const latched of [false,true]) {
+    const flags=[...(large?[aw(`large-${large}`)]:[]),...(small?[aw(`small-${small}`)]:[]),...(latched?[aw('flow-latched')]:[])];
+    const state=at(aw('water-room'),flags);
+    for (const saved of [state,reload(state)]) {
+      assert.match(view(saved).scene.description,/KÉT EGYSÉG TERHELÉS/);
+      const examined=look(saved,'vessels');
+      assert.match(examined.message,/második rovátkájánál/);
+      assert.match(examined.message,/ÜRES VISSZATÉRŐ/);
+      assert.deepEqual(examined.flags,saved.flags);
+    }
+  }
+});
+
+test('readable corridor numbers are accessible and every closed door offers its existing knock action', () => {
+  const state=observeRoom({...initialState(),room:'threshold',flags:['door-open'],focus:[aw('corridor-doors')]});
+  const rendered=view(state);
+  assert.match(rendered.environment.find(entity=>entity.id===aw('hall-door-left-middle'))!.label,/80/);
+  assert.match(rendered.environment.find(entity=>entity.id===aw('hall-door-right-middle'))!.label,/70/);
+  for(const spot of rendered.scene.spots.filter(spot=>spot.environment?.startsWith(aw('hall-door-')))) {
+    assert.ok(spot.actions.includes('talk'));
+    const next=applyCommand(state,{verb:'talk',target:{kind:'environment',id:spot.environment!}});
+    assert.notEqual(next.message,state.message);
+    assert.equal(next.room,state.room);
+    assert.deepEqual(next.inventory,state.inventory);
+    assert.deepEqual(next.book,state.book);
+  }
+});
+
 test('exactly five new physical locations complete awakening before archive, without a story ending or new chapter ID', () => {
   assert.equal(Object.values(awakening.scenes).filter(scene => !scene.detailOf).length, 7);
   assert.deepEqual(CHAPTERS.map(chapter => chapter.id), ['awakening', 'archive', 'relay']);
@@ -39,7 +68,8 @@ test('whole first-chapter route matrix: pickup order, craft direction, panel tar
     assert.ok(complete.flags.includes(aw(reserved ? 'departure-reserved' : 'departure-plain')));
     assert.equal(complete.book.filter(entry => entry.id.startsWith(aw('closure-'))).length, 1);
     assert.ok(complete.inventory.includes(aw(craft ? 'viewer' : 'prism')));
-    assert.ok(complete.inventory.includes(aw('source-card')) && complete.inventory.includes('bridge'));
+    assert.ok(!complete.inventory.includes(aw('source-card')), 'the source legend is spent on the pins');
+    assert.ok(complete.inventory.includes('bridge'));
     assert.deepEqual(complete.book.slice(0, opening.book.length), opening.book);
     assert.deepEqual(reload(complete), complete); routes++;
   }
@@ -132,11 +162,13 @@ test('exploring both final declarations or leaving does not consent; explicit ch
   }
 });
 
-test('registered source legend agrees in prose and art before acceptance through repeat use, navigation and reload', () => {
+test('registered source legend is spent on the pins in one use and still agrees in prose, art, navigation and reload', () => {
   let state = at(aw('source-room'), [aw('flow-latched')], [aw('source-card')]);
   assert.match(view(state).scene.description, /rögzítőtüske várja a műhely oszlopmintáját/);
   assert.equal((glyph(state, 'card-bed').match(/o/g) ?? []).length, 3);
   state = use(state, 'card-bed', aw('source-card'));
+  assert.ok(!state.inventory.includes(aw('source-card')), 'the legend stays on the pins');
+  assert.throws(() => use(state, 'card-bed', aw('source-card')), /Érvénytelen művelet/);
   for (let repeat = 0; repeat < 3; repeat++) {
     state = reload(state);
     const rendered = view(state);
@@ -145,11 +177,10 @@ test('registered source legend agrees in prose and art before acceptance through
     assert.match(rendered.scene.description, /ajtaja még zárva/);
     assert.match(glyph(state, 'card-bed'), /: :\s+::\s+_/);
     assert.match(look(state, 'card-bed').message, /SZEMLE, KÖZLÉS és HIÁNY/);
-    assert.match(look(state, 'card-bed').message, /lap a zsebedben/);
-    assert.ok(state.inventory.includes(aw('source-card')));
+    assert.match(look(state, 'card-bed').message, /lap a tüskéken maradt/);
+    assert.ok(!state.inventory.includes(aw('source-card')));
     assert.equal(go(state, 'decision').room, aw('source-room'));
     state = go(go(state, 'source-back'), 'sorting');
-    state = use(state, 'card-bed', aw('source-card'));
   }
   state = solveSources(state);
   const entry = state.book.find(entry => entry.id === aw('sources-separated'))!;

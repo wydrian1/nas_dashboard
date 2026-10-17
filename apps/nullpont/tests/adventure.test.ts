@@ -171,11 +171,11 @@ test('confirmed restart resets only its owner, keeps revisions monotonic and rej
   }finally{database.close();}
 });
 test('ASCII scene shows every discovered actionable element and exit, without leaking hidden objects',()=>{
-   let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,4);assert.ok(view.scene.columns>=75);assert.ok(view.scene.rows>=26);
+   let state=initialState();let view=gameView({state,revision:0,updatedAt:'now'});assert.equal(view.scene.spots.length,4);assert.equal(view.scene.columns,100);assert.equal(view.scene.rows,20);
   state=applyAction(state,'look:room');view=gameView({state,revision:1,updatedAt:'now'});
   assert.equal(view.scene.spots.length,4);assert.ok(view.scene.spots.some(spot=>spot.exit?.id==='door'));assert.ok(!JSON.stringify(view).includes('loose-foil'));
   state=applyAction(state,'look:bed');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.environment==='loose-foil'));state=applyAction(state,'look:rim');view=gameView({state,revision:2,updatedAt:'now'});assert.ok(view.scene.spots.some(spot=>spot.environment==='loose-foil'&&spot.glyph));
-  state=applyAction(state,'take:foil');view=gameView({state,revision:3,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.id==='loose-foil'));assert.ok(view.inventory[0].art.includes('------'));
+  state=applyAction(state,'take:foil');view=gameView({state,revision:3,updatedAt:'now'});assert.ok(!view.scene.spots.some(spot=>spot.id==='loose-foil'));assert.ok(view.inventory[0].art.trim());
   for(const chapter of CHAPTERS)for(const scene of Object.values(chapter.scenes)){
     for(const entity of scene.environment??[])assert.ok(scene.artSpots!.some(spot=>spot.environment===entity.id));
     for(const exit of scene.exits??[])assert.ok(scene.artSpots!.some(spot=>spot.exit===exit.id));

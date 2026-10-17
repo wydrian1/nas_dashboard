@@ -57,13 +57,25 @@ try{
   check(await page.locator('.actions,.map-toolbar,.scene-heading [role=status]').count()===0&&await page.getByRole('button',{name:'Körülnézek',exact:true}).count()===0,'tutorial, save-step label and action box removed');
   const sceneBox=await page.locator('.scene').boundingBox(),inventoryBox=await page.locator('.inventory').boundingBox();check(inventoryBox.x>=sceneBox.x+sceneBox.width&&Math.abs(inventoryBox.y-sceneBox.y)<2,'desktop inventory sits right of the scene');
   check(!await page.locator('body').innerText().then(text=>text.includes('Fólia + huzal')),'no recipe spoiler');
-  for(const width of [1440,800,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no overflow '+width);if(process.env.NULLPONT_SCREENSHOT_DIR&&[1440,390].includes(width))await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});}
+   const verifyCharacterGrid=async()=>{
+     const geometry=await page.locator('.ascii-canvas').evaluate(canvas=>{
+       const style=getComputedStyle(canvas),box=canvas.getBoundingClientRect();
+       const rows=canvas.querySelector('pre').textContent.split('\n');
+       const glyphs=[...canvas.querySelectorAll('.ascii-glyph')];
+       return {rows:rows.length,columns:Math.max(...rows.map(row=>row.length)),lineHeight:parseFloat(style.lineHeight),fontSize:parseFloat(style.fontSize),height:box.height,glyphsInside:glyphs.every(glyph=>{const g=glyph.getBoundingClientRect(),s=glyph.closest('.ascii-spot').getBoundingClientRect();return g.left>=s.left-1&&g.top>=s.top-1&&g.right<=s.right+1&&g.bottom<=s.bottom+1;})};
+     });
+     check(geometry.rows===20&&geometry.columns===100,'actual scene uses the compact 100x20 grid');
+     check(Math.abs(geometry.lineHeight-geometry.fontSize)<0.1&&Math.abs(geometry.height-20*geometry.lineHeight)<1,'glyph line height and target row pitch agree');
+     check(geometry.glyphsInside,'all rendered glyphs remain inside their target rectangles');
+   };
+   for(const width of [1440,800,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no overflow '+width);await verifyCharacterGrid();if(process.env.NULLPONT_SCREENSHOT_DIR&&[1440,390].includes(width))await page.screenshot({path:join(process.env.NULLPONT_SCREENSHOT_DIR,'nullpont-'+width+'.png'),fullPage:true});}
   await page.setViewportSize({width:1440,height:1000});
   let revision=0;
   const saved=async(page,expected)=>page.locator(`.game-grid[data-revision="${expected}"][aria-busy="false"]`).waitFor();
    const artCaptures=[],capturedArt=new Set();
    const captureArt=async()=>{
-     if(!process.env.NULLPONT_SCREENSHOT_DIR)return;
+      await verifyCharacterGrid();
+      if(!process.env.NULLPONT_SCREENSHOT_DIR)return;
      const canvas=page.locator('.ascii-canvas');
      const composition=await canvas.evaluate(element=>({background:element.querySelector('pre').textContent,glyphs:[...element.querySelectorAll('.ascii-glyph')].map(node=>node.textContent),inventory:[...document.querySelectorAll('.inventory-item pre')].map(node=>node.textContent)}));
      const fingerprint=createHash('sha256').update(JSON.stringify(composition)).digest('hex');
@@ -145,6 +157,9 @@ try{
    await page.locator('.ascii-hotspot[data-environment="awakening:departure-trace"]').click({button:'right'});
    check(await page.locator('.context-popup .popup-actions button').count()===1&&await page.locator('.context-popup').getByRole('button',{name:'Megvizsgálom',exact:true}).count()===1,'corridor sign offers examination only, not meaningless pickup or conversation');await page.keyboard.press('Escape');
    await page.locator('.book summary').click();check(await page.locator('.book article').count()===6,'milestones persist as narrative book');
+   await page.setViewportSize({width:390,height:1000});check(await page.getByRole('button',{name:'Történetkönyv bezárása',exact:true}).isVisible(),'book close control remains visible on mobile');if(process.env.NULLPONT_POLISH_SCREENSHOT_DIR)await page.screenshot({path:join(process.env.NULLPONT_POLISH_SCREENSHOT_DIR,'book-mobile.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});
+   await page.getByRole('button',{name:'Történetkönyv bezárása',exact:true}).click();check(!await page.locator('.book details').evaluate(node=>node.open),'book has an explicit working close control');
+   await page.locator('.book summary').click();
    const currentState=()=>JSON.parse(database.prepare('SELECT state_json FROM adventure_saves WHERE owner=?').get(owner).state_json);
     const travel=async id=>step(()=>page.locator(`.ascii-hotspot[data-exit="${id}"]`).click());
     const captureEvidence=async name=>{
@@ -182,17 +197,20 @@ try{
    const wingAction=async(id,verb='Működtetem')=>{await wingObject(id).click({button:'right'});await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());};
     const wingItem=async(item,target)=>{await arm(CATALOG.items[`awakening:${item}`],'Használom');await step(()=>wingObject(target).click());};
     await inspectEnvironment('awakening:hall-doors');
-    check(currentState().focus?.at(-1)==='awakening:corridor-doors','all other corridor doors have an explorable closeup');
+     check(currentState().focus?.at(-1)==='awakening:corridor-doors','all other corridor doors have an explorable closeup');
+     check(!await page.locator('.book details').evaluate(node=>node.open),'scene/detail navigation closes the book automatically');
+     check(await wingObject('hall-door-left-middle').getAttribute('aria-label').then(label=>label.includes('80'))&&await wingObject('hall-door-right-middle').getAttribute('aria-label').then(label=>label.includes('70')),'readable door numbers appear in accessible control labels');
     const otherDoors=CATALOG.scenes['awakening:corridor-doors'].environment;
     check(otherDoors.length===11&&await page.locator('.ascii-hotspot[data-environment]').count()===11,'eleven closed doors have separate actual browser targets');
     for(const door of otherDoors){
       await inspectEnvironment(door.id);
-      for(const verb of ['Működtetem','Beszélek']){
+       for(const verb of ['Működtetem','Beszólok és kopogok']){
         await page.locator(`.ascii-hotspot[data-environment="${door.id}"]`).click({button:'right'});
         await step(()=>page.locator('.context-popup').getByRole('button',{name:verb,exact:true}).click());
       }
-    }
-    await page.reload();check(currentState().focus?.at(-1)==='awakening:corridor-doors'&&await page.locator('.ascii-hotspot[data-environment]').count()===11,'door investigation survives reload without opening an invented room');await back();
+     }
+     for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await wingObject('hall-door-opposite').click({button:'right'});const knock=page.getByRole('button',{name:'Beszólok és kopogok',exact:true});check(await knock.isVisible(),'opposite door exposes knock/speak on '+width);check(await knock.evaluate(node=>{const box=node.getBoundingClientRect(),popup=node.closest('.context-popup').getBoundingClientRect();return box.left>=popup.left&&box.right<=popup.right;}),'named knock control fits its popup on '+width);if(process.env.NULLPONT_POLISH_SCREENSHOT_DIR)await page.screenshot({path:join(process.env.NULLPONT_POLISH_SCREENSHOT_DIR,'door-'+width+'.png'),fullPage:true});await page.keyboard.press('Escape');}await page.setViewportSize({width:1440,height:1000});
+     await page.reload();check(currentState().focus?.at(-1)==='awakening:corridor-doors'&&await page.locator('.ascii-hotspot[data-environment]').count()===11,'door investigation survives reload without opening an invented room');await back();
     const openingBook=structuredClone(currentState().book);
    await travel('archive:entry');check(currentState().room==='threshold','archive waits for deliberate first-chapter closure');
    await travel('awakening:wing-entry');check(currentState().room==='awakening:cloakroom','discovered side door enters the new physical route');
@@ -200,9 +218,11 @@ try{
    await inspectEnvironment('awakening:coats');check(await wingObject('loose-frame').count()===0,'repeat cloakroom inspection does not respawn the frame');
    await travel('awakening:light');await inspectEnvironment('awakening:optics-note');await inspectEnvironment('awakening:relief');
    check(!currentState().flags.includes('awakening:relief-read'),'early optical branch cannot silently solve itself');await travel('awakening:light-back');
-   await travel('awakening:water');await wingAction('float-test');check(!currentState().flags.includes('awakening:flow-latched'),'wrong water test leaves progress recoverable');
+    await travel('awakening:water');await inspectEnvironment('awakening:vessels');check(await page.locator('.story').innerText().then(text=>text.includes('KÉT EGYSÉG TERHELÉS')&&text.includes('ÜRES VISSZATÉRŐ')),'target diagram is available before the first failed lever attempt');await wingAction('float-test');check(!currentState().flags.includes('awakening:flow-latched'),'wrong water test leaves progress recoverable');
    for(const id of ['empty-large','empty-small','fill','pour-small','empty-small','pour-small','fill','pour-small','empty-small','float-test'])await wingAction(id);
-    check(currentState().flags.includes('awakening:flow-latched'),'water transfers latch the passage through real UI controls');
+     check(currentState().flags.includes('awakening:flow-latched'),'water transfers latch the passage through real UI controls');
+     check(await page.locator('.notebook [role="status"]').innerText().then(text=>text.includes('új emléktöredék')),'new memory acquisition has an announced count');
+     await page.locator('.notebook summary').click();check(await page.locator('.notebook strong').count()>0,'new memories are individually marked in the journal');await page.getByRole('button',{name:'Napló bezárása',exact:true}).click();check(!await page.locator('.notebook details').evaluate(node=>node.open),'journal has a working close control');
     await inspectEnvironment('awakening:lock-record');check(await page.locator('.story').innerText().then(text=>text.includes('BELSŐ KÉZI')&&text.includes('KÜLSŐ ÉBRESZTÉS')),'new physical lock record separates the two inputs');await captureEvidence('water-record');
    await wingAction('loose-prism','Felveszem');await page.reload();check(await wingObject('loose-prism').count()===0,'taken prism remains absent after reload');await travel('awakening:water-back');
    await arm(CATALOG.items['awakening:frame'],'Kombinálom');await step(()=>page.locator('.inventory').getByRole('button',{name:CATALOG.items['awakening:prism'],exact:true}).click());
@@ -211,7 +231,7 @@ try{
    await wingAction('lamp');await wingAction('lamp');await wingAction('shutter');await wingItem('viewer','relief');await wingAction('loose-source-card','Felveszem');
    check(currentState().flags.includes('awakening:relief-read'),'aligned side light reveals the source legend');await page.reload();check(await wingObject('loose-source-card').count()===0,'source card stays removed through reload');
     await travel('awakening:light-back');await travel('awakening:sorting');check(currentState().book.some(page=>page.id==='awakening:lock-record-read'),'mandatory arrival reads the separate physical record');await captureEvidence('source-record');await wingAction('source-check');check(!currentState().flags.includes('awakening:sources-accepted'),'unregistered source check cannot open final room');
-   await wingItem('source-card','card-bed');await wingAction('wrist-source');await wingAction('claim-source');await wingAction('claim-source');await wingAction('source-check');await travel('awakening:decision');
+   await wingItem('source-card','card-bed');check(!currentState().inventory.includes('awakening:source-card'),'the registered source sheet is left on its pins instead of the inventory');await inspectEnvironment('awakening:card-bed');check(await page.locator('.story').innerText().then(text=>text.includes('tüskéken maradt')),'the pins reflect the sheet that stayed there');await wingAction('wrist-source');await wingAction('claim-source');await wingAction('claim-source');await wingAction('source-check');await travel('awakening:decision');
    check(currentState().room==='awakening:decision-room','source classification opens fifth new physical location');
    for(const id of ['departure-plain','departure-reserved','departure-copy'])await inspectEnvironment(`awakening:${id}`);
    check(!currentState().flags.includes('awakening:chapter-closed'),'examining both declarations is not a departure decision');
@@ -228,7 +248,8 @@ try{
    const bridgeTarget=page.locator('.ascii-hotspot[data-exit="archive:bridge"]'),signalTarget=page.locator('.ascii-hotspot[data-exit="archive:signals"]');
    for(const zoomTarget of [10,20,14]){
      for(let size=await page.locator('.ascii-canvas').evaluate(element=>parseFloat(getComputedStyle(element).fontSize));size!==zoomTarget;size+=size<zoomTarget?1:-1)await page.getByRole('button',{name:size<zoomTarget?'ASCII nagyítása':'ASCII kicsinyítése',exact:true}).click();
-     const a=await bridgeTarget.boundingBox(),b=await signalTarget.boundingBox();check(a.y+a.height<b.y||b.y+b.height<a.y||a.x+a.width<b.x||b.x+b.width<a.x,'bridge and signal-stair hit zones stay separate at zoom '+zoomTarget);
+      const a=await bridgeTarget.boundingBox(),b=await signalTarget.boundingBox();check(a.y+a.height<b.y||b.y+b.height<a.y||a.x+a.width<b.x||b.x+b.width<a.x,'bridge and signal-stair hit zones stay separate at zoom '+zoomTarget);
+      await verifyCharacterGrid();
    }
    await step(()=>signalTarget.click());check(currentState().room==='archive:signal-room','clicking the signal stair enters the signal room, not the bridge');await travel('archive:signals-return');
    await step(()=>bridgeTarget.click());check(currentState().room==='archive:bridge-room','clicking the bridge enters the bridge, not the signal room');await travel('archive:bridge-return');
@@ -262,7 +283,7 @@ try{
    check(await page.locator('.scene-path li').count()===2,'new clock has its own detail view');await back();
    await travel('relay:interval');await operateEnvironment('double');await travel('relay:well');check(currentState().room==='relay:interval-room','wrong rhythm leaves the route closed without a dead end');
     const rhythmGlyph=()=>page.locator('.ascii-hotspot[data-exit="relay:well"] .ascii-glyph').innerText();
-     await operateEnvironment('single');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===2,'first retracted latch is drawn immediately');await operateEnvironment('double');check(((await rhythmGlyph()).match(/===\|===/g)??[]).length===1,'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
+      await operateEnvironment('single');check(((await rhythmGlyph()).match(/--------\]---\[---/g)??[]).length===2,'first retracted latch is drawn immediately');await operateEnvironment('double');check(((await rhythmGlyph()).match(/--------\]---\[---/g)??[]).length===1,'second retracted latch is drawn immediately');await inspectEnvironment('relay:rest');await travel('relay:well');
     check(currentState().room==='relay:well-room','single, double and deliberate quiet open the next scene');
     await captureEvidence('well-low');
     const weights=()=>page.locator('.ascii-hotspot[data-environment="relay:alignment"] .ascii-glyph').innerText(),lowWeights=await weights();
@@ -278,14 +299,15 @@ try{
     check(currentState().flags.includes('relay:execution-read'),'dispatch arrival yields execution content after mechanical access');await captureEvidence('execution-copy');
    await operateEnvironment('name-tray');await operateEnvironment('correction-tray');check(!currentState().flags.includes('relay:request-sent'),'wrong semantic trays cannot silently submit a request');
    await inspectEnvironment('relay:house-rule');await submitRelay('90');check(!currentState().flags.includes('relay:request-sent'),'wrong local designation leaves the request unchanged');
-    await submitRelay('09');check(await page.locator('.ascii-hotspot[data-environment="relay:missing-tray"] .ascii-glyph').innerText().then(text=>text.includes('09')&&text.includes('[x]')),'accepted request is drawn on the tray');check(await page.locator('.ascii-hotspot[data-exit="relay:receiver"] .ascii-glyph').innerText().then(text=>text.includes('NYITVA')),'accepted request visibly opens the exit');await travel('relay:receiver');await inspectEnvironment('relay:reply');
+    await submitRelay('09');check(await page.locator('.ascii-hotspot[data-environment="relay:missing-tray"] .ascii-glyph').innerText().then(text=>text.includes('09')&&text.includes('[x]')),'accepted request is drawn on the tray');check(await page.locator('.ascii-hotspot[data-exit="relay:receiver"] .ascii-glyph').evaluate(node=>{const text=node.textContent;return text.includes('FOGADOALLOMAS')&&/:\/\s+:/.test(text);}),'accepted request visibly opens the exit with a drawn open leaf');await travel('relay:receiver');await inspectEnvironment('relay:reply');
     check(currentState().room==='relay:receiver-room'&&currentState().flags.includes('relay:received'),'all five new physical scenes yield an earned reply');
      check(currentState().flags.includes('relay:permit-read'),'receiver arrival delivers substantive permit content');await captureEvidence('permit-reader-empty');await captureDecisionVariants('permit-reader-empty');
-    await arm('Füstszínű, lyukasztott lemez','Használom');await step(()=>page.locator('.ascii-hotspot[data-environment="relay:card-reader"]').click());check(currentState().flags.includes('relay:witness-read')&&currentState().inventory.includes('archive:witness'),'optional witness is read without consuming the item');await captureEvidence('permit-reader-printed');await captureDecisionVariants('permit-reader-printed');
+    await arm('Füstszínű, lyukasztott lemez','Használom');await step(()=>page.locator('.ascii-hotspot[data-environment="relay:card-reader"]').click());check(currentState().flags.includes('relay:witness-read')&&!currentState().inventory.includes('archive:witness'),'the read witness plate stays in its socket rather than the inventory');await inspectEnvironment('relay:card-reader');check(await page.locator('.story').innerText().then(text=>text.includes('foglalatában ott a lemez')),'repeat reader inspection shows the plate left behind, not taken back');await captureEvidence('permit-reader-printed');await captureDecisionVariants('permit-reader-printed');
    check(await page.locator('.current-goal').count()===0&&await page.getByLabel('Jelenlegi cél',{exact:true}).count()===0,'progress does not reintroduce the goal banner');
    const relayBook=currentState().book;await page.reload();check(JSON.stringify(currentState().book)===JSON.stringify(relayBook)&&await page.getByLabel('Jelenlegi cél',{exact:true}).count()===0,'milestone pages persist across reload without a goal banner');
-   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'goal/new scene has no overflow '+width);}await page.setViewportSize({width:1440,height:1000});
-   for(const id of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return'])await travel(id);
+   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'goal/new scene has no overflow '+width);check(await page.locator('.inventory').evaluate(panel=>{const p=panel.getBoundingClientRect(),reset=document.querySelector('.reset').getBoundingClientRect();const overlap=!(p.right<=reset.left||reset.right<=p.left||p.bottom<=reset.top||reset.bottom<=p.top);const items=[...panel.querySelectorAll('.inventory-item')];return !overlap&&p.height<=innerHeight&&items.every(item=>{const r=item.getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&r.top>=p.top-1&&r.bottom<=p.bottom+1;});}),'inventory stays inside itself and never overlaps the reset section '+width);}await page.setViewportSize({width:1440,height:1000});
+    for(const id of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return'])await travel(id);
+    for(const id of ['archive:board','archive:margin','archive:pencil'])await inspectEnvironment(id);check(await page.locator('.ascii-hotspot[data-environment="archive:loose-witness"]').count()===0&&await page.locator('.story').innerText().then(text=>text.includes('üres bemetszés')),'consumed plate never respawns at its original paper slot');await page.reload();check(await page.locator('.ascii-hotspot[data-environment="archive:loose-witness"]').count()===0,'removed plate stays absent after reload at its original slot');await back();await back();
    check(currentState().inventory.includes('relay:blank-seal'),'optional carried item survives the complete route and return');
   const archiveState=currentState(),archiveScene=CATALOG.scenes[archiveState.room],returnRule=archiveScene.rules.find(rule=>rule.moveTo==='threshold'&&meets(archiveState,rule.requires));check(!!returnRule?.interaction?.target,'archive return exit remains available');await step(()=>page.locator(`.ascii-hotspot[data-exit="${returnRule.interaction.target.id}"]`).click());
   await step(()=>object('Vissza a szobába').click());check(await page.locator('.ascii-hotspot').count()===4,'discovered hotspots survive travel');

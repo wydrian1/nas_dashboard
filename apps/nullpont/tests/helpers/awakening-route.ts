@@ -40,7 +40,7 @@ export function solveLight(state: GameState, item: string) {
   return use(state, 'relief', item);
 }
 export function solveSources(state: GameState) {
-  state = use(state, 'card-bed', aw('source-card'));
+  if (state.inventory.includes(aw('source-card'))) state = use(state, 'card-bed', aw('source-card'));
   for (const [name, desired] of [['wrist-source', 1], ['claim-source', 2], ['name-source', 0]] as const) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const position = state.flags.includes(aw(`${name}-1`)) ? 1 : state.flags.includes(aw(`${name}-2`)) ? 2 : 0;
