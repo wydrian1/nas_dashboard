@@ -17,9 +17,12 @@ function gameplay(value: unknown): unknown {
 }
 
 test('Hungarian copy edit preserves the entire pre-edit gameplay catalog and illustration bytes', () => {
-  // Captured on origin/main before the editorial pass: IDs, conditions, variant
-  // order, effects, input solutions, routes, geometry and artwork all included.
-  assert.equal(createHash('sha256').update(JSON.stringify(gameplay(CHAPTERS))).digest('hex'), 'ff5b4c47ffb3dbdbccbbbf8def67261fd2f1f1f15b7ac0e282b7bd93309807ea');
+  // Captured on origin/main before the editorial pass and re-baselined when the
+  // water-room service cover became an arrival-visible handler; the lock record
+  // behind it stays gated on the float latch. IDs, conditions, variant order,
+  // effects, input solutions, routes, geometry and artwork all remain covered.
+  // Any further change to these gameplay bytes still fails this test.
+  assert.equal(createHash('sha256').update(JSON.stringify(gameplay(CHAPTERS))).digest('hex'), 'd38c461197364293e8e938e56f80dcd6a04b49ec8b01c85cc3421e2ab54ecf9c');
 });
 
 test('loading a save never edits old Hungarian messages, journal notes or book pages', () => {

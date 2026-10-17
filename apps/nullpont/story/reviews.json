@@ -3,32 +3,32 @@
   "reviews": [
     {
       "module": "lib/game/chapters/awakening.ts",
-      "sha256": "9cf0b56dfaf17e0e72071f8f0c936f05a149f3b408c97684e25f751df84d7615",
-      "contextSha256": "9ef72f4f0d49238b8c67045dc053ac758798b4b8e6ee2723c5fb74a3676aa96b",
+      "sha256": "138d4ad9e88c1667f15b375226ff84edbbbdfb2d5d4f8e02a586daf6ac5c5108",
+      "contextSha256": "cc3f9cfb90fbfd0e3ad8aabe4346a9d5389a56efad995de4278fc25b9e55b1a4",
       "storyboardSha256": "5737fc4d4a33452b2fb40778d08029bae4c1ac8b89047af27c3515a183fcf926",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-17T13:01:58.205Z",
+      "reviewedAt": "2026-10-17T17:06:33.371Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
       "module": "lib/game/chapters/archive.ts",
       "sha256": "2e9117515aa89f6d54d28576193e9011c54949b987e9fc42786c048c778596c9",
-      "contextSha256": "9ef72f4f0d49238b8c67045dc053ac758798b4b8e6ee2723c5fb74a3676aa96b",
+      "contextSha256": "cc3f9cfb90fbfd0e3ad8aabe4346a9d5389a56efad995de4278fc25b9e55b1a4",
       "storyboardSha256": "5737fc4d4a33452b2fb40778d08029bae4c1ac8b89047af27c3515a183fcf926",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-17T13:01:58.205Z",
+      "reviewedAt": "2026-10-17T17:06:33.371Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     },
     {
       "module": "lib/game/chapters/relay.ts",
       "sha256": "df3b9bb7b628c04bfce996f776aac338d0a7a5e5ca4de08e9c4317ccd4af4bc1",
-      "contextSha256": "9ef72f4f0d49238b8c67045dc053ac758798b4b8e6ee2723c5fb74a3676aa96b",
+      "contextSha256": "cc3f9cfb90fbfd0e3ad8aabe4346a9d5389a56efad995de4278fc25b9e55b1a4",
       "storyboardSha256": "5737fc4d4a33452b2fb40778d08029bae4c1ac8b89047af27c3515a183fcf926",
       "reviewer": "nullpont-story-steward",
       "status": "approved",
-      "reviewedAt": "2026-10-17T13:01:58.205Z",
+      "reviewedAt": "2026-10-17T17:06:33.371Z",
       "checks": ["canon", "continuity", "agency", "interest", "reveals", "playability", "storybook", "extension"]
     }
   ]
