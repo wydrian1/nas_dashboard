@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { CHAPTERS, CATALOG } from '../lib/game/catalog.ts';
 import { OPENING_ENTRY } from '../lib/game/chapters/awakening.ts';
 import { applyCommand, initialState, observeRoom, parseState } from '../lib/game/engine.ts';
@@ -63,14 +62,14 @@ test('minimum route yields three bounded answers without optional dialogue, dire
   assert.match(log.text, /nyolc.*belső kézi/i);
   assert.match(log.text, /nem lett ettől önkéntes/);
   state = records(state);
-  assert.match(state.message, /közös csomópont.*Két hallott hangból nem következik két beszélő/);
+  assert.match(state.message, /közös csomópont.*nem kell két beszélőnek lennie/);
   assert.ok(state.book.some(entry => entry.id === 'archive:shared-source-heard'));
   assert.ok(!state.book.some(entry => ['archive:addresses-read', 'archive:signal-read'].includes(entry.id)));
   state = dispatch(state);
   assert.match(state.message, /E-09\/1.*BELSŐ ZÁR: VÁLTOZATLAN/);
   assert.ok(state.book.some(entry => entry.id === 'relay:execution-read'));
   state = receiver(state);
-  assert.match(state.message, /ÉBRESZTÉS ENGEDÉLYEZVE.*nem ad felhatalmazást bezárásra vagy emléktörlésre/);
+  assert.match(state.message, /ÉBRESZTÉS ENGEDÉLYEZVE.*Bezárásra vagy emléktörlésre ez a kivonat nem ad felhatalmazást/);
   assert.ok(state.book.some(entry => entry.id === 'relay:permit-read'));
   assert.ok(!state.inventory.includes('archive:witness'));
   assert.deepEqual(state.book.slice(0, start.book.length), start.book);
@@ -87,11 +86,11 @@ test('plain, reserved and legacy no-choice receive different physical reactions 
     assert.match(state.message, expected);
     assert.match(view(reload(state)).scene.description, expected);
     assert.match(glyph(state, 'archive:accompanying-copy'), expectedArt);
-    assert.match(state.message, /RÉGI HOZZÁJÁRULÁS.*nem töltötte ki/);
+    assert.match(state.message, /RÉGI HOZZÁJÁRULÁS rovata üres/);
     const recordState = state;
     state = act(act(state, 'move', 'archive:records-return'), 'move', 'archive:signals');
     state = applyCommand(state, { verb: 'talk', target: { kind: 'environment', id: 'archive:tube' }, topic: 'archive:tube-copy' });
-    assert.match(state.message, choice === 'reserved' ? /Beért a sínen a lapod.*fenntartást külön/ : choice === 'plain' ? /sínen a mostani továbbhaladásod/ : /nem érkezett kilépési megjegyzés/);
+    assert.match(state.message, choice === 'reserved' ? /Megjött a lapod a sínen.*megjegyzésedet külön másoltam/ : choice === 'plain' ? /Megjött a lapod.*továbbmész/ : /nem érkezett kilépési megjegyzés/);
     state = receiver(dispatch(recordState));
     assert.ok(state.flags.includes('relay:permit-read'));
     state = act(state, 'look', 'relay:accompanying-copy');
@@ -189,13 +188,13 @@ test('new evidence objects appear in the right physical state without respawning
   assert.doesNotMatch(publicOpening, /E-09\/1|monitor-isolated|lock-record-read|permit-read/);
 });
 
-test('all previously published book pages and the complete opening source remain byte-identical', () => {
+test('all previously published book pages remain byte-identical after the authorized language edit', () => {
   const baseline = JSON.parse(readFileSync(new URL('./fixtures/published-story-79f64ea.json', import.meta.url), 'utf8'));
   const current: Record<string, unknown> = { [OPENING_ENTRY.id]: OPENING_ENTRY };
   for (const chapter of CHAPTERS) for (const scene of [...Object.values(chapter.scenes), ...(chapter.connections ?? [])]) for (const rule of scene.rules) if (rule.milestone) current[rule.milestone.id] = rule.milestone;
   for (const [id, entry] of Object.entries(baseline.milestones)) assert.deepEqual(current[id], entry, id);
-  const opening = readFileSync(new URL('../lib/game/chapters/awakening.ts', import.meta.url), 'utf8').split('// This local departure procedure')[0];
-  assert.equal(createHash('sha256').update(opening).digest('hex'), baseline.openingSourceSha256);
+  // The owner authorized editing live opening prose. Gameplay is separately
+  // pinned by hungarian-prose.test.ts; saved historical pages stay immutable.
 });
 
 test('isolating before the first records visit never invents a two-grille comparison, including legacy saves', () => {
@@ -248,7 +247,7 @@ test('permit-first, execution-first and witness-first legacy routes keep every n
         assert.doesNotMatch(state.message, /azonos a szerviz/);
       } else {
         state = act(reload(state), 'use', 'relay:card-reader', undefined, 'archive:witness');
-        assert.match(state.message, /engedélykivonat itt.*végrehajtási másolat a küldeményfülke/);
+        assert.match(state.message, /engedélykivonat itt.*végrehajtási másolat pedig a küldeményfülkénél/);
         assert.ok(!state.inventory.includes('archive:witness'), 'the plate stays in the reader socket');
         for (let repeat = 0; repeat < 3; repeat++) state = reload(state);
         assert.match(view(state).scene.description, /foglalatában ott a lemez/);

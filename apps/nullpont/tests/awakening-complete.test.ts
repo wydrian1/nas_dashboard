@@ -98,7 +98,7 @@ test('fluid state graph: every reachable setting and every one of the 12 bounded
     const state = at(aw('water-room'), [...(large ? [aw(`large-${large}`)] : []), ...(small ? [aw(`small-${small}`)] : [])]);
     const result = use(state, 'float-test'); assert.equal(result.flags.includes(aw('flow-latched')), large === 2 && small === 0);
     assert.ok(solveWater(state).flags.includes(aw('flow-latched')));
-    assert.match(view(state).scene.description, new RegExp(`üveghengerében ${large}, a rövidben ${small}`));
+    assert.match(view(state).scene.description, new RegExp(`üveghengerben ${large}, a rövidben ${small}`));
     assert.equal(glyph(reload(state), 'vessels'), glyph(state, 'vessels'));
     const poured = use(state, 'pour-small'); assert.equal(volume(poured, 'large', 3) + volume(poured, 'small', 2), large + small, 'transfer conserves water');
   }

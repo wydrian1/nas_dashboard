@@ -93,7 +93,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       }
       if(!command&&result.game)setResetOpen(false);
       setNotice(result.error||(result.conflict?(command?'Másik böngészőfülben továbbhaladtál. A friss mentést betöltöttük; válassz újra.':'Az újrakezdés nem történt meg: másik böngészőfülben változott a mentés. Ellenőrizd a friss állapotot, majd erősítsd meg újra.') : ''));
-    }catch{setNotice('A kapcsolat megszakadt. Újratöltéssel ellenőrizheted a szerveren elfogadott állapotot.');}
+    }catch{setNotice('Megszakadt a kapcsolat. Töltsd újra az oldalt, hogy lásd, sikerült-e menteni az utolsó lépésedet.');}
     finally{lock.current=false;setBusy(false);}
   }
   function clickSpot(entry:VisibleSpot,element:HTMLElement){
@@ -124,7 +124,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
             onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard}
             onPointerDown={event=>startTouch(event,entry)} onPointerMove={event=>{if(touch.current&&Math.hypot(event.clientX-touch.current.x,event.clientY-touch.current.y)>10)stopTouch();}} onPointerUp={stopTouch} onPointerCancel={()=>{stopTouch();touch.current=null;}}
             onContextMenu={event=>{event.preventDefault();setTarget(entry.id);show('scene',entry.id,event.currentTarget,true);}} onClick={event=>{if(touch.current?.opened){touch.current=null;return;}clickSpot(entry,event.currentTarget);}}>
-            {entry.glyph&&<span className="ascii-glyph" aria-hidden="true">{entry.glyph}</span>}
+             {entry.glyph&&<span className="ascii-glyph" aria-hidden="true">{entry.glyph}</span>}
             <span className="sr-only" id={`spot-help-${entry.id}`}>{mode==='use'&&item&&entry.environment?`${item.label} használata itt.`:entry.exit?`Kattintás: mozgás — ${entry.exit.label}.`:'Kattintás: megvizsgálás. További műveletek: rámutatás, jobb kattintás, hosszú érintés vagy lefelé nyíl.'}</span>
             </button>
           </div>)}
@@ -142,7 +142,7 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     <section className="book panel" aria-label="Történetkönyv"><details open={bookOpen} onToggle={event=>setBookOpen(event.currentTarget.open)}><summary>Történetkönyv <small>{game.book.length} emléklap</small></summary><button className="quiet" onClick={()=>setBookOpen(false)}>Történetkönyv bezárása</button><div>{game.book.map((entry,index)=><article key={entry.id}><span className="eyebrow">{entry.chapter} · {index+1}. emléklap</span><h2>{entry.title}</h2><p>{entry.text}</p></article>)}</div></details></section>
     <section className="reset panel"><div><h2>Újrakezdés</h2><small>Csak a saját játékállásodat állítja alaphelyzetbe.</small></div><button className="quiet" disabled={busy} onClick={()=>{setPopup(null);setResetOpen(true);}}>Játék újrakezdése</button></section>
     <dialog ref={dialog} className="reset-dialog" aria-labelledby="reset-title" onCancel={event=>{if(busy)event.preventDefault();else setResetOpen(false);}} onClose={()=>setResetOpen(false)}>
-      <h2 id="reset-title">Biztosan elölről kezded?</h2><p>A saját felszerelésed, haladásod, emléktöredékeid és történetkönyved visszaáll a nyitóállapotra. Más játékos mentése nem változik. Ez a művelet nem vonható vissza a játékból.</p><div className="execute"><button autoFocus disabled={busy} onClick={()=>setResetOpen(false)}>Mégsem</button><button className="danger" disabled={busy} onClick={()=>void send()}>Igen, elölről kezdem</button></div>{notice&&<p role="alert">{notice}</p>}
+      <h2 id="reset-title">Biztosan elölről kezded?</h2><p>Minden eddigi előrehaladásod elvész: újra üres zsebekkel kezdesz, az emléktöredékeid és a történetkönyved pedig visszaállnak a játék elejére. Más játékos mentését ez nem érinti. Az újrakezdést nem tudod visszavonni.</p><div className="execute"><button autoFocus disabled={busy} onClick={()=>setResetOpen(false)}>Mégsem</button><button className="danger" disabled={busy} onClick={()=>void send()}>Igen, elölről kezdem</button></div>{notice&&<p role="alert">{notice}</p>}
     </dialog>
     {popup&&popupLabel&&typeof document!=='undefined'&&createPortal(<aside ref={popupRef} className="context-popup" role="dialog" aria-label={popupLabel} style={{left:popup.left,top:popup.top}} onMouseEnter={stopClose} onMouseLeave={hideLater} onKeyDown={keyboard}>
       <div className="popup-heading"><strong>{popupLabel}</strong><button className="icon-action quiet" aria-label="Címke bezárása" title="Bezárás" onClick={closePopup}><ActionIcon name="cancel"/></button></div>
