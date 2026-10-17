@@ -14,6 +14,35 @@ const glyph = (state: GameState, name: string) => view(state).scene.spots.find(s
 const volume = (state: GameState, prefix: string, max: number) => Array.from({ length: max }, (_, i) => i + 1).find(i => state.flags.includes(aw(`${prefix}-${i}`))) ?? 0;
 const controlKey = (state: GameState) => JSON.stringify(state.flags.filter(flag => flag.startsWith('awakening:')).sort());
 
+test('the existing water diagram is readable before any failed attempt, at every saved volume', () => {
+  for (let large=0;large<=3;large++) for (let small=0;small<=2;small++) for (const latched of [false,true]) {
+    const flags=[...(large?[aw(`large-${large}`)]:[]),...(small?[aw(`small-${small}`)]:[]),...(latched?[aw('flow-latched')]:[])];
+    const state=at(aw('water-room'),flags);
+    for (const saved of [state,reload(state)]) {
+      assert.match(view(saved).scene.description,/KÉT EGYSÉG TERHELÉS/);
+      const examined=look(saved,'vessels');
+      assert.match(examined.message,/második rovátkájánál/);
+      assert.match(examined.message,/ÜRES VISSZATÉRŐ/);
+      assert.deepEqual(examined.flags,saved.flags);
+    }
+  }
+});
+
+test('readable corridor numbers are accessible and every closed door offers its existing knock action', () => {
+  const state=observeRoom({...initialState(),room:'threshold',flags:['door-open'],focus:[aw('corridor-doors')]});
+  const rendered=view(state);
+  assert.match(rendered.environment.find(entity=>entity.id===aw('hall-door-left-middle'))!.label,/80/);
+  assert.match(rendered.environment.find(entity=>entity.id===aw('hall-door-right-middle'))!.label,/70/);
+  for(const spot of rendered.scene.spots.filter(spot=>spot.environment?.startsWith(aw('hall-door-')))) {
+    assert.ok(spot.actions.includes('talk'));
+    const next=applyCommand(state,{verb:'talk',target:{kind:'environment',id:spot.environment!}});
+    assert.notEqual(next.message,state.message);
+    assert.equal(next.room,state.room);
+    assert.deepEqual(next.inventory,state.inventory);
+    assert.deepEqual(next.book,state.book);
+  }
+});
+
 test('exactly five new physical locations complete awakening before archive, without a story ending or new chapter ID', () => {
   assert.equal(Object.values(awakening.scenes).filter(scene => !scene.detailOf).length, 7);
   assert.deepEqual(CHAPTERS.map(chapter => chapter.id), ['awakening', 'archive', 'relay']);

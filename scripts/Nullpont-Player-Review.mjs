@@ -11,6 +11,8 @@ import { chromium } from 'playwright';
 import { initializeDatabase } from '../apps/nullpont/lib/schema.ts';
 import { sessionToken } from '../apps/nullpont/lib/session.ts';
 import { PLAYTEST_LIMIT_MS, playtestResult, playtestSession, validatePlayerReview } from '../lib/nullpont-player-review.ts';
+import { performReviewAction } from './nullpont-player-review-action.mjs';
+import { writeReviewFile } from './nullpont-player-review-io.mjs';
 
 const root = process.cwd(), folder = join(root, '.runtime/nullpont-player-review');
 const command = process.argv[2];
@@ -25,7 +27,7 @@ function safe(path) {
 }
 const file = name => join(folder, name);
 function read(name) { const path = file(name); safe(path); if (lstatSync(path).size > 128 * 1024) throw Error('Oversized review input'); return JSON.parse(readFileSync(path, 'utf8')); }
-function write(name, value) { const path = file(name); safe(path); const temp = path + '.' + randomUUID() + '.tmp'; writeFileSync(temp, JSON.stringify(value, null, 2), { flag: 'wx' }); renameSync(temp, path); }
+function write(name, value) { const path = file(name); safe(path); writeReviewFile(path, value); }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -121,14 +123,20 @@ async function run(smoke) {
     async function snapshot() {
       // Only visible rendered text and labels; no game catalog, state, DOM attributes
       // holding internal IDs, network payloads, hidden controls or JS evaluation.
+      for (const control of controls) await control.dispose().catch(() => {});
       controls = []; const visible = [];
       for (const locator of await page.locator('button, input, summary').all()) {
         if (!await locator.isVisible() || await locator.isDisabled()) continue;
         const label = await locator.getAttribute('aria-label') || await locator.getAttribute('title') || await locator.innerText() || await locator.getAttribute('placeholder') || 'Szövegmező';
-        controls.push(locator); visible.push({ control: controls.length - 1, label, input: await locator.evaluate(element => element.tagName === 'INPUT') });
+        const handle = await locator.elementHandle();
+        if (!handle) continue;
+        controls.push(handle); visible.push({ control: controls.length - 1, label, input: await handle.evaluate(element => element.tagName === 'INPUT') });
       }
-      safe(file('screen.png')); await page.screenshot({ path: file('screen.png'), fullPage: true, timeout: 4000 });
-      return { sessionId: run.id, release: run.release, status: 'running', remainingSeconds: Math.max(0, Math.ceil((PLAYTEST_LIMIT_MS - (performance.now() - started)) / 1000)), text: (await page.locator('body').innerText()).slice(0, 24000), sceneDescription: await page.locator('.ascii-canvas').getAttribute('aria-label'), controls: visible };
+      safe(file('screen.png'));
+      let screenshotAvailable = false;
+      try { await page.screenshot({ path: file('screen.png'), fullPage: true, timeout: 4000 }); screenshotAvailable = true; }
+      catch { if (existsSync(file('screen.png'))) unlinkSync(file('screen.png')); }
+      return { sessionId: run.id, release: run.release, status: 'running', screenshotAvailable, remainingSeconds: Math.max(0, Math.ceil((PLAYTEST_LIMIT_MS - (performance.now() - started)) / 1000)), text: (await page.locator('body').innerText()).slice(0, 24000), sceneDescription: await page.locator('.ascii-canvas').getAttribute('aria-label'), controls: visible };
     }
     const first = await snapshot(); write('observation.json', first);
     console.log(JSON.stringify({ ready: true, release, deadline: run.deadline, nonBlocking: true, isolatedSyntheticAccount: true }));
@@ -148,9 +156,9 @@ async function run(smoke) {
           const action = request.action;
           if (!action || !['click', 'hover', 'fill'].includes(action.kind) || !Number.isSafeInteger(action.control) || !controls[action.control]) throw Error('Use a current visible control index');
           const target = controls[action.control];
-          if (action.kind === 'fill') { if (typeof action.value !== 'string' || action.value.length > 80) throw Error('Input too long'); await target.fill(action.value); }
-          else await target[action.kind]();
-          await page.locator('.game-grid[aria-busy="false"]').waitFor(); value = await snapshot();
+          if (action.kind === 'fill' && (typeof action.value !== 'string' || action.value.length > 80)) throw Error('Input too long');
+          const outcome = await performReviewAction(page, target, action, Math.max(1, Math.min(10000, PLAYTEST_LIMIT_MS - (performance.now() - started))));
+          value = { ...await snapshot(), ...outcome };
         } else throw Error('Unknown playtest operation');
         if (!done && performance.now() - started >= PLAYTEST_LIMIT_MS) { done = true; value = publish('timed_out'); }
         write('response.json', { id: request.id, value });

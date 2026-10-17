@@ -36,6 +36,11 @@ release. They become follow-up development suggestions, not automatic edits.
    Actions target only a currently visible UI control: `{kind:"click"|"hover",
    control:0}` or `{kind:"fill",control:0,value:"..."}`. No evaluate, network,
    state injection, source reading, solution scripts or production gameplay.
+   A delivered action whose render is still settling returns `pending: true` and
+   a warning to call `observe`, not a false rejection or an automatic second click.
+   Controls retain their observed DOM identity even if a hover menu changes the
+   control list. Optional screenshot failure sets `screenshotAvailable: false`;
+   it does not turn a successful action into a failed one.
 4. The watchdog closes gameplay at **600 seconds** after fixture readiness,
    including model reasoning and tool latency. It independently records timeout
     even if the agent never responds. The reviewer profile allows **50,000 model

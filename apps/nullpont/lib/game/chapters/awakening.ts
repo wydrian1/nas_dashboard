@@ -187,6 +187,7 @@ awakening.scenes[aw('cloakroom')] = {
 
 const volumes = (large: number, small: number): Requirement => awPhase([...(large ? [`large-${large}`] : []), ...(small ? [`small-${small}`] : [])], [...[1, 2, 3].filter(n => n !== large).map(n => `large-${n}`), ...[1, 2].filter(n => n !== small).map(n => `small-${n}`)]);
 const volumeFlags = ['large-1', 'large-2', 'large-3', 'small-1', 'small-2'].map(aw);
+const waterTarget = ' A nyitókar melletti ábra a hosszú henger második rovátkájánál jelöl vízszintet, a rövid alatt száraz vonallal. Felirata: „KÉT EGYSÉG TERHELÉS / ÜRES VISSZATÉRŐ”.';
 awakening.scenes[aw('water-room')] = {
   title: 'I/b · A vízkör kézi vezérlése', description: 'Az ébresztőszobák felől érkező vízcső itt két üveghengerhez fut. A hosszú három, a rövid két egységet fogad be; a rovátkák térfogatot jelölnek, nem nyomást. A felső csap csak a hosszút tölti. A két forgatható csőrrel átöntheted a vizet, alul külön ürítőkarok vezetnek a nyitott lefolyóvályúba. A hengerek úszórúdjai az iratpult acélajtajának reteszéhez kapcsolódnak. Mellette ábra mutatja a kézi nyitáshoz szükséges úszóállást.', requires: wingDoor,
   arrivalDiscoveries: ['vessels', 'fill', 'empty-large', 'empty-small', 'pour-small', 'pour-large', 'float-test'].map(aw),
@@ -199,8 +200,8 @@ water.descriptionVariants = [];
 for (let large = 0; large <= 3; large++) for (let small = 0; small <= 2; small++) {
   const requires = volumes(large, small);
   const waterText = `Az ébresztőszobák vízkörének hosszú üveghengerében ${large}, a rövidben ${small} egység víz áll. A rovátkák térfogatot jelölnek: a hosszú három, a rövid két egységet fogad be. Felül töltőcsap, közöttük átöntőcsőrök, alul külön ürítők vezetnek a nyitott lefolyóvályúba. Az úszórudak az iratpult acélajtajának reteszéhez futnak.`;
-  water.descriptionVariants.push({ requires: { ...requires, flags: [...requires.flags!, aw('flow-latched')] }, text: waterText + ' Az ajtót már külön rögzítő tartja nyitva; a víz átállítása nem zárja vissza.' }, { requires, text: waterText });
-  water.rules.push(awLook('vessels', `A hosszú hengerben ${large}, a rövidben ${small} egység áll. A hosszú teljes térfogata három, a rövidé kettő. Átöntéskor az egyik kiürüléséig vagy a másik megteléséig folyik a víz.`, { id: aw(`look:vessels:${large}:${small}`), requires }));
+  water.descriptionVariants.push({ requires: { ...requires, flags: [...requires.flags!, aw('flow-latched')] }, text: waterText + waterTarget + ' Az ajtót már külön rögzítő tartja nyitva; a víz átállítása nem zárja vissza.' }, { requires, text: waterText + waterTarget });
+  water.rules.push(awLook('vessels', `A hosszú hengerben ${large}, a rövidben ${small} egység áll. A hosszú teljes térfogata három, a rövidé kettő. Átöntéskor az egyik kiürüléséig vagy a másik megteléséig folyik a víz.` + waterTarget, { id: aw(`look:vessels:${large}:${small}`), requires }));
   for (const [name, nextLarge, nextSmall] of [
     ['fill', 3, small], ['empty-large', 0, small], ['empty-small', large, 0],
     ['pour-small', large - Math.min(large, 2 - small), small + Math.min(large, 2 - small)],
@@ -308,13 +309,13 @@ decision.descriptionVariants = [{ requires: closed, text: 'A két kar visszaenge
 const otherDoors = [
   ['left-near', 'Balra az első ajtó', 'A saját nyitott ajtód mellett ez az első zárt ajtó. A számtábláját innen nem tudod elolvasni; a keret keskeny árnyékot vet rá.', 'A koppantás röviden visszaverődik a közeli sarokról. A hang beszél tovább, de a hívásodra nem kapsz felismerhető választ.'],
   ['left-second', 'Balra a második ajtó', 'A folyosó ívén a második zárt ajtónál állsz. A címke felszíne megcsillan, a számát nem tudod biztosan kivenni.', 'Bekopogsz és beszólsz. A beszéd a kopogás alatt is hallatszik; nem tudod megállapítani, reagált-e rád bárki.'],
-  ['left-middle', 'Balra a harmadik ajtó', 'Az ív közepén álló ajtó tábláján 80 olvasható. Innen csak a folyosói oldalát látod, belülre nem lehet belátni.', 'A 80-as ajtón át a saját hangod szól. Megszólítod, majd vársz. A mondatokból nem válik ki neked címzett felelet.'],
+  ['left-middle', 'Balra a harmadik ajtó · 80', 'Az ív közepén álló ajtó tábláján 80 olvasható. Innen csak a folyosói oldalát látod, belülre nem lehet belátni.', 'A 80-as ajtón át a saját hangod szól. Megszólítod, majd vársz. A mondatokból nem válik ki neked címzett felelet.'],
   ['left-fourth', 'Balra a negyedik ajtó', 'A negyedik ajtó táblája ferdén kapja a fényt. A feliratát nem tudod biztosan kiolvasni.', 'Kopogásod után egy pillanatra a szomszéd ajtó felől hallatszik tisztábban a beszéd. Nem tudod, melyik hang honnan jön.'],
   ['left-far', 'Balra az ötödik ajtó', 'Ez az utolsó ajtó a bal oldali íven a szemközti előtt. A tábla széle látszik, a száma a fényből kiesik.', 'A folyosó túlsó ívén elnyúlik a kopogás visszhangja. Kérdésedre nem érkezik elkülöníthető válasz.'],
   ['opposite', 'A szemközti ajtó', 'A nyitott szobáddal szemben állsz. A zárt ajtó két oldalán ugyanakkora falsáv marad; a számtábla innen sem olvasható tisztán.', 'Megszólalsz az ajtó előtt. Innen egyszerre több irányból hallod a saját hangodat; nem derül ki, van-e valaki közvetlenül a túloldalon.'],
   ['right-far', 'Jobbra az ötödik ajtó', 'A jobb oldali ív legtávolabbi ajtaja a szemközti mellett áll. Zárt illesztése mögé nem látsz; a tábláját nem tudod elolvasni.', 'Bekopogsz. A fém tompán felel, a mögüle hallatszó beszédben nem ismersz fel választ.'],
   ['right-fourth', 'Jobbra a negyedik ajtó', 'Az ajtó a jobb ív belső kanyarulatában áll. A táblán megcsillan a fény; a számot nem tudod kivenni.', 'Beszólsz, majd elhallgatsz. A folyosó hangjai folytatódnak; nem tudod megmondani, hallottak-e.'],
-  ['right-middle', 'Jobbra a harmadik ajtó', 'A tábla ezen az ajtón 70-et mutat. A folyosói szám nem árulja el, mi van a túloldalon.', 'A 70-es ajtón kopogsz. Egy ismerős hangú mondat vége átszűrődik, de nem válaszként hangzik el.'],
+  ['right-middle', 'Jobbra a harmadik ajtó · 70', 'A tábla ezen az ajtón 70-et mutat. A folyosói szám nem árulja el, mi van a túloldalon.', 'A 70-es ajtón kopogsz. Egy ismerős hangú mondat vége átszűrődik, de nem válaszként hangzik el.'],
   ['right-second', 'Jobbra a második ajtó', 'Innen már közel van a saját ajtód. A zárt ajtó táblájának pereme látszik, a számát a megcsillanó felület elfedi.', 'A saját hangoddal szólsz a saját hangod felé. A beszéd ritmusa nem változik felismerhetően. Ebből nem tudod eldönteni, ki vagy mi adja.'],
   ['right-near', 'Jobbra az első ajtó', 'A nyitott 90-es ajtód jobb oldali szomszédja. A számtábla rossz szögben áll a fényhez; a zárt ajtón nem látsz nyitott rést.', 'Bekopogsz, és vársz a két ajtó között. A hang áthallatszik, de nem kapsz biztos választ. A saját szobádba továbbra is visszamehetsz.'],
 ] as const;

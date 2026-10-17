@@ -31,6 +31,29 @@ function receiver(state: GameState) {
   state = act(state, 'submit', 'relay:missing-tray', '09');
   return act(state, 'move', 'relay:receiver');
 }
+test('a picked-up plate left in the reader never respawns on return or reload, including legacy saves', () => {
+  let state=records(closeAwakening(openOriginal()));
+  state=act(state,'move','archive:records-return');
+  for(const target of ['archive:board','archive:margin','archive:pencil']) state=act(state,'look',target);
+  state=act(state,'take','archive:loose-witness');
+  assert.ok(state.flags.includes('archive:witness-taken'));
+  state=applyCommand(applyCommand(state,{verb:'back'}),{verb:'back'});
+  state=act(state,'move','archive:records');
+  state=receiver(dispatch(state));
+  state=act(state,'use','relay:card-reader',undefined,'archive:witness');
+  assert.ok(!state.inventory.includes('archive:witness'));
+  for(const exit of ['relay:receiver-back','relay:dispatch-back','relay:well-back','relay:interval-back','relay:gallery-back','archive:records-return']) state=act(state,'move',exit);
+  for(const legacy of [false,true]) {
+    let returned=reload(legacy?{...state,flags:state.flags.filter(flag=>flag!=='archive:witness-taken')}:state);
+    for(const target of ['archive:board','archive:margin','archive:pencil']) returned=act(returned,'look',target);
+    assert.match(view(returned).scene.description,/üres a lemez helye/);
+    assert.match(returned.message,/üres bemetszés/);
+    assert.ok(!view(returned).environment.some(entity=>entity.id==='archive:loose-witness'));
+    assert.throws(()=>act(returned,'take','archive:loose-witness'),/nem érhető el/);
+    assert.ok(!returned.inventory.includes('archive:witness'));
+    assert.deepEqual(reload(returned).inventory,returned.inventory);
+  }
+});
 test('minimum route yields three bounded answers without optional dialogue, directory, signal puzzle or frame craft', () => {
   const start = openOriginal();
   let state = closeAwakening(start, { craft: false });

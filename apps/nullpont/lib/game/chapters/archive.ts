@@ -115,10 +115,17 @@ export const archive: Chapter = {
   },
 };
 
-const witnessTaken = { items: [id('witness')] };
-archive.scenes[id('paper-fold')].descriptionVariants = [{ requires: witnessTaken, text: 'A kihajtott papírcsík mögött üres a lemez helye. A két bemetszés és a kettős ceruzavonal megmaradt.' }];
-archive.scenes[id('paper-fold')].rules.find(rule => rule.id === id('look:pencil'))!.messageVariants = [{ requires: witnessTaken, text: 'A ceruzavonal mellett két üres bemetszés látszik. Innen csúsztattad ki a füstszínű lemezt; a félholdas vég már nem lóg a papír alól.' }];
-archive.scenes[id('directory')].rules.find(rule => rule.id === id('look:margin'))!.messageVariants = [{ requires: witnessTaken, text: 'Újra kihajtod a csíkot: „CÍMVÁLTÁS NEM SZEMÉLYVÁLTÁS”. Alatta: „A széket ne cseréljék ki.” A hátoldali bemetszések üresek; a lemezt már kivetted.' }];
+// Persistent pickup plus legacy evidence: inventory absence alone cannot mean
+// the plate is back here after it was left in the later reader.
+const witnessTaken = [{ items: [id('witness')] }, { flags: [id('witness-taken')] }, { flags: ['relay:witness-read'] }];
+const witnessAvailable = { withoutItems: [id('witness')], withoutFlags: [id('witness-taken'), 'relay:witness-read'] };
+archive.scenes[id('paper-fold')].environment!.find(entity=>entity.id===id('loose-witness'))!.requires = witnessAvailable;
+const takeWitness = archive.scenes[id('paper-fold')].rules.find(rule=>rule.id===id('take:witness'))!;
+takeWitness.requires = { ...takeWitness.requires, ...witnessAvailable };
+takeWitness.addFlags = [id('witness-taken')];
+archive.scenes[id('paper-fold')].descriptionVariants = witnessTaken.map(requires=>({ requires, text: 'A kihajtott papírcsík mögött üres a lemez helye. A két bemetszés és a kettős ceruzavonal megmaradt.' }));
+archive.scenes[id('paper-fold')].rules.find(rule => rule.id === id('look:pencil'))!.messageVariants = witnessTaken.map(requires=>({ requires, text: 'A ceruzavonal mellett két üres bemetszés látszik. Innen csúsztattad ki a füstszínű lemezt; a félholdas vég már nem lóg a papír alól.' }));
+archive.scenes[id('directory')].rules.find(rule => rule.id === id('look:margin'))!.messageVariants = witnessTaken.map(requires=>({ requires, text: 'Újra kihajtod a csíkot: „CÍMVÁLTÁS NEM SZEMÉLYVÁLTÁS”. Alatta: „A széket ne cseréljék ki.” A hátoldali bemetszések üresek; a lemezt már kivetted.' }));
 archive.scenes[id('vestibule')].descriptionVariants = [{ requires: { flags: [id('records-open')] }, text: 'A lámpa a falitáblára és a beállított számlapra világít. Az irattári ajtó nyitva áll. Balra a körfolyosóra térhetsz vissza; az irattári ajtótól jobbra rácsos járda vezet a megfigyelőhídra. Alatta külön, JELFÜLKE feliratú lépcsőlejáró nyílik. A széken két egymásba csúszó horpadás.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('look:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A három dob a beállított számokat mutatja. Alattuk továbbra is: „HELYI SZEMLE”. A kör, kettős vonal és háromszög változatlanul a keretbe van vésve. Az irattári ajtó zárja már elengedett.' }];
 archive.scenes[id('vestibule')].rules.find(rule => rule.id === id('submit:reader'))!.messageVariants = [{ requires: { flags: [id('records-open')] }, text: 'A dobok ugyanabba az állásba kattanak vissza. Az irattári ajtó már nyitva áll; a kilincs lent marad.' }];
