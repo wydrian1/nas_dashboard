@@ -176,19 +176,40 @@ receiver.rules.push(look('accompanying-copy', receiverLegacy, { messageVariants:
 receiver.description += ' A kísérőpéldány a mostani bejegyzést és a hiányzó régi hozzájárulást külön rovatban tartja.';
 
 const cardReader = 'Külön asztali OLVASÓ áll a pulton, a csőpostától távolabb. Keskeny vezetősínje félholdas kivágásban végződik, mellette három sűrű fogcsoport és egy külön érintkező. A foglalat üres; az alatta nyíló résből nyomtatott ellenpéldány jöhet ki. Nem a csőpostába kell betolni a lemezt.';
-const witnessRead = 'A félholdas vég a vezetősín ütközőjéhez ér. A három lyukcsoport és a külön lyuk alatt felvillannak az érintkezők. Az olvasó csíkot nyomtat: „ÁTVÉTEL / E-09/1 / ENGEDÉLY ÉS VÉGREHAJTÁS ELLENPÉLDÁNYA. KÉRELEM NÉLKÜL: CSAK KIVONAT ADHATÓ KI.” A nyomtatott csík maga nevezi meg az iratpárt és a hivatkozását; nem személyes vallomást ad ki. A papírok külön helyen vizsgálhatók: az engedélykivonat itt, a válaszcsík mellett, a végrehajtási másolat a küldeményfülke kosarának irattartójában. A beküldött eredeti kérelem nélkül az átadás csak kivonatra terjed ki. A lemezt visszaveszed; a nyomtatott csík a kimenetben marad.';
-receiver.environment!.push({ ...env('card-reader', 'Asztali lyuksorolvasó', cardReader), descriptionVariants: [{ requires: phase(['witness-read']), text: 'Az OLVASÓ félholdas foglalata üres; a lemezt visszavetted. A kimeneti résben megmaradt az „ÁTVÉTEL / E-09/1” csík: az engedély és a végrehajtás ellenpéldánya, eredeti kérelem nélkül csak kivonat adható ki. A csík nem nevez meg személyt.' }] });
+const witnessRead = 'A félholdas vég a vezetősín ütközőjéhez ér. A három lyukcsoport és a külön lyuk alatt felvillannak az érintkezők. Az olvasó csíkot nyomtat: „ÁTVÉTEL / E-09/1 / ENGEDÉLY ÉS VÉGREHAJTÁS ELLENPÉLDÁNYA. KÉRELEM NÉLKÜL: CSAK KIVONAT ADHATÓ KI.” A nyomtatott csík maga nevezi meg az iratpárt és a hivatkozását; nem személyes vallomást ad ki. A papírok külön helyen vizsgálhatók: az engedélykivonat itt, a válaszcsík mellett, a végrehajtási másolat a küldeményfülke kosarának irattartójában. A beküldött eredeti kérelem nélkül az átadás csak kivonatra terjed ki. A lemezt az olvasó foglalatában hagyod; a nyomtatott csík a kimenetben marad.';
+receiver.environment!.push({ ...env('card-reader', 'Asztali lyuksorolvasó', cardReader), descriptionVariants: [
+  { requires: { flags: [id('witness-read')], withoutItems: ['archive:witness'] }, text: 'Az OLVASÓ félholdas foglalatában ott a lemez. A kimeneti résben megmaradt az „ÁTVÉTEL / E-09/1” csík: az engedély és a végrehajtás ellenpéldánya, eredeti kérelem nélkül csak kivonat adható ki. A csík nem nevez meg személyt.' },
+  { requires: phase(['witness-read']), text: 'Az OLVASÓ félholdas foglalata üres; a lemezt visszavetted. A kimeneti résben megmaradt az „ÁTVÉTEL / E-09/1” csík: az engedély és a végrehajtás ellenpéldánya, eredeti kérelem nélkül csak kivonat adható ki. A csík nem nevez meg személyt.' },
+] });
 receiver.description += ' A csőpostától külön asztali lyuksorolvasó áll, üres félholdas foglalattal.';
-receiver.rules.push({ id: id('use:witness:reader'), label: 'Használom', kind: 'use', interaction: { verb: 'use', item: 'archive:witness', target: target('card-reader') }, addFlags: [id('witness-read')], message: witnessRead, messageVariants: [{ requires: phase(['witness-read']), text: 'A lemezt újra beilleszted. Ugyanaz az E-09/1 átvételi ellenpéldány olvasható ki: az engedélyhez és a végrehajtáshoz tartozik, eredeti kérelem nélkül csak kivonat adható ki. Visszaveszed a lemezt; a kimeneti csík tartalma nem változik.' }], milestone: { id: id('witness-read'), title: 'A tanúpéldány megszólalt', text: 'A füstszínű lemez végre illett egy olvasóba. Nem a csőposta pereméhez: a pulton külön félholdas foglalat várta. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki. Ugyanarra a helyi iratpárra hivatkozott, mint a papírok, de nem volt személyes vallomás, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A lemezt visszavettem.' } });
+receiver.rules.push({ id: id('use:witness:reader'), label: 'Használom', kind: 'use', interaction: { verb: 'use', item: 'archive:witness', target: target('card-reader') }, addFlags: [id('witness-read')], removeItems: ['archive:witness'], message: witnessRead, milestone: { id: id('witness-read'), title: 'A tanúpéldány megszólalt', text: 'A füstszínű lemez végre illett egy olvasóba. Nem a csőposta pereméhez: a pulton külön félholdas foglalat várta. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki. Ugyanarra a helyi iratpárra hivatkozott, mint a papírok, de nem volt személyes vallomás, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A lemezt az olvasó foglalatában hagytam.' } });
 // The old reply remains true and its book page is immutable; the new separate
 // object is visible beside it, rather than another promise to find a reader.
 receiver.rules.find(rule => rule.id === id('look:reply'))!.message += ' A válaszcsík mellett már ott van a külön E-09/1 engedélykivonat is; az eredeti kérelem helyét nem változtatja meg.';
 const receiverBase = 'Az ablak az árok túloldali olvasótermére néz. A régi válaszcsík és a csőposta a pulton maradt. ';
-receiver.rules.find(rule => rule.id === id('use:witness:reader'))!.milestone!.text = 'A füstszínű lemezt a pult külön félholdas foglalatába illesztettem. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki: a nyomtatott csík maga nevezte meg az iratpárt és a hivatkozását. Nem személyes vallomás volt, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A papírok külön helyen vizsgálhatók: az engedélykivonat a fogadói pulton, a végrehajtási másolat a küldeményfülke kosarának tartójában. A lemezt visszavettem.';
+receiver.rules.find(rule => rule.id === id('use:witness:reader'))!.milestone!.text = 'A füstszínű lemezt a pult külön félholdas foglalatába illesztettem. A lyuksor az E-09/1 engedély és végrehajtás átvételi ellenpéldányát adta ki: a nyomtatott csík maga nevezte meg az iratpárt és a hivatkozását. Nem személyes vallomás volt, és nem pótolta az eredeti kérelmet. Az átadás korlátját is rögzítette: kérelem nélkül csak kivonat adható ki. A papírok külön helyen vizsgálhatók: az engedélykivonat a fogadói pulton, a végrehajtási másolat a küldeményfülke kosarának tartójában. A lemezt az olvasó foglalatában hagytam.';
 const readerEmpty = ' Az asztali OLVASÓ félholdas foglalata és kimeneti rése üres.';
-const readerPrinted = ' Az asztali OLVASÓ foglalata üres, a lemezt visszavetted. Kimenetében az ÁTVÉTEL / E-09/1 csík maradt.';
+const readerPrinted = ' Az asztali OLVASÓ foglalatában ott a lemez; kimenetében az ÁTVÉTEL / E-09/1 csík maradt.';
+// The socket prose follows what actually happened to the plate: it is called left
+// behind only when it is really gone. A save made before that change still carries
+// the plate, so its examination must keep saying so.
+const readerReturned = ' Az asztali OLVASÓ foglalata üres; a lemezt visszavetted. Kimenetében az ÁTVÉTEL / E-09/1 csík maradt.';
+const readerStates: { requires: Requirement; text: string }[] = [
+  { requires: { withoutFlags: [id('witness-read')] }, text: readerEmpty },
+  { requires: { flags: [id('witness-read')], withoutItems: ['archive:witness'] }, text: readerPrinted },
+  { requires: { flags: [id('witness-read')], items: ['archive:witness'] }, text: readerReturned },
+];
 receiver.description = receiverBase + permit + ' ' + receiverLegacy + readerEmpty;
-receiver.descriptionVariants = [false, true].flatMap(read => [
-  ...receiverCopyVariants.map(variant => ({ requires: { flags: [...variant.requires.flags, ...(read ? [id('witness-read')] : [])], withoutFlags: read ? [] : [id('witness-read')] }, text: receiverBase + permit + ' ' + variant.text + (read ? readerPrinted : readerEmpty) })),
-  { requires: { flags: read ? [id('witness-read')] : [], withoutFlags: ['awakening:departure-reserved', 'awakening:departure-plain', ...(!read ? [id('witness-read')] : [])] }, text: receiverBase + permit + ' ' + receiverLegacy + (read ? readerPrinted : readerEmpty) },
-]);
+receiver.descriptionVariants = readerStates.flatMap(state => {
+  const merged = (base: Requirement): Requirement => ({
+    ...base,
+    flags: [...base.flags ?? [], ...state.requires.flags ?? []],
+    withoutFlags: [...base.withoutFlags ?? [], ...state.requires.withoutFlags ?? []],
+    ...(state.requires.items ? { items: state.requires.items } : {}),
+    ...(state.requires.withoutItems ? { withoutItems: state.requires.withoutItems } : {}),
+  });
+  return [
+    ...receiverCopyVariants.map(variant => ({ requires: merged(variant.requires), text: receiverBase + permit + ' ' + variant.text + state.text })),
+    { requires: merged({ withoutFlags: ['awakening:departure-reserved', 'awakening:departure-plain'] }), text: receiverBase + permit + ' ' + receiverLegacy + state.text },
+  ];
+});

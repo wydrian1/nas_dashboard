@@ -26,7 +26,7 @@ const useIsomorphicLayoutEffect=typeof window!=='undefined'?useLayoutEffect:useE
 export default function Game({ initialGame }: { initialGame: GameView }) {
   const [game,setGame]=useState(initialGame),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [source,setSource]=useState<string|null>(null),[mode,setMode]=useState<'use'|'combine'|null>(null),[target,setTarget]=useState<string|null>(null);
-  const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(14),[resetOpen,setResetOpen]=useState(false);
+  const [popup,setPopup]=useState<Popup|null>(null),[zoom,setZoom]=useState(11),[resetOpen,setResetOpen]=useState(false);
   const lock=useRef(false),closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null),anchor=useRef<HTMLElement|null>(null),anchorRect=useRef<DOMRect|null>(null),popupRef=useRef<HTMLElement|null>(null),dialog=useRef<HTMLDialogElement|null>(null);
   const restoringFocus=useRef(false);
   const touch=useRef<{timer:ReturnType<typeof setTimeout>|null;x:number;y:number;opened:boolean}|null>(null);
@@ -115,9 +115,9 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
       <div className="scene-heading"><h2>{game.scene.title}</h2><div className="map-zoom"><button aria-label="ASCII kicsinyítése" title="Kicsinyítés" disabled={zoom<=10} onClick={()=>setZoom(value=>value-1)}>−</button><button aria-label="ASCII nagyítása" title="Nagyítás" disabled={zoom>=20} onClick={()=>setZoom(value=>value+1)}>+</button></div></div>
       <nav className="scene-path" aria-label="Helyzet"><button className="icon-action quiet" aria-label="Vissza egy szinttel" title="Vissza" disabled={busy||game.breadcrumbs.length<2} onClick={()=>void send({verb:'back'})}><ActionIcon name="back"/></button><ol>{game.breadcrumbs.map((entry,index)=><li key={entry.id}>{index>0&&<span aria-hidden="true">›</span>}{index===game.breadcrumbs.length-1?<span aria-current="location">{entry.title}</span>:<button disabled={busy} onClick={()=>void send({verb:'back',levels:game.breadcrumbs.length-1-index})}>{entry.title}</button>}</li>)}</ol></nav>
       <div className="ascii-scroll" onScroll={()=>{if(popup&&anchor.current)show(popup.kind,popup.id,anchor.current,popup.pinned);}}>
-        <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows*1.45}em`}}>
+        <div className="ascii-canvas" role="group" aria-label={game.scene.description} style={{fontSize:zoom,width:`${game.scene.columns}ch`,height:`${game.scene.rows}em`}}>
           <pre aria-hidden="true">{game.scene.art}</pre>
-          {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row*1.45}em`,width:`${entry.width}ch`,height:`${entry.height*1.45}em`}}>
+          {game.scene.spots.map(entry=><div key={entry.id} className="ascii-spot" style={{left:`${entry.col}ch`,top:`${entry.row}em`,width:`${entry.width}ch`,height:`${entry.height}em`}}>
             <button className="ascii-hotspot" data-spot={entry.id} data-environment={entry.environment} data-exit={entry.exit?.id} aria-label={entry.label} aria-describedby={`spot-help-${entry.id}`} aria-pressed={target===entry.id} disabled={busy}
             onMouseEnter={event=>show('scene',entry.id,event.currentTarget)} onMouseLeave={hideLater} onFocus={event=>show('scene',entry.id,event.currentTarget)} onKeyDown={keyboard}
             onPointerDown={event=>startTouch(event,entry)} onPointerMove={event=>{if(touch.current&&Math.hypot(event.clientX-touch.current.x,event.clientY-touch.current.y)>10)stopTouch();}} onPointerUp={stopTouch} onPointerCancel={()=>{stopTouch();touch.current=null;}}

@@ -20,9 +20,10 @@ test('counterweight art shows all nine rope positions independently of the latch
     for (let step = 0; step < left; step++) state = use(state, 'relay:left-wheel');
     for (let step = 0; step < right; step++) state = use(state, 'relay:right-wheel');
     const art = glyph(state, 'relay:alignment'), lines = art.split('\n');
-    assert.equal(lines.findIndex(line => line.includes('|_|_|')), [11, 7, 3][left]);
-    assert.equal(lines.findIndex(line => line.includes('|___|')), [11, 7, 3][right]);
-    assert.equal(lines.findIndex(line => line.includes('.-----.')), ready ? 3 : 13);
+    // New compact composition; assert actual physical heights, not old canvas rows.
+    assert.equal(lines.findIndex(line => line.includes('|_|_|')), [9, 6, 3][left]);
+    assert.equal(lines.findIndex(line => line.includes('|___|')), [9, 6, 3][right]);
+    assert.equal(lines.findIndex(line => line.includes('.--------.')), ready ? 3 : 11);
     assert.ok(view(state).scene.description.includes(`villa a${left === 0 ? 'z' : ''} ${names[left]} jelhez`));
     assert.ok(view(state).scene.description.includes(`keresztgerenda a${right === 0 ? 'z' : ''} ${names[right]} jelhez`));
     assert.match(view(state).scene.description, ready ? /rögzítve/ : /járda alatt/);
@@ -35,7 +36,7 @@ test('counterweight art shows all nine rope positions independently of the latch
   state = look(state, 'relay:alignment');
   assert.notEqual(glyph(state, 'relay:alignment'), lowBasket);
   state = use(state, 'relay:left-wheel');
-  assert.equal(glyph(state, 'relay:alignment').split('\n').findIndex(line => line.includes('.-----.')), 3);
+  assert.equal(glyph(state, 'relay:alignment').split('\n').findIndex(line => line.includes('.--------.')), 3);
   const art = glyph(state, 'relay:alignment'), book = state.book;
   state = go(go(state, 'relay:dispatch'), 'relay:dispatch-back');
   assert.equal(glyph(state, 'relay:alignment'), art);
@@ -48,7 +49,7 @@ test('rhythm-door art shows individual retracted latches, failed reset and the p
   let state = at('relay:interval-room', ['door-open']);
   const door = (state: GameState) => view(state).scene.spots.find(spot => spot.exit?.id === 'relay:well')!.glyph!;
   const closed = door(state);
-  const extendedLatches = (picture: string) => (picture.match(/===\|===/g) ?? []).length;
+  const extendedLatches = (picture: string) => (picture.match(/--------\]---\[---/g) ?? []).length;
   assert.equal(extendedLatches(closed), 3);
   state = use(state, 'relay:single'); assert.equal(extendedLatches(door(state)), 2); assert.match(view(state).scene.description, /bal retesze behúzódott/);
   state = use(state, 'relay:double'); assert.equal(extendedLatches(door(state)), 1); assert.match(view(state).scene.description, /bal és középső/);
@@ -65,7 +66,7 @@ test('opening contact illumination and archive indicators/dial use only the curr
   const opened = applyCommand(detail, { verb: 'use', item: 'bridge', target: { kind: 'environment', id: 'awakening:panel-contacts' } });
   assert.notEqual(glyph(detail, 'awakening:panel-contacts'), glyph(opened, 'awakening:panel-contacts'));
   assert.match(glyph(opened, 'awakening:panel-contacts'), /={10}/);
-  assert.match(glyph(applyCommand(opened, { verb: 'back' }), 'panel'), /\*==\*/);
+  assert.match(glyph(applyCommand(opened, { verb: 'back' }), 'panel'), /HANGMINTA ELFOGADVA/);
   const images = new Set<string>();
   for (const route of [false, true]) for (const ground of [false, true]) {
     const state = at('archive:bridge-room', ['door-open', ...(route ? ['archive:route-bridge'] : []), ...(ground ? ['archive:ground-outer'] : [])]);
@@ -85,7 +86,11 @@ test('accepted request changes the visible tray and exit without duplicating or 
   const submitted = applyCommand(state, command);
   assert.notEqual(glyph(submitted, 'relay:missing-tray'), glyph(state, 'relay:missing-tray'));
   assert.match(glyph(submitted, 'relay:missing-tray'), /09.*\[x\]/);
-  assert.match(view(submitted).scene.spots.find(spot => spot.exit?.id === 'relay:receiver')!.glyph!, /NYITVA/);
+  const exitPicture = (state: GameState) => view(state).scene.spots.find(spot => spot.exit?.id === 'relay:receiver')!.glyph!;
+  assert.notEqual(exitPicture(submitted), exitPicture(state));
+  assert.match(exitPicture(submitted), /FOGADOALLOMAS/);
+  assert.match(exitPicture(submitted), /:\/\s+:/, 'open leaf leaves a visible passage');
+  assert.equal(exitPicture(parseState(JSON.stringify(submitted))), exitPicture(submitted));
   const returned = go(go(submitted, 'relay:receiver'), 'relay:receiver-back');
   assert.equal(glyph(parseState(JSON.stringify(returned)), 'relay:missing-tray'), glyph(submitted, 'relay:missing-tray'));
   assert.deepEqual(applyCommand(submitted, command).book, submitted.book);

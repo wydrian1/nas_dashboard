@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import art from '../lib/game/presentation/art/scenes.json' with { type: 'json' };
 
-test('redesign preserves original first-room art, closeups, poses and inventory pictures exactly', () => {
+// The owner now explicitly requested redrawing the opening assets too. Keep the
+// prior-byte baseline as a coverage guard, not the obsolete preservation rule.
+test('the full engraving redesign includes the opening room, closeups and original inventory', () => {
   const originals = [
     [art.scenes.chamber, '5afa258ac6bd01978f433728d6153d20f4c3c4d89648c6eacd347068bbc1b5a8'],
     [art.scenes['awakening:bed-detail'], '5022d09403c44cf5e9e4862e584b563223d6271f9c48daace502c42a5e59291c'],
@@ -13,5 +15,5 @@ test('redesign preserves original first-room art, closeups, poses and inventory 
     [art.items.wire, 'ef074e47984b97cbd42c078e7da58be0ff42ba8dcdfa01611a6820fa4b6d12e1'],
     [art.items.bridge, '93de3efe45697c58ad1fe68385a561d871637ee7d3dffe83846dc6fc737a4391'],
   ] as const;
-  for (const [asset, expected] of originals) assert.equal(createHash('sha256').update(JSON.stringify(asset)).digest('hex'), expected);
+  for (const [asset, previous] of originals) assert.notEqual(createHash('sha256').update(JSON.stringify(asset)).digest('hex'), previous);
 });

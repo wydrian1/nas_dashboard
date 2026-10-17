@@ -39,7 +39,8 @@ test('whole first-chapter route matrix: pickup order, craft direction, panel tar
     assert.ok(complete.flags.includes(aw(reserved ? 'departure-reserved' : 'departure-plain')));
     assert.equal(complete.book.filter(entry => entry.id.startsWith(aw('closure-'))).length, 1);
     assert.ok(complete.inventory.includes(aw(craft ? 'viewer' : 'prism')));
-    assert.ok(complete.inventory.includes(aw('source-card')) && complete.inventory.includes('bridge'));
+    assert.ok(!complete.inventory.includes(aw('source-card')), 'the source legend is spent on the pins');
+    assert.ok(complete.inventory.includes('bridge'));
     assert.deepEqual(complete.book.slice(0, opening.book.length), opening.book);
     assert.deepEqual(reload(complete), complete); routes++;
   }
@@ -132,11 +133,13 @@ test('exploring both final declarations or leaving does not consent; explicit ch
   }
 });
 
-test('registered source legend agrees in prose and art before acceptance through repeat use, navigation and reload', () => {
+test('registered source legend is spent on the pins in one use and still agrees in prose, art, navigation and reload', () => {
   let state = at(aw('source-room'), [aw('flow-latched')], [aw('source-card')]);
   assert.match(view(state).scene.description, /rögzítőtüske várja a műhely oszlopmintáját/);
   assert.equal((glyph(state, 'card-bed').match(/o/g) ?? []).length, 3);
   state = use(state, 'card-bed', aw('source-card'));
+  assert.ok(!state.inventory.includes(aw('source-card')), 'the legend stays on the pins');
+  assert.throws(() => use(state, 'card-bed', aw('source-card')), /Érvénytelen művelet/);
   for (let repeat = 0; repeat < 3; repeat++) {
     state = reload(state);
     const rendered = view(state);
@@ -145,11 +148,10 @@ test('registered source legend agrees in prose and art before acceptance through
     assert.match(rendered.scene.description, /ajtaja még zárva/);
     assert.match(glyph(state, 'card-bed'), /: :\s+::\s+_/);
     assert.match(look(state, 'card-bed').message, /SZEMLE, KÖZLÉS és HIÁNY/);
-    assert.match(look(state, 'card-bed').message, /lap a zsebedben/);
-    assert.ok(state.inventory.includes(aw('source-card')));
+    assert.match(look(state, 'card-bed').message, /lap a tüskéken maradt/);
+    assert.ok(!state.inventory.includes(aw('source-card')));
     assert.equal(go(state, 'decision').room, aw('source-room'));
     state = go(go(state, 'source-back'), 'sorting');
-    state = use(state, 'card-bed', aw('source-card'));
   }
   state = solveSources(state);
   const entry = state.book.find(entry => entry.id === aw('sources-separated'))!;
