@@ -40,8 +40,18 @@ test('Bloomrift parser uses SKU/cart/stock proof, rejects details-only stock and
   assert.equal(parseBloomriftPage(fixture.replace('https://bloomrift.eu/img/','https://evil.example/img/')).products[0].image,null);
   assert.equal(parseBloomriftPage(fixture.replace('2 290 Ft</div>','2 290 Ft</div><div class="product__price-sale">1 990 Ft</div>')).products[0].priceHuf,1990);
 });
+test('Bloomrift unknown cart or stock states do not fail a complete scan or infer availability',async()=>{
+  const missingCart=fixture.replace('<button class="product__cart-btn" type="button" aria-label="Kosárba" data-text="Kosárba" onclick="cart_add(\'PKM__unas__EN__unas__DEMO\',\'artlist_\');">Kosárba</button><input name="db_artlist_PKM__unas__EN__unas__DEMO" id="db_artlist_PKM__unas__EN__unas__DEMO" type="hidden" value="1">','<a class="product__details-btn" aria-label="Részletek" href="https://bloomrift.eu/pokemon-demo-booster">Részletek</a>');
+  const unknownStock=fixture.replace('Raktáron</div>','Készlet ellenőrzése</div>');
+  for(const html of [missingCart,unknownStock]){const parsed=parseBloomriftPage(html);assert.equal(parsed.cardIDs.length,2);assert.equal(parsed.products.length,0);assert.equal(parsed.diagnostics.length,1);assert.equal(parsed.diagnostics[0].type,'unknown_product_state');assert.equal(parsed.diagnostics[0].sku,'PKM-EN-DEMO');assert.equal(parsed.diagnostics[0].title,'Pokémon Demo Booster');assert.equal(parsed.diagnostics[0].page,1);assert.equal(parsed.diagnostics[0].stockText,html===unknownStock?'Készlet ellenőrzése':'Raktáron');}
+  const result=await scanBloomrift(new AbortController().signal,{download:async url=>url.endsWith('robots.txt')?robots:unknownStock,wait:async()=>{}});
+  assert.equal(result.total,0);
+  const diagnostics=result.diagnostics||[];assert.equal(diagnostics.length,1);assert.equal(diagnostics[0].sku,'PKM-EN-DEMO');assert.equal(diagnostics[0].cartButtons.length,1);assert.equal(diagnostics[0].quantityInputs,1);
+  assert.deepEqual(result.uncertainIDs,['PKM-EN-DEMO']);
+});
 test('Bloomrift parser fails closed on broken category, count, card identity/cart/stock/link and pagination',()=>{
-  const bad=[fixture.replace('Összes angol termék','Más kategória'),fixture.replace('page_shop_art_948779','unknown'),fixture.replace('rel="canonical"','rel="other"'),fixture.replace('</span>2','</span>0'),fixture.replace('PKM__unas__EN__unas__DEMO\',','MISMATCH\','),fixture.replace('Raktáron</div>','Érdeklődj</div>'),fixture.replace('value="1"','value="0"'),fixture.replace('class="product__details-btn"','class="unknown"'),fixture.replaceAll('pokemon-demo-booster','shop_ajax/cart'),fixture.replaceAll('https://bloomrift.eu/pokemon-demo','https://evil.example/pokemon-demo')];
+  const wrongHeading=load(fixture);wrongHeading('h1').text('Másik kategória');
+  const bad=[wrongHeading.html()!,fixture.replace('page_shop_art_948779','unknown'),fixture.replace('rel="canonical"','rel="other"'),fixture.replace('</span>2','</span>0'),fixture.replaceAll('pokemon-demo-booster','shop_ajax/cart'),fixture.replaceAll('https://bloomrift.eu/pokemon-demo','https://evil.example/pokemon-demo')];
   for(const html of bad)assert.throws(()=>parseBloomriftPage(html));
   assert.throws(()=>parseBloomriftPage(multi(1),2));assert.throws(()=>parseBloomriftPage(multi(1).replaceAll('termek,2','termek,3')));assert.throws(()=>parseBloomriftPage(multi(1).replace('data-page="2"','data-page="3"')));
   assert.throws(()=>parseBloomriftPage(multi(1).replace('infinite_scroll_num=1','infinite_scroll_num=2')));assert.throws(()=>parseBloomriftPage(multi(2).replaceAll('DEMO22','DEMO21'),2));
@@ -79,15 +89,15 @@ test('Bloomrift scanner rejects duplicates, changed counts/head/tail, blocked ro
   const abort=new AbortController();abort.abort();await assert.rejects(scanBloomrift(abort.signal,{download:async()=>robots,wait:async()=>{}}));
 });
 test('Bloomrift initialization preserves old shops, devices and settings; silent baseline then named stock/preorder push, failures preserve products',()=>{
-  const db=new DatabaseSync(':memory:');initializeDatabase(db);const products=parseBloomriftPage(fixture).products;
+  const db=new DatabaseSync(':memory:');initializeDatabase(db);const products=[...parseBloomriftPage(fixture).products,{...parseBloomriftPage(fixture).products[0],externalID:'PKM-EN-DEMO2',sku:'PKM-EN-DEMO2'}];
   try{
     db.exec("DELETE FROM pokemon_user_notifications WHERE shop_id='bloomrift';DELETE FROM pokemon_shops WHERE id='bloomrift';UPDATE pokemon_shops SET interval_minutes=8 WHERE id='mythgames'");const old=SHOP_IDS.filter(id=>id!=='bloomrift'),before=old.map(id=>shop(db,id));registerTestPhone(db);const phones=JSON.stringify(db.prepare('SELECT * FROM mobile_devices').all());initializeDatabase(db);
     assert.deepEqual(old.map(id=>shop(db,id)),before);assert.equal(JSON.stringify(db.prepare('SELECT * FROM mobile_devices').all()),phones);assert.equal(shop(db,'bloomrift').interval_minutes,3);assert.equal(shop(db,'bloomrift').url,BLOOMRIFT_URL);
-    const run=(list:typeof products,now:number)=>{db.prepare("UPDATE pokemon_shops SET next_scan=? WHERE id='bloomrift'").run(now);return finishScan(db,claimScan(db,now,'bloomrift')!,{products:list,total:list.length,pages:1,scannedAt:now},now+1);};
-    assert.equal(run(products,1000).baseline,true);assert.equal(db.prepare('SELECT count(*) n FROM mobile_push_outbox').get()!.n,0);assert.equal(run(products,700000).events,0);assert.equal(run([],1400000).deferred,true);assert.equal(run([],1600000).events,0);assert.equal(run([],1800000).events,0);assert.equal(run(products,2100000).events,1);
+    const run=(list:typeof products,now:number,uncertainIDs:string[]=[] )=>{db.prepare("UPDATE pokemon_shops SET next_scan=? WHERE id='bloomrift'").run(now);return finishScan(db,claimScan(db,now,'bloomrift')!,{products:list,total:list.length,pages:1,scannedAt:now,uncertainIDs},now+1);};
+    assert.equal(run(products,1000).baseline,true);assert.equal(db.prepare('SELECT count(*) n FROM mobile_push_outbox').get()!.n,0);assert.equal(run([products[0]],500000,['PKM-EN-DEMO2']).events,0);const uncertain=db.prepare("SELECT in_stock,missing_count FROM pokemon_products WHERE shop_id='bloomrift' AND external_id='PKM-EN-DEMO2'").get()!;assert.equal(uncertain.in_stock,1);assert.equal(uncertain.missing_count,0);assert.equal(run(products,700000).events,0);assert.equal(run([],1400000).deferred,true);assert.equal(run([],1600000).events,0);assert.equal(run([],1800000).events,0);assert.equal(run(products,2100000).events,2);
     assert.match(pushForShop(db,'bloomrift').data.title,/^Bloomrift/);assert.equal(pushForShop(db,'bloomrift').data.path,'/pokemon#shop-bloomrift');const payload=JSON.parse(pushForShop(db,'bloomrift').payload);assert.equal(payload.kind,'product');assert.equal(payload.shopId,'bloomrift');assert.equal(payload.productUrl,products[0].url);
     assert.equal(readPokemonSnapshot(db,false,2100002).latestEvents[0].shop_name,'Bloomrift');
     assert.equal(run([...products,{...products[0],externalID:'PRE',availability:'preorder'}],2800000).events,1);
-    db.exec("UPDATE pokemon_shops SET next_scan=0 WHERE id='bloomrift'");failScan(db,claimScan(db,3500000,'bloomrift')!,'Incomplete',0,3500001);assert.equal(shop(db,'bloomrift').last_count,2);const saved=shop(db,'bloomrift');initializeDatabase(db);assert.deepEqual(shop(db,'bloomrift'),saved);assert.deepEqual(old.map(id=>shop(db,id)),before);assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+    db.exec("UPDATE pokemon_shops SET next_scan=0 WHERE id='bloomrift'");failScan(db,claimScan(db,3500000,'bloomrift')!,'Incomplete',0,3500001);assert.equal(shop(db,'bloomrift').last_count,3);const saved=shop(db,'bloomrift');initializeDatabase(db);assert.deepEqual(shop(db,'bloomrift'),saved);assert.deepEqual(old.map(id=>shop(db,id)),before);assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
   }finally{db.close();}
 });
