@@ -19,6 +19,7 @@ export function checkedRelease(root=process.cwd(),productionEnvironment=false){
   // a deployment/CI owner override into those in-memory databases.
   const tests=run(process.execPath,[npm,'test'],source,{ALLOWED_EMAIL:undefined});
   run(process.execPath,['scripts/Test-Alza-Browser.mjs'],source);
+  run(process.execPath,['scripts/Test-Regio-Browser.mjs'],source);
   run(process.execPath,['--test','docs/history-site.test.mjs'],source);
   run(process.execPath,[npm,'run','build'],source,{...(productionEnvironment?parseEnv(readFileSync(join(root,'.env.local'),'utf8')):{}),DASHBOARD_BUILD_DIR:'.next-staging',NEXT_TELEMETRY_DISABLED:'1'});
   run(process.execPath,[npm,'run','typecheck'],source);

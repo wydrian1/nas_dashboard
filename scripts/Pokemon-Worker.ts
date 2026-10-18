@@ -18,6 +18,7 @@ import { scanMetagames } from "../lib/pokemon/adapters/metagames.ts";
 import { scanTcgbolt } from "../lib/pokemon/adapters/tcgbolt.ts";
 import { scanBloomrift } from "../lib/pokemon/adapters/bloomrift.ts";
 import { scanAlza } from "../lib/pokemon/adapters/alza.ts";
+import { scanRegio } from "../lib/pokemon/adapters/regio.ts";
 import { SHOP_IDS } from "../lib/pokemon/types.ts";
 import { claimScan, finishScan, failScan } from "../lib/pokemon/store.ts";
 import { ShopRequestError } from "../lib/pokemon/fetch-policy.ts";
@@ -42,7 +43,7 @@ while(!shutdown.signal.aborted){
       const owner=claimScan(database,Date.now(),shopID);
       if(!owner)continue;
       try {
-        const adapter={gamerunner:scanGamerunner,mythgames:scanMythgames,pottyoszebra:scanPottyoszebra,grandline:scanGrandline,krodomcards:scanKrodomcards,jateknet:scanJateknet,reflexshop:scanReflexshop,geekempire:scanGeekempire,tcgfutar:scanTcgfutar,sportkartyabolt:scanSportkartyabolt,rtcollectorsclub:scanRtcollectorsclub,cardverse:scanCardverse,metagames:scanMetagames,tcgbolt:scanTcgbolt,bloomrift:scanBloomrift,alza:scanAlza}[shopID];
+        const adapter={gamerunner:scanGamerunner,mythgames:scanMythgames,pottyoszebra:scanPottyoszebra,grandline:scanGrandline,krodomcards:scanKrodomcards,jateknet:scanJateknet,reflexshop:scanReflexshop,geekempire:scanGeekempire,tcgfutar:scanTcgfutar,sportkartyabolt:scanSportkartyabolt,rtcollectorsclub:scanRtcollectorsclub,cardverse:scanCardverse,metagames:scanMetagames,tcgbolt:scanTcgbolt,bloomrift:scanBloomrift,alza:scanAlza,regio:scanRegio}[shopID];
         const scan=await adapter(AbortSignal.any([shutdown.signal,AbortSignal.timeout(3*60_000)]));
         const result=finishScan(database,owner,scan);
         console.log(JSON.stringify({time:new Date().toISOString(),shop:shopID,count:scan.total,...result}));
