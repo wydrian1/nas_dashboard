@@ -42,7 +42,8 @@ export const MIN_SCAN_INTERVAL_MINUTES=3;
 export const MAX_SCAN_INTERVAL_MINUTES=60;
 export function validScanInterval(value:number):boolean {return Number.isInteger(value) && value>=MIN_SCAN_INTERVAL_MINUTES && value<=MAX_SCAN_INTERVAL_MINUTES;}
 export type PokemonProduct = { externalID: string; sku: string; title: string; url: string; image: string | null; priceHuf: number | null; availability: "in_stock" | "preorder" | "available" };
-export type ShopScan = { products: PokemonProduct[]; pages: number; total: number; scannedAt: number };
+export type ShopScan = { products: PokemonProduct[]; pages: number; total: number; scannedAt: number; uncertainIDs?:string[]; diagnostics?:BloomriftProductDiagnostic[] };
+export type BloomriftProductDiagnostic={type:'unknown_product_state';page:number;sku:string;title:string;url:string;stockClass:string;stockText:string;mainClass:string;cartButtons:Array<{class:string;type:string|null;ariaLabel:string|null;dataText:string|null;onclick:string|null}>;quantityInputs:number;detailsButtons:number};
 export type PokemonShop = {
   id: string; name: string; url: string; enabled: number; interval_minutes: number;
   notify_new: number; notify_restock: number; notify_preorder: number; emails_enabled: number;

@@ -49,6 +49,7 @@ export function finishScan(database:DatabaseSync,owner:string,scan:ShopScan,now=
     }
     const baseline=current.baseline_at===null;
     const present=new Set(scan.products.map(product=>product.externalID));
+    const uncertain=new Set(scan.uncertainIDs||[]);
     let events=0;
     for(const product of scan.products){
       const before=previous.get(product.externalID);
@@ -66,7 +67,7 @@ export function finishScan(database:DatabaseSync,owner:string,scan:ShopScan,now=
         queuePushEvent(database,Number(inserted.lastInsertRowid),current.id,product.title,kind,product.priceHuf,now);
       }
     }
-    for(const before of old){if(!present.has(before.external_id))database.prepare("UPDATE pokemon_products SET missing_count=missing_count+1,in_stock=CASE WHEN missing_count+1>=2 THEN 0 ELSE in_stock END WHERE shop_id=? AND external_id=?").run(current.id,before.external_id);}
+    for(const before of old){if(!present.has(before.external_id) && !uncertain.has(before.external_id))database.prepare("UPDATE pokemon_products SET missing_count=missing_count+1,in_stock=CASE WHEN missing_count+1>=2 THEN 0 ELSE in_stock END WHERE shop_id=? AND external_id=?").run(current.id,before.external_id);}
     database.prepare("INSERT INTO pokemon_scans VALUES(?,?,?,?,?,?,?,?)").run(owner,current.id,current.lease_until-5*60_000,now,baseline?'baseline':'success',scan.total,scan.pages,null);
     database.prepare(`UPDATE pokemon_shops SET baseline_at=COALESCE(baseline_at,?),last_success=?,next_scan=?,last_count=?,pending_drop=NULL,
       status='ok',last_error=NULL,failure_count=0,lease_until=0,lease_owner=NULL WHERE id=?`).run(now,now,now+current.interval_minutes*60_000,scan.total,current.id);

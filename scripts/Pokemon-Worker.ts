@@ -46,7 +46,7 @@ while(!shutdown.signal.aborted){
         const adapter={gamerunner:scanGamerunner,mythgames:scanMythgames,pottyoszebra:scanPottyoszebra,grandline:scanGrandline,krodomcards:scanKrodomcards,jateknet:scanJateknet,reflexshop:scanReflexshop,geekempire:scanGeekempire,tcgfutar:scanTcgfutar,sportkartyabolt:scanSportkartyabolt,rtcollectorsclub:scanRtcollectorsclub,cardverse:scanCardverse,metagames:scanMetagames,tcgbolt:scanTcgbolt,bloomrift:scanBloomrift,alza:scanAlza,regio:scanRegio}[shopID];
         const scan=await adapter(AbortSignal.any([shutdown.signal,AbortSignal.timeout(3*60_000)]));
         const result=finishScan(database,owner,scan);
-        console.log(JSON.stringify({time:new Date().toISOString(),shop:shopID,count:scan.total,...result}));
+        console.log(JSON.stringify({time:new Date().toISOString(),shop:shopID,count:scan.total,...result,...(scan.diagnostics?.length?{diagnostics:scan.diagnostics}:{})}));
       } catch(error) {
         const message=error instanceof Error ? error.message : 'Ismeretlen vizsgálati hiba.';
         failScan(database,owner,message,error instanceof ShopRequestError ? error.retryAfterMs : 0,Date.now(),error instanceof ShopRequestError?error.kind:'error');
