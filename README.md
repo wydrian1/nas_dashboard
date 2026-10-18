@@ -131,11 +131,13 @@ A jóváhagyott kiadás a [delegált élesítési folyamatot](docs/delegated-dep
 
 ## NULLPONT
 
-A [NULLPONT kalandjáték](apps/nullpont/README.md) önállóan telepíthető alkalmazás,
-dashboard-belépést átvevő saját munkamenettel, adatbázissal és kiadási csomaggal.
-Új Google OAuth-kliens nem kell. A dashboard `NULLPONT_URL` hivatkozást és
-egyszer használható, PKCE-hez kötött belépésátadást biztosít; nem futtat játékmotort. A régi játékállások
-adatmegőrző importtal átvihetők. [Leválasztási és történeti megállapodás](docs/nullpont-adventure.md).
+A [NULLPONT kalandjáték](https://github.com/wydrian1/nullpont) saját, privát
+GitHub-repóban él: a forrás, a tesztek, a kiadási csomag, a játék dokumentációja
+és a kiadás utáni játékos-teszt is ott van. Ez a repó nem tartalmaz játékmotort
+és nem épít játékot, csak a `NULLPONT_URL` hivatkozást, az egyszer használható,
+PKCE-hez kötött belépésátadást és az owner-admin kiadási értesítést biztosítja.
+Új Google OAuth-kliens nem kell. A régi játékállások adatmegőrző importtal
+átvihetők.
 
 A napi mentés online SQLite-pillanatképet és védett fájlokat archivál, AES-256-GCM titkosítással és próba-visszaállítással. Az engedélyezett Google Drive-feltöltés csak titkosított archívumot küld, visszaolvasott hash-ellenőrzéssel. A `/system` kizárólag olvasható, érvényes mentési bizonyítékot minősít sikernek; hiányzó vagy olvashatatlan későbbi státusz nem zöld állapot.
 
