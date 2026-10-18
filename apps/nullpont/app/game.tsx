@@ -32,6 +32,10 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
   const [bookOpen,setBookOpen]=useState(false),[journalOpen,setJournalOpen]=useState(false),[newMemories,setNewMemories]=useState<string[]>([]);
   useEffect(()=>{setBookOpen(false);setJournalOpen(false);},[game.scene.id]);
   const touch=useRef<{timer:ReturnType<typeof setTimeout>|null;x:number;y:number;opened:boolean}|null>(null);
+  // Only used to tell the player that a repeated examination carries no new
+  // information. It never rewrites narration or saved history, and resets on reload.
+  const lastLook=useRef<{key:string;message:string}|null>(null);
+  const [repeatNote,setRepeatNote]=useState('');
   const item=game.inventory.find(entry=>entry.id===source);
   const spot=popup?.kind==='scene'?game.scene.spots.find(entry=>entry.id===popup.id):undefined;
   const inventory=popup?.kind==='item'?game.inventory.find(entry=>entry.id===popup.id):undefined;
@@ -89,6 +93,13 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     try{
       const result=command?await play(game.revision,command):await restart(game.revision,true);
       if(result.game){setNewMemories(result.game.journal.filter(entry=>!game.journal.includes(entry)));setGame(result.game);clearSelection();
+        // A repeated examination that returns byte-identical prose has nothing new to show: say so in the UI
+        // instead of silently repeating the same text, without touching the narration or the saved state.
+        if(command?.verb==='look'&&command.target&&!result.conflict&&!result.error){
+          const key=`${command.target.kind}:${command.target.id}`,same=lastLook.current?.key===key&&lastLook.current.message===result.game.message;
+          lastLook.current={key,message:result.game.message};
+          setRepeatNote(same?'Ezt a pontot már megvizsgáltad; nem találsz benne több új részletet.':'');
+        }else{lastLook.current=null;setRepeatNote('');}
         if(reopen&&!result.conflict&&!result.error&&result.game.scene.id===game.scene.id&&result.game.scene.spots.some(entry=>entry.id===reopen.id))show('scene',reopen.id,reopen.element,true);
       }
       if(!command&&result.game)setResetOpen(false);
@@ -102,7 +113,10 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
     if(entry.exit){void send({verb:'move',target:{kind:'exit',id:entry.exit.id}});return;}
     if(entry.environment&&entry.actions.includes('look')){
       const hasInput=game.inputs.some(input=>input.id===entry.environment);
-      void send({verb:'look',target:{kind:'environment',id:entry.environment}},hasInput?{id:entry.id,element}:undefined);return;
+      // Examining a point that also offers other verbs keeps its action menu open, so a plain
+      // left click never hides "Felveszem"/"Használom" from a player who never hovers. No verb
+      // is performed automatically: the menu only reveals what can be done.
+      void send({verb:'look',target:{kind:'environment',id:entry.environment}},hasInput||entry.actions.length>1?{id:entry.id,element}:undefined);return;
     }
     setTarget(entry.id);show('scene',entry.id,element,true);
   }
@@ -130,7 +144,8 @@ export default function Game({ initialGame }: { initialGame: GameView }) {
           </div>)}
         </div>
       </div>
-      <div className="story" aria-live="polite" aria-atomic="true"><p>{game.message}</p></div>
+      <p className="scene-help">Kattintás: megvizsgálás vagy mozgás. További műveletek (felvétel, használat, beszélgetés): mutass rá az egérrel, kattints jobb gombbal, vagy nyomd meg a ↓ nyilat.</p>
+      <div className="story" aria-live="polite" aria-atomic="true"><p>{game.message}</p>{repeatNote&&<p className="repeat">{repeatNote}</p>}</div>
       {notice&&<p className="notice" role="alert">{notice}</p>}
     </section>
     <section className="inventory panel" aria-label="Tárgyak"><h2>Tárgyak</h2>
