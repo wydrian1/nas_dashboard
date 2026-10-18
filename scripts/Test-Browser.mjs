@@ -116,6 +116,30 @@ try{
     for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'search no overflow '+role+' '+width);}
     if(role!=='info'){
       await page.goto(origin+'/pokemon');check(await page.locator('#shop-grandline').innerText().then(text=>text.includes('Elavult készletadat')&&text.includes('Hozzáférésvédelem')),'stale stock clearly labelled '+role);
+      const shortcut=page.locator('.page-shortcuts a[href="#shop-grandline"]'),pausedShortcut=page.locator('.page-shortcuts a[href="#shop-alza"]'),normalShortcut=page.locator('.page-shortcuts a[href="#shop-gamerunner"]');
+      check(await shortcut.getAttribute('class')==='pokemon-shortcut-error','failed shop shortcut is highlighted from initial SSR snapshot '+role);
+      check(await shortcut.evaluate(link=>getComputedStyle(link).color)==='rgb(255, 180, 180)','failed shortcut text is red '+role);
+      check((await shortcut.getAttribute('aria-label')).includes('Figyelési probléma')&&(await shortcut.getAttribute('title')).includes('Az utolsó ellenőrzés nem sikerült.'),'shortcut exposes issue beyond color '+role);
+      check(await shortcut.locator('[aria-hidden="true"]').textContent()==='!','visible non-color problem indicator '+role);
+      await shortcut.hover();check(await shortcut.evaluate(link=>getComputedStyle(link).color)==='rgb(255, 180, 180)','error remains red on hover '+role);
+      await shortcut.focus();check(await shortcut.evaluate(link=>getComputedStyle(link).color)==='rgb(255, 180, 180)'&&await shortcut.evaluate(link=>getComputedStyle(link).outlineWidth)==='2px','error stays red with visible keyboard focus '+role);
+      check(await pausedShortcut.getAttribute('class')===null&&await normalShortcut.getAttribute('class')===null,'paused and first waiting scans are not errors '+role);
+      await shortcut.click();check(new URL(page.url()).hash==='#shop-grandline','error shortcut still jumps to its shop '+role);
+      let shortcutSnapshot=await(await context.request.get(origin+'/api/pokemon')).json();
+      const shortcutRoute=route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(shortcutSnapshot)});await page.route('**/api/pokemon',shortcutRoute);
+      const refreshShortcuts=async()=>{await Promise.all([page.waitForResponse(response=>response.url()===origin+'/api/pokemon'),page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')))]);};
+      const target=shortcutSnapshot.shops.find(item=>item.shop.id==='grandline');
+      for(const status of ['error','maintenance','protected','rate_limited','warning','scanning']){
+        target.shop.status=status;target.shop.failure_count=1;target.health={stale:true,reason:'Az utolsó ellenőrzés nem sikerült.',checkedAt:now};await refreshShortcuts();await page.waitForFunction(status=>document.querySelector('#shop-grandline .pokemon-status')?.textContent===({error:'Technikai vizsgálati hiba',maintenance:'Webshop-karbantartás',protected:'Hozzáférésvédelem',rate_limited:'Webshop-terhelési korlát',warning:'Megerősítésre vár',scanning:'Vizsgálat folyamatban'})[status],status);
+        check(await shortcut.getAttribute('class')==='pokemon-shortcut-error','live refresh highlights '+status+' including failed retry '+role);
+      }
+      target.shop.status='ok';target.shop.failure_count=0;target.health={stale:false,reason:'Frissen ellenőrzött állapot.',checkedAt:now};await refreshShortcuts();await page.waitForFunction(()=>!document.querySelector('.page-shortcuts a[href="#shop-grandline"]')?.classList.contains('pokemon-shortcut-error'));
+      check(await shortcut.locator('.pokemon-shortcut-indicator').count()===0&&await shortcut.getAttribute('aria-label')===null&&await shortcut.getAttribute('title')===null,'recovery clears issue indicator and description without reload '+role);
+      check(await shortcut.evaluate(link=>getComputedStyle(link).color)==='rgb(168, 239, 201)','recovered shortcut returns to normal accent '+role);
+      shortcutSnapshot.workerAlive=false;await refreshShortcuts();await page.waitForFunction(()=>document.querySelector('.page-shortcuts a[href="#shop-gamerunner"]')?.classList.contains('pokemon-shortcut-error'));
+      check(await normalShortcut.getAttribute('class')==='pokemon-shortcut-error'&&await pausedShortcut.getAttribute('class')===null,'missing worker flags active sources but not paused sources '+role);
+      for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.locator('.page-shortcuts').evaluate(nav=>nav.scrollWidth<=nav.clientWidth&&nav.getBoundingClientRect().right<=innerWidth&&[...nav.querySelectorAll('a')].every(link=>link.getBoundingClientRect().left>=nav.getBoundingClientRect().left&&link.getBoundingClientRect().right<=nav.getBoundingClientRect().right)),'problem shortcut navigation wraps without overflow '+role+' '+width);}
+      await page.unroute('**/api/pokemon',shortcutRoute);
       check(await page.locator('#shop-alza').count()===1,'Alza independently listed '+role);
       check(await page.locator('#shop-alza').innerText().then(text=>text.includes('Szünetel')),'Alza initially paused '+role);
       check(await page.locator('#shop-alza a[href="https://m.alza.hu/jatekok/pokemon-kartyak/18879069.htm?availabilityFilterValue=2"]').count()===1,'Alza uses reviewed mobile stock URL '+role);

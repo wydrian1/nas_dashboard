@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { load } from 'cheerio';
 import ts from 'typescript';
 import { filterPokemonTitles } from '../app/pokemon-search.ts';
+import {pokemonShortcutNeedsAttention} from '../app/pokemon-shortcuts.ts';
 import { initializeDatabase } from '../lib/db-schema.ts';
 import { readPokemonSnapshot } from '../lib/pokemon/snapshot.ts';
 import type { PokemonSnapshot } from '../lib/pokemon/types.ts';
@@ -51,6 +52,7 @@ function panel(initial:PokemonSnapshot){
       const runtime=require(name);return {...runtime,jsx:(type:any,props:any,key:any)=>{if(props.id==='pokemon-search')change=props.onChange;return runtime.jsx(type,props,key);}};
     }
     if(name==='./pokemon-search')return {filterPokemonTitles};
+    if(name==='./pokemon-shortcuts')return {pokemonShortcutNeedsAttention};
     if(name==='./local-sections')return {default:({children}:any)=>React.createElement(React.Fragment,{},children),LocalSection:({children}:any)=>React.createElement(React.Fragment,{},children)};
     if(name==='./pokemon-actions')return {};
     if(name==='./action-form')return {ActionForm:({children}:any)=>React.createElement('form',{},children),ActionButton:({children}:any)=>React.createElement('button',{},children)};
@@ -84,4 +86,9 @@ test('query survives refreshed data and newly arriving products are immediately 
   const view=panel(snapshot());view.render();view.search('destined');
   const refreshed=snapshot();refreshed.shops[1].products[0].title='Destined Rivals Box';refreshed.shops[1].events[0].title='Destined Rivals Box';refreshed.latestEvents[1].title='Destined Rivals Box';view.states[0]=refreshed;
   const page=view.render();assert.equal(page('#pokemon-search').val(),'destined');for(const selector of ['.pokemon-latest-card','.pokemon-product','.pokemon-event'])assert.equal(page(selector).length,2);
+});
+test('shop shortcuts render accessible issue styling, keep anchor targets and clear on refreshed recovery',()=>{
+  const data=snapshot();data.workerAlive=true;Object.assign(data.shops[0].shop,{enabled:1,status:'protected',failure_count:1});data.shops[0].health={stale:true,reason:'Az utolsó ellenőrzés nem sikerült.',checkedAt:1};data.shops[1].shop.enabled=0;
+  const view=panel(data);let page=view.render(),link=page('.page-shortcuts a[href="#shop-gamerunner"]');assert.equal(page('.page-shortcuts .pokemon-shortcut-error').length,1);assert.equal(link.attr('class'),'pokemon-shortcut-error');assert.match(link.attr('aria-label')!,/GameRunner.*Figyelési probléma/);assert.match(link.attr('title')!,/Az utolsó ellenőrzés nem sikerült/);assert.equal(link.find('[aria-hidden="true"]').text(),'!');
+  const recovered=structuredClone(data);Object.assign(recovered.shops[0].shop,{status:'ok',failure_count:0,last_success:2});recovered.shops[0].health={stale:false,reason:'Frissen ellenőrzött állapot.',checkedAt:2};view.states[0]=recovered;page=view.render();link=page('.page-shortcuts a[href="#shop-gamerunner"]');assert.equal(page('.pokemon-shortcut-error').length,0);assert.equal(link.attr('aria-label'),undefined);assert.equal(link.attr('title'),undefined);assert.equal(link.text(),'GameRunner');
 });

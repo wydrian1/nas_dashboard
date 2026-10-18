@@ -38,6 +38,7 @@ function component(path:string) {
     if(name==='@/lib/mobile/task-reminders')return require('../lib/mobile/task-reminders.ts');
     if(name==='@/lib/mobile/release')return require('../lib/mobile/release.ts');
     if(name==='./pokemon-search')return require('../app/pokemon-search.ts');
+    if(name==='./pokemon-shortcuts')return require('../app/pokemon-shortcuts.ts');
     if(['./personal-actions','./pokemon-actions','./actions'].includes(name))return {};
     throw new Error('Unexpected component dependency: '+name);
   },exports);
@@ -198,7 +199,7 @@ test('all configured shop shortcuts precede the event feed and point to existing
     const links=page('[aria-label="Ugrás a webshophoz"] a');assert.equal(links.length,SHOP_IDS.length);
     assert.equal(page('input[name="interval"][min="3"][max="60"][value="3"]').length,SHOP_IDS.length);
     snapshot.shops.forEach(({shop},index)=>{
-      assert.equal(links.eq(index).text(),shop.name);assert.equal(links.eq(index).attr('href'),'#shop-'+shop.id);
+      const label=links.eq(index).clone();label.find('[aria-hidden="true"]').remove();assert.equal(label.text(),shop.name);assert.equal(links.eq(index).attr('href'),'#shop-'+shop.id);
       assert.equal(page('#shop-'+shop.id).length,1);
     });
   }finally{db.close();}

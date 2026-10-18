@@ -4,6 +4,7 @@ import { ActionForm, ActionButton } from "./action-form";
 import { savePokemonSettings, requestPokemonScan, savePokemonNotifications } from "./pokemon-actions";
 import type { PokemonSnapshot } from "@/lib/pokemon/types";
 import { filterPokemonTitles } from "./pokemon-search";
+import {pokemonShortcutNeedsAttention} from './pokemon-shortcuts';
 import LocalSections,{LocalSection} from './local-sections';
 
 const date=(value:number|null)=>value ? new Intl.DateTimeFormat('hu-HU',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest'}).format(value) : 'Még nem volt';
@@ -34,7 +35,10 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
   const shops=snapshot.shops.map(item=>({...item,products:filterPokemonTitles(item.products,search),events:filterPokemonTitles(item.events,search)}));
   const latest=filterPokemonTitles(snapshot.latestEvents,search).filter(event=>(shopFilter==='all' || event.shop_id===shopFilter) && (kindFilter==='all' || (kindFilter==='new' ? event.kind==='new' || event.kind==='preorder' : event.kind==='restock')));
   return <section id="pokemon" className="pokemon-section">
-    <div className="page-shortcuts" role="navigation" aria-label="Ugrás a webshophoz">{snapshot.shops.map(({shop})=><a href={`#shop-${shop.id}`} key={shop.id}>{shop.name}</a>)}</div>
+    <div className="page-shortcuts" role="navigation" aria-label="Ugrás a webshophoz">{snapshot.shops.map(({shop,health})=>{
+      const attention=pokemonShortcutNeedsAttention(shop,health,snapshot.workerAlive),issue=attention?'Figyelési probléma: '+(health?.stale?health.reason:stateLabels[shop.status]||shop.status):undefined;
+      return <a href={`#shop-${shop.id}`} key={shop.id} className={attention?'pokemon-shortcut-error':undefined} title={issue} aria-label={issue?shop.name+' – '+issue:undefined}>{shop.name}{attention&&<span className="pokemon-shortcut-indicator" aria-hidden="true">!</span>}</a>;
+    })}</div>
     <label className="pokemon-search" htmlFor="pokemon-search">Keresés terméknévben<input id="pokemon-search" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Termék neve…" autoComplete="off"/></label>
     {error && <p role="alert" className="error">{error}</p>}
     <LocalSections page="pokemon"><LocalSection sectionId="latest" label="Legújabb elérhetőségek"><section className="pokemon-aggregate" aria-labelledby="pokemon-latest-title">
