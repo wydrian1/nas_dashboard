@@ -7,6 +7,8 @@ import {pushHistory} from '@/lib/mobile/history';
 import {SHOP_IDS,SHOP_NAMES} from '@/lib/pokemon/types';
 import {ActionForm,ActionButton} from '../action-form';
 import {saveDelivery,addWatch,removeWatch} from './actions';
+import BrowserPushSettings from './browser-push';
+import {browserPushConfigured,firebaseBrowserConfig} from '@/lib/mobile/browser-push-config';
 import LocalSections,{LocalSection} from '../local-sections';
 import '../tools.css';
 const time=(minute:number)=>String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
@@ -14,7 +16,8 @@ const labels:Record<string,string>={queued:'Várakozik',sending:'Beküldés alat
 export default async function NotificationSettings(){
   const session=await requireUser();if(session.role==='info-reader')redirect(homeForRole(session.role));
   const email=session.user!.email!,preferences=deliveryPreferences(db(),email),rules=watchRules(db(),email),history=pushHistory(db(),email);
-  return <section id="notifications"><div className="section-heading"><h2>Értesítési központ</h2></div><p>Csak a saját fiókod telefonjait érinti. <a href="/pokemon">Boltonkénti értesítések →</a></p>
+  return <section id="notifications"><div className="section-heading"><h2>Értesítési központ</h2></div><p>Csak a saját fiókod eszközeit érinti. <a href="/pokemon">Boltonkénti értesítések →</a></p>
+    <BrowserPushSettings config={browserPushConfigured()?firebaseBrowserConfig():null}/>
     <LocalSections page="notifications"><LocalSection sectionId="delivery" label="Küldési szabályok"><section className="tools-panel"><h2>Küldési szabályok</h2><ActionForm action={saveDelivery} className="tools-form">
       <label><input name="quiet_enabled" type="checkbox" defaultChecked={!!preferences.quiet_enabled}/> Csendes időszak a termékértesítésekhez</label>
       <label>Kezdete<input name="quiet_start" type="time" required defaultValue={time(preferences.quiet_start)}/></label><label>Vége<input name="quiet_end" type="time" required defaultValue={time(preferences.quiet_end)}/></label>

@@ -3,7 +3,7 @@
 ## Felületek és hozzáférés
 
 - `/system`: csak a tulajdonosnak; háttérfigyelő-életjel, boltok, mentési bizonyítékok, publikált APK, kiadási bejegyzés, napi pushállapotok és a meglévő olvasási szolgáltatáspróbák. `/api/operations` ugyanígy tulajdonosi, `no-store`; a korábbi `/api/system` rendszererőforrás-API változatlan.
-- `/config#notifications`: adminok saját beállításai, személyes figyelőlistája és legutóbbi 100 telefononkénti küldési bejegyzése, a Konfig részeként. A régi `/notifications` admincím ide irányít; Pokémon-olvasónak ugyanaz a saját felület külön `/notifications` oldalon marad, Konfig-hozzáférés nélkül. Más fiók adatai, FCM-token, párosítási titok és nyers payload nem kerül a válaszba.
+- `/config#notifications`: adminok saját böngésző-push feliratkozása, beállításai, személyes figyelőlistája és legutóbbi 100 eszközönkénti küldési bejegyzése, a Konfig részeként. A régi `/notifications` admincím ide irányít; Pokémon-olvasónak ugyanaz a saját felület külön `/notifications` oldalon marad, Konfig-hozzáférés nélkül. Más fiók adatai, FCM-token, párosítási titok és nyers payload nem kerül a válaszba.
 - `/#dashboard-search`: adminok kompakt, alapból csukott keresője a Dashboardon; találatos lekérdezésnél kinyílik. Natív `details` és GET-űrlap, JavaScript nélkül is használható; üres oldalon nincs keresési adatbázis-lekérdezés. Nincs külön balmenüpont. A régi admin `/search?q=…` cím megőrzi a keresést és ide irányít; az olvasói `/search` bejelentkezés után továbbra is használható. A tényleges adatbázis-szerepkör korlátozza a modulokat. Admin: jegyzetek, saját teendők, kész fájlok neve, aktív gyűjteménytételek neve, fontos infók, készletfigyelő. Pokémon-olvasó: készletfigyelő. Infóolvasó: fontos infók. Nincs fájltartalom-, titok- vagy megosztásitoken-keresés. A LIKE-helyettesítő karakterek literálisak; legfeljebb 50 találat, modulonként 10.
 
 ## Készletfrissesség
@@ -18,7 +18,7 @@ Az új táblák hozzáadó migrációval jönnek létre. Meglévő eszköz, pár
 
 - Egy figyelőszabály feltételei együtt szükségesek; több szabály közül egy találat elég. Névrészlet, bolt, névben jelölt angol/japán nyelv és Ft-árhatár választható. Ismeretlen ár/nyelv nem teljesíti az adott szűrőt; nincs találgatás. Legfeljebb 30 szabály/fiók.
 - Csendes idő: Budapest, nyári/téli időszámítással. Az ebben az időben érkező vagy küldésre kerülő termékpush `muted`; nincs reggeli visszamenőleges készletküldés. A feladat-, teszt- és kiadásértesítések változatlanok.
-- 5/10 perces összefoglaló: a következő időablakhatárig vár, telefononként legfeljebb 20 jogosult eseményt von össze. Megtartja a 15 perces lejáratot; a meglévő Android `/pokemon` navigációját és értesítési csatornáját használja, nincs APK-módosítás.
+- 5/10 perces összefoglaló: a következő időablakhatárig vár, eszközönként legfeljebb 20 jogosult eseményt von össze. Megtartja a 15 perces lejáratot; Androidon a meglévő `/pokemon` navigációt, böngészőben a helyi service worker értesítést használja, nincs APK-módosítás.
 - Közvetlenül FCM-küldés előtt ismét ellenőrzi az eszközt, szerepkört, eseményenkénti szűrést és csendes időt. Bizonytalan beküldés minden összefoglalótagot `uncertain` állapotba tesz, automatikus újraküldés nélkül.
 - Személyes szabálymódosítás a saját várakozó termékpushokat törli, nincs visszamenőleges újraküldés; más felhasználó és más értesítéstípus nem változik.
 - `sent` = az FCM elfogadta, **nem** telefonos megjelenítés vagy megnyitás igazolása. A tulajdonos a valódi telefonos ellenőrzést nem kérte.

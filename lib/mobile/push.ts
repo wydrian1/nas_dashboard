@@ -35,13 +35,15 @@ async function accessToken():Promise<string> {
 }
 // Returns no token or private-key material. Used once during installation diagnostics.
 export async function checkPushAuthorization():Promise<boolean> {await accessToken();return true;}
-export async function deliverFcm(token:string,payload:Record<string,string>,ttlSeconds=900,authorized:()=>boolean=()=>true):Promise<Delivery> {
+export async function deliverFcm(token:string,payload:Record<string,string>,ttlSeconds=900,authorized:()=>boolean=()=>true,target:'android'|'browser'='android'):Promise<Delivery> {
   let bearer:string;
   try{bearer=await accessToken();}catch{return {state:'retry',error:'FCM-hitelesítés sikertelen; üzenet még nem került beküldésre.'};}
   try {
     // OAuth can take seconds: recheck current device/task/role immediately before FCM dispatch.
     if(!authorized())return {state:'cancelled'};
-    const response=await fetch('https://fcm.googleapis.com/v1/projects/'+MOBILE_PROJECT+'/messages:send',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20_000),headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:payload,android:{priority:'HIGH',ttl:Math.max(1,Math.min(900,ttlSeconds))+'s'}}})});
+    const ttl=Math.max(1,Math.min(900,ttlSeconds));
+    const channel=target==='browser'?{webpush:{headers:{TTL:String(ttl),Urgency:'high'}}}:{android:{priority:'HIGH',ttl:ttl+'s'}};
+    const response=await fetch('https://fcm.googleapis.com/v1/projects/'+MOBILE_PROJECT+'/messages:send',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20_000),headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:payload,...channel}})});
     const text=await response.text();
     if(text.length>64_000)return {state:'uncertain',error:'Nem értelmezhető FCM-válasz; nincs automatikus újraküldés.'};
     const data=JSON.parse(text) as {name?:string;error?:{details?:{errorCode?:string}[]}};
@@ -68,8 +70,8 @@ export function claimPush(db:DatabaseSync,now=Date.now()):PushJob|null {
 export async function sendNextPush(db:DatabaseSync,options:{configured?:boolean;deliver?:typeof deliverFcm;now?:number}={}) {
   if(!(options.configured ?? pushConfigured()))return;
   const now=options.now ?? Date.now(),job=claimPush(db,now);if(!job)return;
-  const device=db.prepare('SELECT fcm_token,email FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,now) as {fcm_token:string;email:string}|undefined;
-  if(!device?.fcm_token || !roleFor(db,device.email) || (job.event_id!==null && !notificationAllowed(db,device.email,job.event_id))){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
+   const device=db.prepare('SELECT fcm_token,email,device_type FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,now) as {fcm_token:string;email:string;device_type:'android'|'browser'}|undefined;
+   if(!device?.fcm_token || !roleFor(db,device.email) || (job.event_id!==null && !notificationAllowed(db,device.email,job.event_id))){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
   const payload=JSON.parse(job.payload);
   if((payload.kind==='task'&&!taskPushAllowed(db,job.id,device.email,now))||(payload.kind==='release'&&roleFor(db,device.email)!=='admin')){db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE id=?").run(job.id);return;}
   const preferences=deliveryPreferences(db,device.email);
@@ -84,12 +86,12 @@ export async function sendNextPush(db:DatabaseSync,options:{configured?:boolean;
   }
   const outgoing=job.event_id!==null&&preferences.digest_minutes?{title:'Pokémon · '+batch.length+' készletesemény',body:batch.map(item=>String(JSON.parse(item.payload).body||'Termék')).join('\n').slice(0,300),kind:'digest',path:'/pokemon',eventId:'digest-'+job.id}:payload;
   const authorized=()=>{
-    const current=options.now ?? Date.now(),active=db.prepare('SELECT fcm_token,email FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,current);
-    return batch.every(item=>current<item.expires_at)&&active?.fcm_token===device.fcm_token&&active.email===device.email&&!!roleFor(db,device.email)
+     const current=options.now ?? Date.now(),active=db.prepare('SELECT fcm_token,email,device_type FROM mobile_devices WHERE id=? AND revoked=0 AND push_enabled=1 AND expires_at>?').get(job.device_id,current) as {fcm_token:string;email:string;device_type:'android'|'browser'}|undefined;
+     return batch.every(item=>current<item.expires_at)&&active?.fcm_token===device.fcm_token&&active.email===device.email&&active.device_type===device.device_type&&!!roleFor(db,device.email)
       &&(job.event_id===null||(!quietNow(deliveryPreferences(db,device.email),current)&&batch.every(item=>notificationAllowed(db,device.email,item.event_id!))))
       &&(payload.kind!=='task'||taskPushAllowed(db,job.id,device.email,current))&&(payload.kind!=='release'||roleFor(db,device.email)==='admin');
   };
-  const result=await (options.deliver || deliverFcm)(device.fcm_token,outgoing,Math.ceil((Math.min(...batch.map(item=>item.expires_at))-now)/1000),authorized);
+   const result=await (options.deliver || deliverFcm)(device.fcm_token,outgoing,Math.ceil((Math.min(...batch.map(item=>item.expires_at))-now)/1000),authorized,device.device_type);
   transactionResult();
   function transactionResult(){db.exec('BEGIN IMMEDIATE');try{for(const item of batch){const state=result.state==='retry'&&item.attempts>=4?'failed':result.state;db.prepare('UPDATE mobile_push_outbox SET state=?,error=?,lease_until=0,next_attempt=?,sent_at=? WHERE id=?').run(state,result.error||null,now+Math.max(Math.min(5*60_000,60_000*2**item.attempts),result.retryAfterMs||0),state==='sent'?Date.now():null,item.id);}db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}}
   if(result.invalidToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE id=? AND fcm_token=?').run(job.device_id,device.fcm_token);

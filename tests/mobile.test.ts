@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { initializeDatabase } from '../lib/db-schema.ts';
-import { startPair, approvePair, exchangePair, deviceBySecret, deviceAuthorized, updateDevice, revokeDevice, queueTestPush, cancelShopPush, opaque, digest } from '../lib/mobile/store.ts';
+import { startPair, approvePair, exchangePair, deviceBySecret, deviceAuthorized, updateDevice, revokeDevice, registerBrowserPush,removeBrowserPush,queueTestPush, cancelShopPush, opaque, digest } from '../lib/mobile/store.ts';
 import { claimPush, sendNextPush } from '../lib/mobile/push.ts';
 import { mobileBody, sessionResponse } from '../lib/mobile/http.ts';
 import { decode } from 'next-auth/jwt';
@@ -46,6 +46,19 @@ test('Mobile: registration needs device secret; token rotation, duplicate token 
     updateDevice(db,a.device,null,false,400005);assert.equal(db.prepare('SELECT state FROM mobile_push_outbox').get()!.state,'cancelled');
   }finally{db.close();}
 });
+test('Browser push: authenticated subscriptions share device revocation, expiry and outbox without native secrets',()=>{
+  const db=database(),token='browser-FCM-token-abcdefghijklmnopqrstuvwxyz0123456789';
+  try{
+    const first=registerBrowserPush(db,email,token,'Firefox',2000),same=registerBrowserPush(db,email,token,'Firefox',3000);
+    assert.equal(first.id,same.id);assert.equal(db.prepare("SELECT count(*) n FROM mobile_devices WHERE device_type='browser'").get()!.n,1);
+    const device=db.prepare('SELECT device_type,push_enabled,fcm_token,expires_at,secret_hash FROM mobile_devices WHERE id=?').get(first.id)!;
+    assert.equal(device.device_type,'browser');assert.equal(device.push_enabled,1);assert.equal(device.fcm_token,token);assert.equal(device.expires_at,3000+90*24*60*60_000);assert.equal(typeof device.secret_hash,'string');
+    assert.throws(()=>deviceBySecret(db,opaque(),4000));assert.throws(()=>updateDevice(db,device as never,token,true,4000));
+    const queued=db.prepare("INSERT INTO mobile_push_outbox(id,device_id,payload,created_at,expires_at) VALUES('browser-test',?,'{}',4000,1000000)").run(first.id);
+    assert.equal(queued.changes,1);assert.equal(removeBrowserPush(db,email,token,5000),true);assert.equal(db.prepare('SELECT push_enabled,fcm_token FROM mobile_devices WHERE id=?').get(first.id)!.push_enabled,0);assert.equal(db.prepare("SELECT state FROM mobile_push_outbox WHERE id='browser-test'").get()!.state,'cancelled');assert.equal(removeBrowserPush(db,email,token,6000),false);
+    assert.throws(()=>registerBrowserPush(db,email,'short','Browser',7000));
+  }finally{db.close();}
+});
 test('Mobile: revoked/expired device blocks native credential and existing WebView JWT identity immediately',()=>{
   const db=database();try{
     const a=paired(db);assert.equal(deviceAuthorized(db,a.deviceId,email,2000),true);
@@ -68,17 +81,18 @@ test('Mobile: API rejects foreign Origin, oversized/non-JSON payload; native req
 });
 test('Push: silent baseline + no retroactive notifications; new/restock jobs independent from disabled email',()=>{
   const db=database();try{
-    const device=paired(db);updateDevice(db,device.device,fcm,true,2000);
+    const device=paired(db);updateDevice(db,device.device,fcm,true,2000);registerBrowserPush(db,email,'browser-FCM-token-abcdefghijklmnopqrstuvwxyz0123456789','Chrome',2001);
     const product={externalID:'A',sku:'A',title:'Pokémon test',url:'https://gamerunner.hu/example',image:null,priceHuf:1000,availability:'in_stock' as const};
     const run=(products:typeof product[],now:number)=>{db.prepare("UPDATE pokemon_shops SET next_scan=0 WHERE id='gamerunner'").run();const owner=claimScan(db,now,'gamerunner')!;return finishScan(db,owner,{products,total:products.length,pages:1,scannedAt:now},now+1);};
     assert.equal(run([product],3000).baseline,true);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,0);
-    run([product,{...product,externalID:'B'}],700000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
+    run([product,{...product,externalID:'B'}],700000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,2);
     const payload=JSON.parse(String(db.prepare('SELECT payload FROM mobile_push_outbox').get()!.payload));assert.equal(payload.kind,'product');assert.equal(payload.shopId,'gamerunner');assert.equal(payload.productUrl,product.url);assert.equal(payload.path,'/pokemon#shop-gamerunner');
     assert.equal(db.prepare('SELECT count(*) AS n FROM pokemon_mail_outbox').get()!.n,0);
-    run([product,{...product,externalID:'B'}],800000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
-    saveNotifications(db,email,'gamerunner',true,{notify_new:0,notify_restock:1,notify_preorder:1});run([product,{...product,externalID:'B'},{...product,externalID:'C'}],900000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,1);
-    cancelShopPush(db,'cardverse');assert.equal(db.prepare('SELECT state FROM mobile_push_outbox').get()!.state,'cancelled');
-    cancelShopPush(db,'gamerunner');assert.equal(db.prepare('SELECT state FROM mobile_push_outbox').get()!.state,'cancelled');
+    run([product,{...product,externalID:'B'}],800000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,2);
+    saveNotifications(db,email,'gamerunner',true,{notify_new:0,notify_restock:1,notify_preorder:1});run([product,{...product,externalID:'B'},{...product,externalID:'C'}],900000);assert.equal(db.prepare('SELECT count(*) AS n FROM mobile_push_outbox').get()!.n,2);
+    const beforeCancel=Number(db.prepare("SELECT count(*) AS n FROM mobile_push_outbox WHERE state='cancelled'").get()!.n);
+    cancelShopPush(db,'cardverse');assert.equal(Number(db.prepare("SELECT count(*) AS n FROM mobile_push_outbox WHERE state='cancelled'").get()!.n),beforeCancel);
+    cancelShopPush(db,'gamerunner');assert.equal(Number(db.prepare("SELECT count(*) AS n FROM mobile_push_outbox WHERE state='cancelled'").get()!.n),2);
   }finally{db.close();}
 });
 test('Push: test rate-limited per device; configured send claims once and records FCM acceptance',async()=>{
