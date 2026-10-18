@@ -33,13 +33,13 @@ A `ALLOWED_EMAIL` immár a védett bootstrap **tulajdonos**, jelenleg `wydrian@g
 
 A tényleges szerepkört minden kéréskor SQLite-ból ellenőrizzük. Nem a kliens által küldött szerepkört, form e-mailt vagy egy régi JWT-ben tárolt role-t fogadjuk el. Meglevő böngészős és mobil WebView-cookie-val is az új szerepkör érvényes. A natív eszközkulcs a **saját** fiókhoz kötődik; nincs idegen eszközlistázó vagy e-mail alapján történő natív visszavonási API.
 
-Fiók letiltásakor minden telefonja revoked állapotú lesz, tokenje lekerül, queued/retry pushai cancelled állapotúak. Történelmi adatok, audit és bizonytalan/folyamatban levő küldések nem törlődnek; FCM-be már beküldött üzenet nem vonható vissza. Újraengedélyezéskor új telefonpárosítás szükséges. Pusztán admin → reader szerepkörváltás nem törli a párosítást; azonnal korlátozza a WebView-t.
+Fiók letiltásakor minden Android- és böngészőeszköze revoked állapotú lesz, tokenje lekerül, queued/retry pushai cancelled állapotúak. Történelmi adatok, audit és bizonytalan/folyamatban levő küldések nem törlődnek; FCM-be már beküldött üzenet nem vonható vissza. Újraengedélyezéskor új telefonpárosítás vagy böngészős feliratkozás szükséges. Pusztán admin → reader szerepkörváltás nem törli a kapcsolatot; azonnal korlátozza a natív/WebView jogosultságokat.
 
 ## Független push beállítások és migráció
 
 `dashboard_users` és `pokemon_user_notifications(email,shop_id)` táblák. Az eredeti admin `notify_new`, `notify_restock`, `notify_preorder` választásai egyszer átkerülnek a saját preferenciái közé; baseline-ok, közös ütemezés, eszközazonosítók/kulcshash-ek és Firebase-tokenek változatlanok. A régi shop-oszlopok csak kompatibilitási/migrációs adatként maradnak, nem kapcsolják le más felhasználó pushát.
 
-Új readernél a webshoponkénti fogadás alapból engedélyezett, de csak kifejezetten párosított, értesítésre feliratkozott saját telefon kap üzenetet. Reader saját kapcsolója a fiók minden telefonját érinti; az app natív értesítési kapcsolója emellett csak az adott telefont. Admin eseménytípus-szűrője csak saját fiókjára hat; reader opt-in mellett minden új/visszakészletezés/előrendelés értesítést kap, mások típusszűrőitől függetlenül.
+Új readernél a webshoponkénti fogadás alapból engedélyezett, de csak kifejezetten párosított Android-eszköz vagy böngészőfeliratkozás kap üzenetet. Reader saját kapcsolója a fiók minden eszközére érvényes; az app natív kapcsolója vagy a böngészős leiratkozás csak az adott eszközt érinti. Admin eseménytípus-szűrője csak saját fiókjára hat; reader opt-in mellett minden új/visszakészletezés/előrendelés értesítést kap, mások típusszűrőitől függetlenül.
 
 Preferencia változtatásakor csak saját, adott shophoz tartozó queued/retry üzenetek törlődnek; másik fiók, másik shop és már sending üzenet érintetlen. Visszakapcsolás nem küld történelmi eseményt. A worker új üzenet sorba állításakor **és beküldése előtt** ellenőrzi az aktív tagságot és preferenciát. Dedup/cooldown/TTL eszközönként marad, a telefonkvóta immár fiókonként 10.
 

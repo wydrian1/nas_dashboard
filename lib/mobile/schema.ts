@@ -33,4 +33,7 @@ export function initializeMobile(database:DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS pokemon_watch_owner ON pokemon_watch_rules(email);
   `);
+  const deviceColumns=new Set((database.prepare('PRAGMA table_info(mobile_devices)').all() as {name:string}[]).map(column=>column.name));
+  if(!deviceColumns.has('device_type'))database.exec("ALTER TABLE mobile_devices ADD COLUMN device_type TEXT NOT NULL DEFAULT 'android' CHECK(device_type IN ('android','browser'))");
+  database.exec("CREATE INDEX IF NOT EXISTS mobile_devices_fcm_token ON mobile_devices(fcm_token) WHERE fcm_token IS NOT NULL");
 }

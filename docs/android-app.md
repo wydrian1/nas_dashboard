@@ -13,7 +13,7 @@ Projekt: `android/`, Java, natív Android Activity + WebView. Android 8.0 (API 2
 
 A hozzáférés 90 nap után újrapárosítást igényel; nincs örök credential. Szerveroldali visszavonás a meglévő WebView-sessiont is tiltja a következő privát oldal/API/Server Action kérésnél. Az app menü „Telefon leválasztása” ezt távolról is végrehajtja, majd törli a helyi credential/cookie/cache-t. Offline leválasztást nem hazudik sikeresnek. A weboldal normál kijelentkezése nem vonja vissza a külön 90 napos telefonhozzáférést; ehhez a telefon leválasztását vagy `/mobile` visszavonását használd.
 
-Az admin eszközkezelés a **Konfig / Telefonok / push** részre költözött (`/config#mobile`); a régi `/mobile` cím oda irányít. A főmenüben nincs külön telefonos link. Az APK, párosítás és natív eszköz-API változatlan, reader nem lát eszközlistát.
+Az admin eszközkezelés a **Konfig / Eszközök / push** részre költözött (`/config#mobile`); a régi `/mobile` cím oda irányít. A böngészős push feliratkozása a saját Értesítési központban található, Android reader nem kap admin eszközlistát. Az APK, telefonpárosítás és natív eszköz-API változatlan.
 
 ## OpenCode (1.0.3)
 
@@ -50,13 +50,13 @@ A termék URL-jét az értesítés készítésekor és az exportált Activity-be
 A javítás az **1.1.3 / 10 APK telepítésével** jut el a telefonra, a korábbi app eltávolítása nélkül, az eredeti aláírással. A régi APK által már létrehozott értesítések korábbi indítási útvonalat tartalmazhatnak; az újonnan érkező készletpush a megfelelő próba. A Robolectric-tesztek API 26 és 35 alatt az Activity-intentet, az URL átadását, egyszeri indítást, böngészőhiányt/váltást és támadó bemeneteket vizsgálják. A valódi értesítési sávból indítást és a telefon böngészőjét külön készülékes teszt igazolja; emulátoros/telefonos próbát ezek a unit tesztek nem helyettesítenek.
 
 - Kizárólag push értesítés: a meglévő Windows Pokémon-worker küldi FCM HTTP v1 API-val. Az e-mail/SMTP küldés eltávolítva.
-- Csak aktív felhasználóhoz kapcsolódott, nem visszavont, nem lejárt és pushra feliratkozott telefonok. Legfeljebb 10 aktív eszköz **fiókonként**.
+- Csak aktív felhasználóhoz kapcsolódott, nem visszavont, nem lejárt és pushra feliratkozott Android-eszközök és böngészők. Legfeljebb 10 aktív Android-eszköz és 10 böngésző-feliratkozás fiókonként.
 - Webshoponként **saját fiókra** érvényes be/ki értesítési kapcsoló. Admin saját új/visszakészletezés/előrendelés választásai csak saját pushára hatnak; reader opt-in mellett minden eseménytípust kap. Nincs e-mail kapcsoló. A saját kapcsoló nem módosítja más fiók beállítását.
 - Új elérhető termék/előrendelés és visszakészletezés eseménye tranzakcióban kerül eszközönként deduplikált outboxba; csendes baseline és történelmi események nem kerülnek kiküldésre. A push saját 1 órás termék/eszköz ismétléskorlátot alkalmaz.
 - Beérkezéskor natív értesítés, lezárt képernyőn private visibility; készletpush koppintásakor a webshophoz validált HTTPS-terméklink a böngészőben, belső tartalékként `/pokemon` vagy validált webshop-horgony. Soha nem nyit szerverről kapott tetszőleges URL/intentet. Esemény-ID szerinti helyi deduplikáció.
 - Várakozó outbox és Firebase TTL legfeljebb 15 perc. Régi értesítést nem küldünk egy hosszú üzemszünet után.
 - „FCM elfogadta” nem bizonyítja a telefonra kézbesítést. Engedély hiánya, internet/Play-szolgáltatás hiánya, gyártói akkumulátorkorlátozás és **Android force-stop** akadályozhatja a fogadást; force-stop után újra meg kell nyitni az appot. Normál bezárt háttérappnál működhet a push, nem garantált azonnali kézbesítés.
-- Biztos beküldés előtti hitelesítési hiba/HTTP 401, 429 vagy 503 legfeljebb 5 kísérlet, minimum 1 perc és Retry-After betartásával. Bizonytalan hálózati beküldés/megszakadt sending lease → `uncertain`, nincs automatikus újraküldés. `UNREGISTERED` csak az érintett tokent tiltja, egy közben frissített tokent nem. Saját értesítési beállítás mentése csak saját telefonok adott shophoz tartozó várakozó pushait törli; a már küldés alatt levőt nem.
+- Biztos beküldés előtti hitelesítési hiba/HTTP 401, 429 vagy 503 legfeljebb 5 kísérlet, minimum 1 perc és Retry-After betartásával. Bizonytalan hálózati beküldés/megszakadt sending lease → `uncertain`, nincs automatikus újraküldés. `UNREGISTERED` csak az érintett tokent tiltja, egy közben frissített tokent nem. Saját értesítési beállítás mentése csak a saját eszközök adott shophoz tartozó várakozó pushait törli; a már küldés alatt levőt nem.
 - Menüből „Teszt push”, eszközönként legfeljebb 5 percenként. A valódi telefonos beérkezést külön ellenőrizni kell.
 
 ## Biztonság

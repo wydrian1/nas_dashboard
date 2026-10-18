@@ -10,7 +10,7 @@ export const MOBILE_PROJECT='nas-wydrian-hu';
 export const opaque=()=>randomBytes(32).toString('base64url');
 export const digest=(input:string)=>createHash('sha256').update(input).digest('base64url');
 const validOpaque=(input:unknown):input is string=>typeof input==='string' && /^[A-Za-z0-9_-]{43}$/.test(input);
-export type MobileDevice={id:string;label:string;email:string;expires_at:number;revoked:number;push_enabled:number;fcm_token:string|null;last_seen:number;created_at:number;last_test:number};
+export type MobileDevice={id:string;label:string;email:string;expires_at:number;revoked:number;push_enabled:number;fcm_token:string|null;last_seen:number;created_at:number;last_test:number;device_type:'android'|'browser'};
 export class MobileError extends Error {
   status:number;
   constructor(message:string,status=400){super(message);this.status=status;}
@@ -51,7 +51,7 @@ export function exchangePair(db:DatabaseSync,id:unknown,verifier:unknown,now=Dat
     if(!pair)throw new MobileError('Lejárt vagy érvénytelen párosítás.',410);
     if(!pair.approved_email)return null;
     if(!roleFor(db,pair.approved_email))throw new MobileError('Nincs jogosultság.',403);
-    const count=db.prepare('SELECT count(*) AS n FROM mobile_devices WHERE email=? AND revoked=0 AND expires_at>?').get(pair.approved_email,now) as {n:number};
+     const count=db.prepare("SELECT count(*) AS n FROM mobile_devices WHERE email=? AND device_type='android' AND revoked=0 AND expires_at>?").get(pair.approved_email,now) as {n:number};
     if(count.n>=10)throw new MobileError('Legfeljebb 10 telefon kapcsolható; előbb vonj vissza egyet.',409);
     const deviceId=opaque(),secret=opaque(),expiresAt=now+90*24*60*60_000;
     db.prepare('INSERT INTO mobile_devices(id,label,email,secret_hash,created_at,expires_at,last_seen) VALUES(?,?,?,?,?,?,?)').run(deviceId,pair.label,pair.approved_email,digest(secret),now,expiresAt,now);
@@ -61,7 +61,7 @@ export function exchangePair(db:DatabaseSync,id:unknown,verifier:unknown,now=Dat
 }
 export function deviceBySecret(db:DatabaseSync,secret:unknown,now=Date.now()):MobileDevice {
   if(!validOpaque(secret))throw new MobileError('Bejelentkezés szükséges.',401);
-  const device=db.prepare('SELECT * FROM mobile_devices WHERE secret_hash=? AND revoked=0 AND expires_at>?').get(digest(secret),now) as MobileDevice|undefined;
+   const device=db.prepare("SELECT * FROM mobile_devices WHERE secret_hash=? AND device_type='android' AND revoked=0 AND expires_at>?").get(digest(secret),now) as MobileDevice|undefined;
   if(!device || !roleFor(db,device.email))throw new MobileError('Új párosítás szükséges.',401);
   return device;
 }
@@ -69,6 +69,7 @@ export function deviceAuthorized(db:DatabaseSync,id:string,email:string,now=Date
   return !!roleFor(db,email) && !!db.prepare('SELECT 1 FROM mobile_devices WHERE id=? AND email=? AND revoked=0 AND expires_at>?').get(id,email.toLowerCase(),now);
 }
 export function updateDevice(db:DatabaseSync,device:MobileDevice,token:unknown,enabled:unknown,now=Date.now()) {
+  if(device.device_type!=='android')throw new MobileError('Ez a művelet csak Android-eszközre érvényes.',403);
   if(typeof enabled!=='boolean' || (token!==null && (typeof token!=='string' || token.length<20 || token.length>4096 || !/^[a-zA-Z0-9_:.-]+$/.test(token))))throw new MobileError('Érvénytelen push-adat.');
   if(enabled && !token)throw new MobileError('Hiányzó Firebase-azonosító.');
   const infoReader=roleFor(db,device.email)==='info-reader',effectiveToken=infoReader ? null : token,effectiveEnabled=infoReader ? false : enabled;
@@ -77,6 +78,33 @@ export function updateDevice(db:DatabaseSync,device:MobileDevice,token:unknown,e
     if(effectiveToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE fcm_token=? AND id<>?').run(effectiveToken,device.id);
     db.prepare('UPDATE mobile_devices SET fcm_token=?,push_enabled=?,last_seen=?,token_updated_at=? WHERE id=? AND revoked=0').run(effectiveToken,Number(effectiveEnabled),now,now,device.id);
     if(!effectiveEnabled)db.prepare("UPDATE mobile_push_outbox SET state='cancelled' WHERE device_id=? AND state IN ('queued','retry')").run(device.id);
+  });
+}
+export function registerBrowserPush(db:DatabaseSync,email:string,token:unknown,label:unknown='Böngésző',now=Date.now()){
+  const owner=email.trim().toLowerCase();
+  if(roleFor(db,owner)==='info-reader')throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
+  if(typeof token!=='string'||token.length<20||token.length>4096||!/^[A-Za-z0-9_:-]+$/.test(token)||typeof label!=='string'||!label.trim()||label.length>80||/[\x00-\x1f]/.test(label))throw new MobileError('Érvénytelen böngésző-push adat.');
+  return atomic(db,()=>{
+    const existing=db.prepare('SELECT id,email,device_type FROM mobile_devices WHERE fcm_token=? AND revoked=0').get(token) as {id:string;email:string;device_type:string}|undefined;
+    if(existing){
+      if(existing.email!==owner||existing.device_type!=='browser')throw new MobileError('Ez a böngésző-értesítési azonosító már másik eszközhöz tartozik.',409);
+      db.prepare("UPDATE mobile_devices SET label=?,push_enabled=1,last_seen=?,expires_at=?,token_updated_at=? WHERE id=?").run(label.trim(),now,now+90*24*60*60_000,now,existing.id);
+      return {id:existing.id,expiresAt:now+90*24*60*60_000};
+    }
+    const count=db.prepare("SELECT count(*) AS n FROM mobile_devices WHERE email=? AND device_type='browser' AND revoked=0 AND expires_at>?").get(owner,now) as {n:number};
+    if(count.n>=10)throw new MobileError('Legfeljebb 10 böngésző kapcsolható; előbb vonj vissza egyet.',409);
+    const id=opaque(),secret=opaque(),expiresAt=now+90*24*60*60_000;
+    db.prepare("INSERT INTO mobile_devices(id,label,email,secret_hash,created_at,expires_at,last_seen,push_enabled,fcm_token,token_updated_at,device_type) VALUES(?,?,?,?,?,?,?,1,?,?, 'browser')").run(id,label.trim(),owner,digest(secret),now,expiresAt,now,token,now);
+    return {id,expiresAt};
+  });
+}
+export function removeBrowserPush(db:DatabaseSync,email:string,token:unknown,now=Date.now()){
+  if(typeof token!=='string'||token.length<20||token.length>4096||!/^[A-Za-z0-9_:-]+$/.test(token))throw new MobileError('Érvénytelen böngésző-push azonosító.');
+  const owner=email.trim().toLowerCase();
+  return atomic(db,()=>{
+    const row=db.prepare("SELECT id FROM mobile_devices WHERE email=? AND fcm_token=? AND device_type='browser' AND revoked=0").get(owner,token) as {id:string}|undefined;
+    if(row){db.prepare("UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL,last_seen=? WHERE id=?").run(now,row.id);db.prepare("UPDATE mobile_push_outbox SET state='cancelled',lease_until=0 WHERE device_id=? AND state IN ('queued','retry')").run(row.id);}
+    return !!row;
   });
 }
 export function revokeDevice(db:DatabaseSync,id:string) {
