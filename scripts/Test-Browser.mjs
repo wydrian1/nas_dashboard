@@ -138,7 +138,7 @@ try{
       check(await shortcut.evaluate(link=>getComputedStyle(link).color)==='rgb(168, 239, 201)','recovered shortcut returns to normal accent '+role);
       shortcutSnapshot.workerAlive=false;await refreshShortcuts();await page.waitForFunction(()=>document.querySelector('.page-shortcuts a[href="#shop-gamerunner"]')?.classList.contains('pokemon-shortcut-error'));
       check(await normalShortcut.getAttribute('class')==='pokemon-shortcut-error'&&await pausedShortcut.getAttribute('class')===null,'missing worker flags active sources but not paused sources '+role);
-      for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'problem shortcut navigation wraps without overflow '+role+' '+width);}
+      for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});check(await page.locator('.page-shortcuts').evaluate(nav=>nav.scrollWidth<=nav.clientWidth&&nav.getBoundingClientRect().right<=innerWidth&&[...nav.querySelectorAll('a')].every(link=>link.getBoundingClientRect().left>=nav.getBoundingClientRect().left&&link.getBoundingClientRect().right<=nav.getBoundingClientRect().right)),'problem shortcut navigation wraps without overflow '+role+' '+width);}
       await page.unroute('**/api/pokemon',shortcutRoute);
       check(await page.locator('#shop-alza').count()===1,'Alza independently listed '+role);
       check(await page.locator('#shop-alza').innerText().then(text=>text.includes('Szünetel')),'Alza initially paused '+role);
