@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ActionForm, ActionButton } from "./action-form";
 import { savePokemonSettings, requestPokemonScan, savePokemonNotifications } from "./pokemon-actions";
 import type { PokemonSnapshot } from "@/lib/pokemon/types";
-import { filterPokemonTitles } from "./pokemon-search";
+import { filterPokemonTitles,searchAvailablePokemon } from "./pokemon-search";
 import {pokemonShortcutNeedsAttention} from './pokemon-shortcuts';
 import LocalSections,{LocalSection} from './local-sections';
 
@@ -33,6 +33,7 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
     return ()=>{clearInterval(timer);controller.abort();document.removeEventListener('visibilitychange',refresh);};
   },[]);
   const shops=snapshot.shops.map(item=>({...item,products:filterPokemonTitles(item.products,search),events:filterPokemonTitles(item.events,search)}));
+  const searching=!!search.trim(),searchResults=searchAvailablePokemon(snapshot.shops,search,shopFilter);
   const latest=filterPokemonTitles(snapshot.latestEvents,search).filter(event=>(shopFilter==='all' || event.shop_id===shopFilter) && (kindFilter==='all' || (kindFilter==='new' ? event.kind==='new' || event.kind==='preorder' : event.kind==='restock')));
   return <section id="pokemon" className="pokemon-section">
     <div className="page-shortcuts" role="navigation" aria-label="Ugrás a webshophoz">{snapshot.shops.map(({shop,health})=>{
@@ -41,8 +42,8 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
     })}</div>
     <label className="pokemon-search" htmlFor="pokemon-search">Keresés terméknévben<input id="pokemon-search" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Termék neve…" autoComplete="off"/></label>
     {error && <p role="alert" className="error">{error}</p>}
-    <LocalSections page="pokemon"><LocalSection sectionId="latest" label="Legújabb elérhetőségek"><section className="pokemon-aggregate" aria-labelledby="pokemon-latest-title">
-      <div className="section-heading"><h2 id="pokemon-latest-title">Legújabb elérhetőségek <span>Összes webshop</span></h2><span className="subtle">15 másodpercenként frissülő állapot</span></div>
+    <LocalSections page="pokemon"><LocalSection sectionId="latest" label={searching?'Keresési találatok':'Legújabb elérhetőségek'}><section className="pokemon-aggregate" aria-labelledby="pokemon-latest-title">
+      <div className="section-heading"><h2 id="pokemon-latest-title">{searching?'Keresési találatok':'Legújabb elérhetőségek'} <span>{searching?searchResults.length+' termék':'Összes webshop'}</span></h2><span className="subtle">15 másodpercenként frissülő állapot</span></div>
       <div className="pokemon-overview">
         <div><strong>{shops.filter(item=>!item.health?.stale).reduce((sum,item)=>sum+item.products.length,0)}</strong><span>frissen ellenőrzött, a keresésnek megfelelő termék</span></div>
         <div><strong>{shops.filter(item=>item.health?.stale).reduce((sum,item)=>sum+item.products.length,0)}</strong><span>elavult, utolsó ismert készletadat</span></div>
@@ -51,17 +52,23 @@ export default function PokemonPanel({initial}:{initial:PokemonSnapshot}) {
       </div>
       <div className="pokemon-aggregate-filters">
         <label>Webshop<select value={shopFilter} onChange={event=>setShopFilter(event.target.value)}><option value="all">Összes webshop</option>{snapshot.shops.map(item=><option key={item.shop.id} value={item.shop.id}>{item.shop.name}</option>)}</select></label>
-        <label>Esemény<select value={kindFilter} onChange={event=>setKindFilter(event.target.value)}><option value="all">Minden elérhetőség</option><option value="new">Új termékek / előrendelések</option><option value="restock">Újra elérhető termékek</option></select></label>
+        {!searching&&<label>Esemény<select value={kindFilter} onChange={event=>setKindFilter(event.target.value)}><option value="all">Minden elérhetőség</option><option value="new">Új termékek / előrendelések</option><option value="restock">Újra elérhető termékek</option></select></label>}
       </div>
-      <div className="pokemon-latest-grid">{latest.map(event=><article className="pokemon-latest-card" key={event.id}>
+      <div className="pokemon-latest-grid">{searching?searchResults.map(product=><article className="pokemon-latest-card pokemon-search-result" key={product.shop_id+'-'+product.external_id}>
+        {product.image&&<img src={product.image} alt="" width="72" height="72" loading="lazy" decoding="async" referrerPolicy="no-referrer"/>}
+        <div className="pokemon-latest-content"><div className="pokemon-latest-meta"><a className="pokemon-shop-badge" href={`#shop-${product.shop_id}`}>{product.shop_name}</a></div>
+          <strong className="pokemon-latest-kind">{product.availability==='preorder'?'Előrendelhető':product.availability==='in_stock'?'Raktáron':'Elérhető a listában'}</strong><a className="pokemon-latest-title" href={product.url} target="_blank" rel="noopener noreferrer">{product.title} ↗</a><span className="subtle">{price(product.price_huf)}</span>
+          {product.stale&&<strong className="error">Elavult készletadat · a webshopban ellenőrizendő</strong>}
+        </div>
+      </article>):latest.map(event=><article className="pokemon-latest-card" key={event.id}>
         {event.image && <img src={event.image} alt="" width="72" height="72" loading="lazy" decoding="async" referrerPolicy="no-referrer"/>}
         <div className="pokemon-latest-content"><div className="pokemon-latest-meta"><a className="pokemon-shop-badge" href={`#shop-${event.shop_id}`}>{event.shop_name}</a><time dateTime={new Date(event.occurred_at).toISOString()}>{date(event.occurred_at)}</time></div>
           <strong className="pokemon-latest-kind">{eventLabels[event.kind] || event.kind}</strong><a className="pokemon-latest-title" href={event.url} target="_blank" rel="noopener noreferrer">{event.title} ↗</a><span className="subtle">{price(event.price_huf)}</span>
           {event.stale&&<strong className="error">Elavult készletadat · a webshopban ellenőrizendő</strong>}
         </div>
       </article>)}</div>
-       {!latest.length && <div className="pokemon-latest-empty"><strong>{snapshot.latestEvents.length ? 'Nincs a szűrésnek megfelelő esemény.' : 'Az elmúlt 24 órából nincs új, továbbra is elérhető termék.'}</strong><p>Az új termékek, előrendelések és visszakészletezések itt legfeljebb 24 óráig láthatók, amíg elérhetők.</p></div>}
-       <p className="footnote">Az elmúlt 24 óra legfeljebb 60, továbbra is elérhető termékeseménye, legújabb elöl. A 24 órás határ vagy egy teljes, sikeres vizsgálatból megállapított hiány után a termék innen eltűnik; az előzménye megmarad. Az első alapállapot nem számít új eseménynek. Az ár és a készlet a webshopban ellenőrizendő.</p>
+       {searching?!searchResults.length&&<div className="pokemon-latest-empty"><strong>Nincs a keresésnek megfelelő elérhető termék.</strong></div>:!latest.length&&<div className="pokemon-latest-empty"><strong>{snapshot.latestEvents.length ? 'Nincs a szűrésnek megfelelő esemény.' : 'Az elmúlt 24 órából nincs új, továbbra is elérhető termék.'}</strong><p>Az új termékek, előrendelések és visszakészletezések itt legfeljebb 24 óráig láthatók, amíg elérhetők.</p></div>}
+       <p className="footnote">{searching?'A keresés az összes mentett, továbbra is elérhető terméket mutatja, 24 órás időkorlát és eseményhez kötés nélkül. Az elavult készletadatot külön jelöljük. Az ár és a készlet a webshopban ellenőrizendő.':'Az elmúlt 24 óra legfeljebb 60, továbbra is elérhető termékeseménye, legújabb elöl. A 24 órás határ vagy egy teljes, sikeres vizsgálatból megállapított hiány után a termék innen eltűnik; az előzménye megmarad. Az első alapállapot nem számít új eseménynek. Az ár és a készlet a webshopban ellenőrizendő.'}</p>
     </section></LocalSection>
     {shops.map(({shop,products,events,notifications,health})=>{
       const key=[shop.id,shop.enabled,shop.interval_minutes].join('-');
