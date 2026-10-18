@@ -11,5 +11,8 @@ test('dashboard link is external and validated; legacy bookmarks redirect withou
   const page=readFileSync(new URL('../app/adventure/page.tsx',import.meta.url),'utf8');
   assert.match(page,/redirect\(destination\)/);assert.doesNotMatch(page,/loadGame|advanceGame|lib\/game/);
   assert.equal(existsSync(new URL('../lib/adventure/engine.ts',import.meta.url)),false);
+  // The game is its own repository (wydrian1/nullpont): no game source, release
+  // tooling or story gate is kept here, only the link and the login handoff.
+  for (const moved of ['../apps/nullpont/package.json','../scripts/Nullpont-Player-Review.mjs','../lib/nullpont-player-review.ts','../scripts/Check-Story.mjs','../story/reviews.json']) assert.equal(existsSync(new URL(moved,import.meta.url)),false);
   const database=new DatabaseSync(':memory:');try{database.exec("CREATE TABLE adventure_saves(owner TEXT PRIMARY KEY,state_json TEXT); INSERT INTO adventure_saves VALUES('one@example.test','legacy');");initializeDatabase(database);assert.equal(database.prepare('SELECT state_json FROM adventure_saves').get()!.state_json,'legacy');}finally{database.close();}
 });

@@ -41,8 +41,9 @@ from actual verification results. Schema (hashes/build/time below are placeholde
 ```
 
 `completedAt` is the real completion time in Unix milliseconds, at most 15 minutes old.
-Source verification means the package was built from the exact approved commit with no
-uncommitted source edits; story approval must be the successful independent steward gate.
+Source verification means the package was built from the exact approved commit of the
+NULLPONT repository (`https://github.com/wydrian1/nullpont`) with no uncommitted source
+edits; story approval must be the successful independent steward gate.
 Service verification means `WydrianNullpont` actually runs the installed `D:\!nullpont`
 directory/build; local and public HTTPS checks must verify that deployment, not merely
 that an old process answers. Check authenticated functionality as appropriate without
@@ -117,8 +118,10 @@ reviewed Android change; this integration does not widen notification URL policy
 ## Advisory post-release player review
 
 After every successful release, the deploying agent also starts the isolated
-`nullpont-player-reviewer` procedure in [nullpont-player-review.md](nullpont-player-review.md),
-bound to the installed manifest hash. It has a hard ten-minute gameplay budget.
+`nullpont-player-reviewer` procedure from the NULLPONT repository
+(`https://github.com/wydrian1/nullpont`: `docs/nullpont-player-review.md`,
+`scripts/Nullpont-Player-Review.mjs`), bound to the installed manifest hash. The
+budget and the reporting rules are defined by that repository's `AGENTS.md`.
 This is not a release or notification prerequisite: send the normal completed
 deployment announcement without waiting for its scores. Record partial play,
 timeout or unavailability honestly; never roll back a healthy release because

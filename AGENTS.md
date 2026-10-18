@@ -22,17 +22,17 @@ The owner requires every project modification to be represented in GitHub after 
 - Git and GitHub CLI are project-local: `.runtime/git/cmd/git.exe` and `.runtime/github-cli/bin/gh.exe`. Node 24 is under `.runtime/node-v24*-win-x64`. Use their explicit paths or a process-local PATH; do not change the system PATH unnecessarily.
 - For `gh` issue/PR text, prefer `--body-file` in a private, ignored working directory or the approved OpenCode temporary directory. Authentication is through the existing GitHub CLI login; never embed a token in a remote URL or source/configuration file.
 
-## NULLPONT post-release player review
+## NULLPONT source, release and player review live elsewhere
 
-After every successful NULLPONT deployment/release, launch the fresh blind
-`nullpont-player-reviewer` subagent using `docs/nullpont-player-review.md` and
-`.opencode/agents/nullpont-player-reviewer.md`. It plays an isolated synthetic
-copy of the exact installed release for at most fifteen minutes and reports story,
-puzzles, UI and difficulty scores plus actionable developer-only observations.
-This is advisory, not a deployment/notification gate: timeout, low scores or
-unavailability must be recorded honestly but do not delay success announcements
-or roll back a healthy release. Do not expose solutions/private plot, touch real
-player saves, extend its timer or implement its suggestions without task scope.
-NULLPONT has no real ending yet: stop when further progression is not possible,
-distinguishing the current content boundary from puzzle blockage or uncertainty;
-never report any of these as the story's ending.
+NULLPONT's source, tests, art/story gate, release packaging and advisory
+post-release player review are in its own private repository,
+`https://github.com/wydrian1/nullpont` (see its `AGENTS.md`). This dashboard keeps
+only the NULLPONT integration: the `NULLPONT_URL` link, the one-time PKCE login
+handoff (`app/api/nullpont/*`), the external redirect and the owner release
+announcement (`scripts/Announce-Nullpont-Deployment.mjs`,
+[docs/nullpont-deployment-push.md](docs/nullpont-deployment-push.md)).
+
+Run the advisory player review from the `nullpont` repository after a successful
+release. It stays advisory: timeout, low scores or unavailability are recorded
+honestly and never delay the deployment announcement or roll back a healthy
+release, and its suggestions are not implemented without task scope.
