@@ -14,6 +14,9 @@ import {initializeDatabase} from '../lib/db-schema.ts';
 import {load} from 'cheerio';
 import {alzaImageUrl} from '../lib/pokemon/adapters/alza.ts';
 import {WEB_VERSION} from '../lib/mobile/release.ts';
+import {REGIO_URL} from '../lib/pokemon/types.ts';
+import {regioFixture} from '../tests/fixtures/pokemon/regio/catalog.ts';
+import {parseRegioPage} from '../lib/pokemon/adapters/regio.ts';
 
 const root=process.cwd(),fixture=mkdtempSync(join(process.platform==='win32'?join(tmpdir(),'opencode'):tmpdir(),'nas-browser-'));
 const owner='owner@example.test',reader='reader@example.test',info='info@example.test',admin='admin@example.test',now=Date.now(),secret=randomBytes(32).toString('base64url');
@@ -50,6 +53,8 @@ db.prepare("UPDATE pokemon_shops SET baseline_at=?,last_success=?,failure_count=
 const alzaImage=alzaImageUrl('https://image.alza.cz/products/DEMO/DEMO.jpg?width=190&height=190');
 assert.equal(alzaImage,'https://image.alza.cz/products/DEMO/DEMO.jpg');
 db.prepare("INSERT INTO pokemon_products(shop_id,external_id,sku,title,url,image,price_huf,availability,in_stock,first_seen,last_seen) VALUES('alza','1001','1001','Synthetic Alza Image','https://m.alza.hu/jatekok/pokemon-demo-d1001.htm',?,2290,'in_stock',1,?,?)").run(alzaImage,now,now);
+const regioData=regioFixture(1),regioProduct=parseRegioPage(regioData.html,regioData.api).products[0],regioImage=regioProduct.image;
+db.prepare("INSERT INTO pokemon_products(shop_id,external_id,sku,title,url,image,price_huf,availability,in_stock,first_seen,last_seen) VALUES('regio',?,?,?,?,?,?,'in_stock',1,?,?)").run(regioProduct.externalID,regioProduct.sku,regioProduct.title,regioProduct.url,regioImage,regioProduct.priceHuf,now,now);
 db.prepare("INSERT INTO pokemon_worker VALUES(1,?,'running')").run(now);
 db.prepare("INSERT INTO mobile_devices(id,label,email,secret_hash,created_at,expires_at,last_seen,push_enabled,fcm_token) VALUES('fixture-device','Synthetic phone',?,'synthetic-secret-hash',?,?,?,1,'synthetic-fcm-token')").run(owner,now,now+86400000,now);
 db.prepare("INSERT INTO mobile_push_outbox(id,device_id,payload,state,created_at,expires_at) VALUES('fixture-push','fixture-device','{}','sent',?,?)").run(now,now+10000);
@@ -94,7 +99,7 @@ try{
     await context.addCookies([{name:'authjs.session-token',value:cookies[role].slice('authjs.session-token='.length),url:origin}]);
     const page=await context.newPage(),errors=[],requests=[];
     await context.route('**/*',route=>{
-      if(route.request().url()===alzaImage&&route.request().method()==='GET'&&route.request().resourceType()==='image')return route.fulfill({status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="red"/></svg>'});
+      if([alzaImage,regioImage].includes(route.request().url())&&route.request().method()==='GET'&&route.request().resourceType()==='image')return route.fulfill({status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="red"/></svg>'});
       const request=route.request();if(!request.url().startsWith(origin+'/'))return route.abort();
       // Fixture-only proxy headers: file APIs require the real HTTPS dashboard origin.
       // Traffic and storage stay in this loopback/temp fixture; never relax app policy.
@@ -114,6 +119,13 @@ try{
       check(await page.locator('#shop-alza').count()===1,'Alza independently listed '+role);
       check(await page.locator('#shop-alza').innerText().then(text=>text.includes('Szünetel')),'Alza initially paused '+role);
       check(await page.locator('#shop-alza a[href="https://m.alza.hu/jatekok/pokemon-kartyak/18879069.htm?availabilityFilterValue=2"]').count()===1,'Alza uses reviewed mobile stock URL '+role);
+      check(await page.locator('#shop-regio').count()===1,'REGIO independently listed '+role);
+      check((await page.locator('#shop-regio').innerText()).includes('Szünetel'),'REGIO initially paused '+role);
+      check(await page.locator('#shop-regio h3 a').getAttribute('href')===REGIO_URL,'REGIO retains exact supplied search and card filter '+role);
+      await page.locator('#shop-regio details.pokemon-products > summary').click();
+      const regioImg=page.locator('#shop-regio .pokemon-product img');check(await regioImg.getAttribute('src')===regioImage,'REGIO validated image reaches product UI '+role);await regioImg.scrollIntoViewIfNeeded();
+      await page.waitForFunction(()=>document.querySelector('#shop-regio .pokemon-product img')?.naturalWidth>0);check(await regioImg.isVisible(),'REGIO image decodes using only synthetic bytes '+role);
+      check(await page.locator('#shop-regio .pokemon-product a').first().getAttribute('href')===regioProduct.url,'REGIO zero-prefixed ID product link survives UI '+role);
       await page.locator('#shop-alza details.pokemon-products > summary').click();
       const image=page.locator('#shop-alza .pokemon-product img');check(await image.getAttribute('src')===alzaImage,'Alza normalized image reaches the product UI '+role);await image.scrollIntoViewIfNeeded();
       await page.waitForFunction(()=>document.querySelector('#shop-alza .pokemon-product img')?.naturalWidth>0);check(await image.isVisible(),'Alza image renders using only synthetic image bytes '+role);
@@ -203,7 +215,7 @@ try{
     const legacy=await call('/adventure',role);check(legacy.status===307&&legacy.headers.get('location')===gameOrigin+'/','legacy route redirects to standalone '+role);await legacy.body?.cancel();
     check(await page.locator('nav a[href="/adventure"]').count()===0,'no embedded game menu '+role);
     check(await page.locator('.game-grid,.adventure-layout').count()===0,'dashboard does not serve game UI '+role);
-    check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||url===alzaImage||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls beyond the fully fulfilled synthetic image '+role);await context.close();
+    check(errors.length===0,'no browser errors '+role+': '+errors.join(', '));check(requests.every(url=>url.startsWith(origin+'/')||[alzaImage,regioImage].includes(url)||new URL(url).hostname==='fonts.googleapis.com'),'no new external/private service calls beyond the fully fulfilled synthetic images '+role);await context.close();
   }
   console.log(JSON.stringify({passed:true,checks,syntheticDatabase:true,noProductionDataOrServiceChanges:true,roleIsolation:true,realServerActions:true,viewports:[1440,1101,1024,390,320]}));
 }finally{
