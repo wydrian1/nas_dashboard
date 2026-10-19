@@ -22,7 +22,7 @@ export const RTCOLLECTORSCLUB_CATALOG_URL = `https://rtcollectorsclub.com${RTCOL
 export const CARDVERSE_CATEGORY = "/termekkategoria/gyujtogetos-kartyajatekok/";
 export const CARDVERSE_URL = `https://www.cardverse.hu${CARDVERSE_CATEGORY}?_stock=instock&_cat=gyujtogetos-kartyajatekok&_brand=pokemon-tcg&~1`;
 export const METAGAMES_CATEGORY = '/gyujtogetos-kartyajatekok/pokemon-tcg';
-export const METAGAMES_URL = `https://www.metagames.hu${METAGAMES_CATEGORY}?keszlet=csak-keszleten`;
+export const METAGAMES_URL = `https://www.metagames.hu${METAGAMES_CATEGORY}`;
 export const TCGBOLT_CATEGORY = '/termekkategoria/pokemon/';
 export const TCGBOLT_URL = `https://tcgbolt.hu${TCGBOLT_CATEGORY}`;
 export const BLOOMRIFT_CATEGORY = '/Osszes-angol-termek';

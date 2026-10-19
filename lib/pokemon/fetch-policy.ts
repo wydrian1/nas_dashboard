@@ -190,7 +190,7 @@ export function metagamesFetchUrl(input:string):URL {
   const url=new URL(input);
   if(url.origin!=='https://www.metagames.hu' || url.username || url.password || url.hash)throw new ShopRequestError('Nem engedélyezett Metagames-cím.');
   if(url.pathname==='/robots.txt'){if(url.search)throw new ShopRequestError('Érvénytelen robots-cím.');return url;}
-  if(url.pathname!==METAGAMES_CATEGORY || url.searchParams.get('keszlet')!=='csak-keszleten' || [...url.searchParams.keys()].some(key=>!['keszlet','page'].includes(key) || url.searchParams.getAll(key).length!==1))throw new ShopRequestError('Nem engedélyezett Metagames-kategória vagy készletszűrő.');
+  if(url.pathname!==METAGAMES_CATEGORY || [...url.searchParams.keys()].some(key=>key!=='page' || url.searchParams.getAll(key).length!==1))throw new ShopRequestError('Nem engedélyezett Metagames-kategória vagy szűrő.');
   const page=url.searchParams.get('page');
   if(page!==null && (!/^(0|[1-9]\d*)$/.test(page) || Number(page)>49))throw new ShopRequestError('Érvénytelen Metagames-lapozás.');
   return url;
