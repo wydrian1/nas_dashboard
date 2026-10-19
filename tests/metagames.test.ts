@@ -26,6 +26,18 @@ test('Metagames: selected stock filter, stable IDs, active cart buttons, HUF pri
   assert.equal(parseMetagamesPage(fixture.replace('1&nbsp;000 Ft','Unknown')).products[0].priceHuf,null);
   assert.equal(parseMetagamesPage(fixture.replace('/upload/images/2026_10/example.png','/upload/images/../secret')).products[0].image,null);
 });
+test('Metagames: preorder requires matching preOrder ID and explicit preorder stock label, retaining mixed catalog identity',async()=>{
+  const $=load(fixture),card=$('#buy2001').closest('.card');
+  card.find('#buy2001').attr('id','preOrder2001');
+  card.find('.text-success.font-weight-bold').removeClass('text-success').addClass('text-danger').html('Előrendelhető <small>(2026.11.09)</small>');
+  const html=$.html(),parsed=parseMetagamesPage(html);
+  assert.deepEqual(parsed.cardIDs,['2001','2002']);assert.deepEqual(parsed.products.map(p=>p.availability),['preorder','in_stock']);
+  assert.equal(parsed.products[0].priceHuf,1000);
+  assert.equal(parseMetagamesPage(html.replace('id="preOrder2001"','id="preOrder2001" disabled')).products.length,1);
+  for(const invalid of [html.replace('preOrder2001','preOrder9999'),html.replace('preOrder2001','buy2001'),fixture.replace('buy2001','preOrder2001'),html.replace('Előrendelhető','Ismeretlen'),html.replace('text-danger','text-success'),html.replace('id="preOrder2001"','id="preOrder2001"><button id="buy2001"')])assert.throws(()=>parseMetagamesPage(invalid));
+  const result=await scanMetagames(new AbortController().signal,{download:async url=>url.endsWith('/robots.txt')?'User-agent: *\nAllow: /':html,wait:async()=>{}});
+  assert.equal(result.total,2);assert.equal(result.products[0].availability,'preorder');
+});
 test('Metagames: both observed English and Hungarian navigation labels validate the same pagination',()=>{
   const hu=fixture.replaceAll('Go to first page','Ugrás az első oldalra').replaceAll('Go to previous page','Ugrás az előző oldalra').replaceAll('Go to next page','Ugrás a következő oldalra').replaceAll('Go to last page','Ugrás az utolsó oldalra').replaceAll('Go to page 1','Ugrás a(z) 1 oldalra');
   assert.deepEqual(parseMetagamesPage(hu),parseMetagamesPage(fixture));
