@@ -5,7 +5,7 @@ import { downloadShopPage, metagamesFetchUrl } from '../fetch-policy.ts';
 import { robotsPermission } from '../robots.ts';
 import type { CatalogScanOptions } from './catalog-scan.ts';
 
-export const METAGAMES_ADAPTER_VERSION='1.0.0';
+export const METAGAMES_ADAPTER_VERSION='1.1.0';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 export function metagamesProductUrl(input:string):string {
   const url=new URL(input,METAGAMES_URL);
@@ -14,7 +14,7 @@ export function metagamesProductUrl(input:string):string {
 }
 export function parseMetagamesPage(html:string,expectedPage=0) {
   const $=load(html),stock=$('select[name="isOnStock"]'),size=$('select[name="pageSizeSelect"]');
-  if(!$('h1').toArray().some(el=>normalize($(el).text())==='Pokémon TCG') || stock.length!==1 || stock.find('option[selected]').length!==1 || stock.find('option[selected]').attr('value')!=='true' || size.length!==1 || size.find('option[selected]').length!==1 || normalize(size.find('option[selected]').text())!=='12')throw new Error('A Metagames készletes Pokémon-kategóriája vagy oldalmérete nem ismerhető fel.');
+  if(!$('h1').toArray().some(el=>normalize($(el).text())==='Pokémon TCG') || stock.length!==1 || stock.find('option[selected]').length!==1 || stock.find('option[selected]').attr('value')!=='' || size.length!==1 || size.find('option[selected]').length!==1 || normalize(size.find('option[selected]').text())!=='12')throw new Error('A Metagames szűrés nélküli Pokémon-kategóriája vagy oldalmérete nem ismerhető fel.');
   const navigators=$('.pagination nav');
   if(navigators.length!==2)throw new Error('Hiányos Metagames-lapozás.');
   const index=(href:string|undefined)=>{if(!href)throw new Error('Hiányzó Metagames-lapozási link.');const url=metagamesFetchUrl(new URL(href,METAGAMES_URL).href);const page=url.searchParams.get('page');if(page===null)throw new Error('Hiányzó Metagames-oldalszám.');return Number(page);};
@@ -34,17 +34,24 @@ export function parseMetagamesPage(html:string,expectedPage=0) {
   if(lastPage===undefined || !cards.length || cards.length>12 || (expectedPage<lastPage && cards.length!==12) || grids.length!==cards.length || grids.some(el=>el!==grids[0]) || !grids[0])throw new Error('Hiányos vagy nem igazolt üres Metagames-lista.');
   const products:PokemonProduct[]=[],cardIDs:string[]=[];
   cards.each((_,el)=>{
-    const card=$(el).closest('.card'),link=card.find('.webshop-list-item-name a'),cart=card.find('button[id^="buy"]');
+    const card=$(el).closest('.card'),link=card.find('.webshop-list-item-name a'),cart=card.find('button[id^="buy"],button[id^="preOrder"]');
     if(card.length!==1 || link.length!==1 || !link.attr('href'))throw new Error('Hiányos Metagames-termékkártya.');
     const url=metagamesProductUrl(link.attr('href')!),id=url.match(/-pid([1-9]\d*)$/)![1],title=normalize(link.text());
-    if(!title || title.length>500 || cart.length!==1 || cart.attr('id')!=='buy'+id || !/^Kosárba$/i.test(normalize(cart.text())))throw new Error('Nem felismerhető Metagames-kosárgomb vagy termékazonosító.');
+    const restock=card.find('button[id^="subscribeItemRestock"]');
+    if(restock.length){
+      if(!title || title.length>500 || cart.length!==0 || restock.length!==1 || restock.attr('id')!=='subscribeItemRestock'+id || normalize(restock.text())!=='Készletértesítő' || card.find('.text-success.font-weight-bold').length!==0 || card.find('.text-danger.font-weight-bold').length!==1 || normalize(card.find('.text-danger.font-weight-bold').text())!=='Nincs készleten')throw new Error('Ismeretlen Metagames-készletállapot.');
+      cardIDs.push(id);return;
+    }
+    const preorder=cart.attr('id')==='preOrder'+id;
+    if(!title || title.length>500 || cart.length!==1 || (!preorder && cart.attr('id')!=='buy'+id) || !/^Kosárba$/i.test(normalize(cart.text())))throw new Error('Nem felismerhető Metagames-kosárgomb vagy termékazonosító.');
     cardIDs.push(id);
     if(cart.is('.disabled,[disabled],[aria-disabled="true"],[hidden]') || /display\s*:\s*none|visibility\s*:\s*hidden/i.test(cart.attr('style') || ''))return;
-    if(normalize(card.find('.text-success.font-weight-bold').text())!=='Készleten')throw new Error('Ismeretlen Metagames-készletállapot.');
+    const stock=card.find('.text-success.font-weight-bold'),preorderStock=card.find('.text-danger.font-weight-bold');
+    if(preorder ? stock.length!==0 || preorderStock.length!==1 || !/^Előrendelhető(?: \(\d{4}\.\d{2}\.\d{2}\))?$/.test(normalize(preorderStock.text())) : stock.length!==1 || normalize(stock.text())!=='Készleten' || preorderStock.length!==0)throw new Error('Ismeretlen Metagames-készletállapot.');
     const raw=normalize(card.find('h5').first().text()),amount=/^[\d ]+ Ft$/.test(raw) ? Number(raw.replace(/ Ft$/,'').replaceAll(' ','')) : NaN;
     let image:string|null=null;
     try{const candidate=new URL(card.find('.product-list-image img').attr('src') || '',METAGAMES_URL);if(candidate.origin==='https://www.metagames.hu' && candidate.pathname==='/thumb/' && !candidate.username && !candidate.password && !candidate.hash && [...candidate.searchParams.keys()].length===1 && candidate.searchParams.getAll('path').length===1 && /^\/upload\/images\/[a-z0-9_./-]+$/i.test(candidate.searchParams.get('path') || '') && !candidate.searchParams.get('path')!.split('/').includes('..'))image=candidate.href;}catch{/* Image is optional; never fetch it in the worker. */}
-    products.push({externalID:id,sku:'',title,url,image,priceHuf:Number.isSafeInteger(amount) && amount>=0 && amount<=100_000_000 ? amount : null,availability:'in_stock'});
+    products.push({externalID:id,sku:'',title,url,image,priceHuf:Number.isSafeInteger(amount) && amount>=0 && amount<=100_000_000 ? amount : null,availability:preorder?'preorder':'in_stock'});
   });
   if(new Set(cardIDs).size!==cards.length)throw new Error('Duplikált Metagames-termékkártya.');
   return {products,cardIDs,lastPage,cardCount:cards.length};

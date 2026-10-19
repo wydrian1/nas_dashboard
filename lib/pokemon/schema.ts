@@ -59,6 +59,8 @@ export function initializePokemon(database: DatabaseSync) {
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('rtcollectorsclub','RT Collectors Club',?)").run(RTCOLLECTORSCLUB_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('cardverse','Cardverse',?)").run(CARDVERSE_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('metagames','Metagames',?)").run(METAGAMES_URL);
+  // Update only the old fixed link; preserve baseline, schedule, products and personal rules.
+  database.prepare("UPDATE pokemon_shops SET url=? WHERE id='metagames' AND url=?").run(METAGAMES_URL,METAGAMES_URL+'?keszlet=csak-keszleten');
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('tcgbolt','TCG Bolt',?)").run(TCGBOLT_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('bloomrift','Bloomrift',?)").run(BLOOMRIFT_URL);
   // Explicit opt-in: installing source must not start browser traffic before access/runtime review.
