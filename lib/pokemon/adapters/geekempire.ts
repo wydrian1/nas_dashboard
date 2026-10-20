@@ -4,7 +4,7 @@ import { GEEKEMPIRE_URL, type PokemonProduct, type ShopScan } from "../types.ts"
 import { downloadShopPage, geekempireFetchUrl } from "../fetch-policy.ts";
 import { robotsPermission } from "../robots.ts";
 
-export const GEEKEMPIRE_ADAPTER_VERSION='1.0.0';
+export const GEEKEMPIRE_ADAPTER_VERSION='1.1.0';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 export function geekempireProductUrl(input:string):string {
   const url=new URL(input,GEEKEMPIRE_URL);
@@ -23,8 +23,15 @@ export function parseGeekempirePage(html:string) {
   const products:PokemonProduct[]=[],cardIDs:string[]=[];
   cards.each((_index,element)=>{
     const card=$(element),ids=(card.attr('class') || '').match(/\bpost-([1-9]\d*)\b/g),id=ids?.length===1 ? ids[0].slice(5) : '',link=card.children('a.woocommerce-loop-product__link'),title=normalize(link.find('.woocommerce-loop-product__title').text()),button=card.children('a.button');
-    if(!id || !card.is('.product_cat-pokemon-kartya') || link.length!==1 || !link.attr('href') || !title || title.length>500 || button.length!==1 || button.attr('data-product_id')!==id)throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
+    if(!id || !card.is('.product_cat-pokemon-kartya') || link.length!==1 || !link.attr('href') || !title || title.length>500)throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
     const url=geekempireProductUrl(link.attr('href')!);cardIDs.push(id);
+    const stockElements=card.find('.stock'),stock=normalize(stockElements.text()),reserved=stockElements.length===1 && /^Foglalt$/i.test(stock);
+    if(reserved && !button.is('.add_to_cart_button')){
+      if(button.length>1 || (button.length===1 && button.attr('data-product_id')!==undefined && button.attr('data-product_id')!==id))throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
+      if(button.length){const details=new URL(button.attr('href') || '',GEEKEMPIRE_URL);if(details.search || details.hash || geekempireProductUrl(details.href)!==url || /kosárba/i.test(normalize(button.text())))throw new Error('Nem felismerhető GeekEmpire termékgomb.');}
+      return; // Explicit reserved stock may omit the normal cart button/ID, but still counts toward completeness.
+    }
+    if(button.length!==1 || button.attr('data-product_id')!==id)throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
     if(!button.is('.add_to_cart_button') || button.is('.product_type_variable')){
       const details=new URL(button.attr('href') || '',GEEKEMPIRE_URL);
       if(details.search || details.hash || geekempireProductUrl(details.href)!==url || /kosárba/i.test(normalize(button.text())))throw new Error('Nem felismerhető GeekEmpire termékgomb.');
@@ -32,12 +39,11 @@ export function parseGeekempirePage(html:string) {
     }
     const action=new URL(button.attr('href') || '',GEEKEMPIRE_URL);
     if(!button.is('.product_type_simple') || !/^Kosárba$/i.test(normalize(button.text())) || action.origin!=='https://geekempire.hu' || action.username || action.password || action.pathname!==new URL(GEEKEMPIRE_URL).pathname || action.hash || action.searchParams.get('add-to-cart')!==id || [...action.searchParams.keys()].some(key=>key!=='add-to-cart' || action.searchParams.getAll(key).length!==1))throw new Error('Nem felismerhető GeekEmpire kosárgomb vagy cél.');
-    if(button.is('.disabled,[disabled],[aria-disabled="true"],[hidden]') || /display\s*:\s*none|visibility\s*:\s*hidden/i.test(button.attr('style') || ''))return;
+    if(reserved || button.is('.disabled,[disabled],[aria-disabled="true"],[hidden]') || /display\s*:\s*none|visibility\s*:\s*hidden/i.test(button.attr('style') || ''))return;
     const amountElement=card.find('.price ins .woocommerce-Price-amount').length ? card.find('.price ins .woocommerce-Price-amount').last() : card.find('.price .woocommerce-Price-amount').last();
     const price=normalize(amountElement.text()),raw=price.match(/^([\d ]+) Ft$/),amount=raw ? Number(raw[1].replace(/ /g,'')) : NaN;
     let image:string|null=null;
     try{const img=link.find('img.attachment-woocommerce_thumbnail'),candidate=new URL(img.attr('data-src') || img.attr('src') || '');if(candidate.origin==='https://geekempire.hu' && candidate.pathname.startsWith('/wp-content/uploads/') && !candidate.username && !candidate.password)image=candidate.href;}catch{/* Optional image. */}
-    const stock=normalize(card.find('.stock').text());
     products.push({externalID:id,sku:normalize(button.attr('data-product_sku') || '').slice(0,100),title,url,image,priceHuf:Number.isSafeInteger(amount) && amount>=0 && amount<=100_000_000 ? amount : null,availability:/előrendel/i.test(stock) ? 'preorder' : /^Készleten$/i.test(stock) ? 'in_stock' : 'available'});
   });
   if(new Set(cardIDs).size!==total)throw new Error('Duplikált GeekEmpire terméklista.');

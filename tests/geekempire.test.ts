@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import {load} from 'cheerio';
 import { initializeDatabase } from "../lib/db-schema.ts";
 import { parseGeekempirePage, scanGeekempire, geekempireProductUrl } from "../lib/pokemon/adapters/geekempire.ts";
 import { geekempireFetchUrl } from "../lib/pokemon/fetch-policy.ts";
@@ -14,6 +15,23 @@ import { readPokemonSnapshot } from "../lib/pokemon/snapshot.ts";
 const fixture=readFileSync(new URL('./fixtures/pokemon/geekempire/catalog.html',import.meta.url),'utf8');
 const products=parseGeekempirePage(fixture).products;
 const robots='User-agent: *\nDisallow: /*add-to-cart=*\nDisallow: /kosar/\nDisallow: /checkout/\nCrawl-delay: 5';
+function reservedPage(){const $=load(fixture),card=$('li.post-113394');card.find('.stock').text('Foglalt');card.children('a.button').remove();return $;}
+test('GeekEmpire: explicit reserved stock without a cart button retains card completeness and skips only that item',async()=>{
+  const $=reservedPage(),html=$.html(),parsed=parseGeekempirePage(html);
+  assert.equal(parsed.total,3);assert.deepEqual(parsed.cardIDs,['113394','115714','31882']);assert.deepEqual(parsed.products.map(p=>p.externalID),['115714']);
+  const requests:string[]=[];const scan=await scanGeekempire(new AbortController().signal,{download:async url=>{requests.push(url);return url.endsWith('/robots.txt')?robots:html;},wait:async()=>{}});
+  assert.equal(scan.total,1);assert.deepEqual(requests,['https://geekempire.hu/robots.txt',GEEKEMPIRE_URL]);
+  $('li.post-113394').append('<a class="button product_type_simple" href="/termek/pokemon-example-box/">Tovább</a>');
+  assert.deepEqual(parseGeekempirePage($.html()).products.map(p=>p.externalID),['115714']);
+  assert.equal(parseGeekempirePage(fixture.replace('Készleten','Foglalt')).products.length,1);
+});
+test('GeekEmpire: reserved handling never excuses broken identity, unsafe details, ambiguous labels or unknown missing buttons',()=>{
+  const $=reservedPage(),html=$.html();
+  for(const invalid of [html.replace('post-113394','post-113394 post-999'),html.replace('class="woocommerce-loop-product__link"','class="missing-link"'),html.replace('/termek/pokemon-example-box/','https://other.example/termek/pokemon-example-box/'),html.replace('Foglalt','Ismeretlen'),html.replace('Foglalt','Készleten'),html.replace('Foglalt','Nem foglalt'),html.replace('Foglalt','</p><p class="stock">Foglalt'),html.replace('Foglalt','Készleten').replace('Pokemon Example Box','Foglalt Pokemon Example Box')])assert.throws(()=>parseGeekempirePage(invalid));
+  for(const button of ['<a class="button" data-product_id="999" href="/termek/pokemon-example-box/">Tovább</a>','<a class="button" href="https://other.example/termek/pokemon-example-box/">Tovább</a>','<a class="button" href="/termek/pokemon-example-box/?buy=1">Tovább</a>','<a class="button" href="/termek/pokemon-example-box/">Kosárba</a>','<a class="button" href="/termek/pokemon-example-box/">Tovább</a><a class="button" href="/termek/pokemon-example-box/">Tovább</a>']){
+    const copy=load(html);copy('li.post-113394').append(button);assert.throws(()=>parseGeekempirePage(copy.html()));
+  }
+});
 test('GeekEmpire: complete WooCommerce list, stable IDs, SKU, sale price, own upload images and details exclusion',()=>{
   assert.equal(parseGeekempirePage(fixture).total,3);assert.deepEqual(products.map(p=>p.externalID),['113394','115714']);
   assert.deepEqual(products.map(p=>p.availability),['in_stock','preorder']);assert.deepEqual(products.map(p=>p.priceHuf),[128990,2490]);
