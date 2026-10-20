@@ -21,6 +21,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const session = await requireUser().catch(()=>null);
   if(session?.role==='pokemon-reader')redirect('/pokemon');
   if(session?.role==='info-reader')redirect('/important-info');
+  if(session?.role==='nullpont-player')redirect('/adventure');
   const allowed = session?.role==='admin';
   const { error,q } = await searchParams;
   if (!allowed) return <main className="login-shell">

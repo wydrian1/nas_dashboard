@@ -102,7 +102,7 @@ test('sidebar retains scrollable navigation with a thin dark track and no native
 });
 test('sidebar aligns decorative icons and labels in fixed columns with equal active/inactive borders',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
-  for(const role of ['admin','pokemon-reader','info-reader']){
+  for(const role of ['admin','pokemon-reader','info-reader','nullpont-player']){
     const page=load(renderToStaticMarkup(React.createElement(Sidebar,{role,openCode:true,unread:12})));
     assert.equal(page('nav a[href="/search"]').length,0);
     for(const element of page('nav a').toArray()){
@@ -149,7 +149,7 @@ test('phone settings live under admin configuration; legacy route redirects and 
 });
 test('admin notification settings live inside config while Pokemon readers retain their private page and no config access',()=>{
   const Sidebar=component('app/dashboard-sidebar.tsx').default;
-  for(const role of ['admin','pokemon-reader','info-reader']){
+  for(const role of ['admin','pokemon-reader','info-reader','nullpont-player']){
     const page=load(renderToStaticMarkup(React.createElement(Sidebar,{role})));
     assert.equal(page('nav a[href="/notifications"]').length,role==='pokemon-reader'?1:0);
     assert.equal(page('nav a[href="/config"]').length,role==='admin'?1:0);
@@ -225,6 +225,18 @@ test('info-reader navigation exposes Important info but no search menu or privat
   const page=load(renderToStaticMarkup(React.createElement(Sidebar,{active:'important-info',role:'info-reader',openCode:true})));
   assert.deepEqual(page('nav a').map((_,el)=>page(el).attr('href')).get(),['/important-info']);assert.equal(page('nav a[href="/important-info"]').attr('aria-current'),'page');assert.equal(page('a[href="/finance"],a[href="/pokemon"],a[href="/config"],a[href="/opencode"],a[href="/system"],a[href="/notifications"]').length,0);
   assert.match(page.text(),/Fontos infók/);
+});
+
+test('nullpont-player navigation exposes no NAS destination and the dashboard sends the role to the game handoff',()=>{
+  const Sidebar=component('app/dashboard-sidebar.tsx').default;
+  const page=load(renderToStaticMarkup(React.createElement(Sidebar,{role:'nullpont-player',openCode:true})));
+  assert.equal(page('nav a').length,0);
+  assert.equal(page('a[href="/pokemon"],a[href="/important-info"],a[href="/notifications"],a[href="/config"],a[href="/opencode"],a[href="/system"],a[href="/finance"],a[href="/files"]').length,0);
+  assert.match(source('app/page.tsx'),/session\?\.role==='nullpont-player'\)redirect\('\/adventure'\)/);
+  assert.match(source('app/pokemon/page.tsx'),/if\(!canAccess\(session.role,'pokemon'\)\)redirect\(homeForRole\(session.role\)\)/);
+  assert.match(source('app/notifications/settings.tsx'),/if\(!canAccess\(session.role,'pokemon'\)\)redirect\(homeForRole\(session.role\)\)/);
+  assert.match(source('app/search/page.tsx'),/if\(!canAccess\(session.role,'mobile-self'\)\)redirect\(homeForRole\(session.role\)\)/);
+  assert.match(source('app/user-settings.tsx'),/value="nullpont-player"/);
 });
 
 test('admin-only API and server-action guards protect the hidden features; user notifications derive identity from the session',()=>{

@@ -81,6 +81,7 @@ Nincs nyílt regisztráció. Csak engedélyezett, Google által igazolt fiók l�
 - **Admin:** kezeli a közös modulokat és felhasználókat; a saját teendőket és értesítéseket nem keveri más fiókéval.
 - **`pokemon-reader`:** készletfigyelő, saját értesítési központ és ezekre korlátozott keresés.
 - **`info-reader`:** Fontos infók és az arra korlátozott keresés; nem kap teljes pénzügyi előzményt vagy Pokémon-hozzáférést.
+- **`nullpont-player`:** kizárólag a NULLPONT játékba léphet be a dashboard-belépésen keresztül; semmilyen dashboard-oldalt, keresést, mobilapp-párosítást vagy push-értesítést nem ér el.
 
 A readerek saját app-párosítása és frissítése technikai kivétel, nem adminjog. A menü elrejtése nem helyettesíti az oldal/API/szerverakció jogosultságellenőrzését. Részletek: [Szerepkörök](docs/roles.md), [Fontos infók](docs/important-info.md).
 

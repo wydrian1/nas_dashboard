@@ -18,16 +18,20 @@
 
 Az oldalsáv elrejtése nem a védelem: az admin-oldalak a readert `/pokemon`-ra irányítják **az adatok lekérése előtt**, az admin API-k 403-at adnak, minden admin Server Action önálló `requireAdmin()` ellenőrzést végez. Anonim/letiltott/ismert szerepkör nélküli fiók védett API-n 401-et kap. A publikus Google auth/pairing-start útvonalak csak a belépés/párosítás szükséges kivételei, nem adnak önmagukban hozzáférést.
 
+## Csak NULLPONT-játékos (`nullpont-player`)
+
+Ez a szerepkör kizárólag a játékhoz ad hozzáférést, a dashboard egyetlen oldalához sem. Belépés után a `/` azonnal a `/adventure` átadásra irányít, amely a beállított NULLPONT-címre továbbít. Nincs Pokémon, Fontos infók, keresés, pénzügy, fájl, jegyzet, konfig vagy OpenCode, és a fiók nem párosíthat telefont, nem iratkozhat fel böngészős pushra, illetve nem kap modulértesítést. A játék saját `players` táblája továbbra is külön tilthatja a fiókot; a dashboard szerepköre az azonosítás forrása. A NULLPONT belépéshez a dashboard `/api/nullpont/authorize` végpontja csak bejelentkezett, aktív fiókot kér, ezért a szerepkör a játékba beengedi a felhasználót.
+
 ## Fiók hozzáadása
 
 1. Tulajdonosként/admin szerepkörrel nyisd meg a Konfig / Felhasználók részt.
-2. Add meg a másik felhasználó Google-fiókjának e-mail-címét, válassz `pokemon-reader` vagy `admin` szerepkört, hagyd bekapcsolva a hozzáférést.
+2. Add meg a másik felhasználó Google-fiókjának e-mail-címét, válassz `pokemon-reader`, `info-reader`, `nullpont-player` vagy `admin` szerepkört, hagyd bekapcsolva a hozzáférést.
 3. A felhasználó saját, igazolt Google-fiókjával jelentkezik be. Nincs nyílt regisztráció: ismeretlen Google-fiók nem kap alapból reader szerepkört.
 4. Ha a Google OAuth-kliens hozzájárulási képernyője még **Testing** állapotú, a Google Cloud Console tesztfelhasználói közé is fel kell venni az érintett e-mailt. A dashboard szerepköre nem írja felül a Google szolgáltatói korlátozását.
 5. Reader a Pokémon-oldalon letöltheti **ugyanazt** az aláírt APK-t, amelyet az admin használ; nincs felhasználónkénti build. A már telepített 1.0.2 app is működik, szerveroldali jogosultságokkal: a kezdő `/` kérés a readernél `/pokemon`-ra irányít.
 6. Első appindítás: saját böngészős Google-belépés + az egyező kódú telefon jóváhagyása, majd visszatérés az appba és értesítési engedély.
 
-A `ALLOWED_EMAIL` immár a védett bootstrap **tulajdonos**, jelenleg `wydrian@gmail.com`. Mindig admin; saját tulajdonosi hozzáférése nem demotálható/tiltható. További admin nem vonhatja vissza saját admin szerepkörét. Legfeljebb 100 felhasználó, e-mail normalizálás, rögzített két szerepkör, szerepkörváltozás auditnaplóval. E-mail/jelszó vagy OAuth-token nem kerül az APK-ba.
+A `ALLOWED_EMAIL` immár a védett bootstrap **tulajdonos**, jelenleg `wydrian@gmail.com`. Mindig admin; saját tulajdonosi hozzáférése nem demotálható/tiltható. További admin nem vonhatja vissza saját admin szerepkörét. Legfeljebb 100 felhasználó, e-mail normalizálás, rögzített szerepkörkészlet, szerepkörváltozás auditnaplóval. E-mail/jelszó vagy OAuth-token nem kerül az APK-ba.
 
 ## Azonnali hatály és visszavonás
 

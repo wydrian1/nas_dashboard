@@ -3,14 +3,14 @@ import {db} from '@/lib/db';
 import {browserPushConfigured} from '@/lib/mobile/browser-push-config';
 import {MobileError,registerBrowserPush,removeBrowserPush} from '@/lib/mobile/store';
 import {dashboardSameOrigin} from '@/lib/dashboard-origin';
-import {roleFor} from '@/lib/users';
+import {roleFor,canAccess} from '@/lib/users';
 
 export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie'};
 function failure(error:unknown){return Response.json({error:error instanceof MobileError?error.message:'A böngésző-push művelet nem sikerült.'},{status:error instanceof MobileError?error.status:400,headers});}
 async function actor(request:Request,mutation=false){
   const session=await requireUser();
-  if(session.role==='info-reader')throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
+  if(!canAccess(session.role,'mobile-self'))throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
   if(mutation&&!dashboardSameOrigin(request))throw new MobileError('Nem engedélyezett kérés-eredet.',403);
   return session.user!.email!;
 }

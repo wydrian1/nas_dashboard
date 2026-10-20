@@ -1,7 +1,7 @@
 import {redirect} from 'next/navigation';
 import {requireUser} from '@/auth';
 import {db} from '@/lib/db';
-import {homeForRole} from '@/lib/users';
+import {canAccess,homeForRole} from '@/lib/users';
 import {deliveryPreferences,watchRules} from '@/lib/mobile/preferences';
 import {pushHistory} from '@/lib/mobile/history';
 import {SHOP_IDS,SHOP_NAMES} from '@/lib/pokemon/types';
@@ -14,7 +14,7 @@ import '../tools.css';
 const time=(minute:number)=>String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
 const labels:Record<string,string>={queued:'Várakozik',sending:'Beküldés alatt',sent:'FCM elfogadta',retry:'Újrapróbálásra vár',failed:'Küldési hiba',uncertain:'Bizonytalan beküldés',cancelled:'Törölve',expired:'Lejárt',muted:'Csendes időszak miatt nem küldve'};
 export default async function NotificationSettings(){
-  const session=await requireUser();if(session.role==='info-reader')redirect(homeForRole(session.role));
+  const session=await requireUser();if(!canAccess(session.role,'pokemon'))redirect(homeForRole(session.role));
   const email=session.user!.email!,preferences=deliveryPreferences(db(),email),rules=watchRules(db(),email),history=pushHistory(db(),email);
   return <section id="notifications"><div className="section-heading"><h2>Értesítési központ</h2></div><p>Csak a saját fiókod eszközeit érinti. <a href="/pokemon">Boltonkénti értesítések →</a></p>
     <BrowserPushSettings config={browserPushConfigured()?firebaseBrowserConfig():null}/>

@@ -1,8 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-export type Role = 'admin' | 'pokemon-reader' | 'info-reader';
+export type Role = 'admin' | 'pokemon-reader' | 'info-reader' | 'nullpont-player';
 export type Feature = 'admin' | 'pokemon' | 'important-info' | 'apk' | 'mobile-self';
-export const homeForRole=(role:Role|null)=>role==='info-reader' ? '/important-info' : role==='pokemon-reader' ? '/pokemon' : '/';
+// The nullpont-player role has no NAS feature: its only destination is the external game handoff.
+export const homeForRole=(role:Role|null)=>role==='info-reader' ? '/important-info' : role==='pokemon-reader' ? '/pokemon' : role==='nullpont-player' ? '/adventure' : '/';
 export type User = {email:string;role:Role;active:number;created_at:number;updated_at:number};
 export class AccessError extends Error {
   status:number;
@@ -18,7 +19,7 @@ export function roleFor(db:DatabaseSync,email:unknown):Role|null {
   const normalized=email.trim().toLowerCase();
   if(normalized===ownerEmail())return 'admin';
   const row=db.prepare('SELECT role FROM dashboard_users WHERE email=? AND active=1').get(normalized) as {role:Role}|undefined;
-  return row && ['admin','pokemon-reader','info-reader'].includes(row.role) ? row.role : null;
+  return row && ['admin','pokemon-reader','info-reader','nullpont-player'].includes(row.role) ? row.role : null;
 }
 export function canAccess(role:Role|null,feature:Feature):boolean {
   return role==='admin' || (role==='pokemon-reader' && ['pokemon','apk','mobile-self'].includes(feature))
@@ -32,7 +33,7 @@ export function requireAccess(db:DatabaseSync,email:unknown,feature:Feature):Rol
 }
 export function initializeUsers(db:DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS dashboard_users (
-    email TEXT PRIMARY KEY,role TEXT NOT NULL CHECK(role IN ('admin','pokemon-reader','info-reader')),
+    email TEXT PRIMARY KEY,role TEXT NOT NULL CHECK(role IN ('admin','pokemon-reader','info-reader','nullpont-player')),
     active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS pokemon_user_notifications (
@@ -48,12 +49,12 @@ export function initializeUsers(db:DatabaseSync) {
   );`);
   // Widen the existing CHECK without renaming its parent or losing child notification FKs.
   const schema=String(db.prepare("SELECT sql FROM sqlite_master WHERE name='dashboard_users'").get()!.sql);
-  if(!schema.includes("'info-reader'")){
+  if(!schema.includes("'nullpont-player'")){
     const foreignKeys=Number(db.prepare('PRAGMA foreign_keys').get()!.foreign_keys);
     db.exec('PRAGMA foreign_keys=OFF');
     try{db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE dashboard_users_expanded (
-        email TEXT PRIMARY KEY,role TEXT NOT NULL CHECK(role IN ('admin','pokemon-reader','info-reader')),
+        email TEXT PRIMARY KEY,role TEXT NOT NULL CHECK(role IN ('admin','pokemon-reader','info-reader','nullpont-player')),
         active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
       INSERT INTO dashboard_users_expanded SELECT email,role,active,created_at,updated_at FROM dashboard_users ORDER BY rowid;
       DROP TABLE dashboard_users;
@@ -72,7 +73,7 @@ export function initializeUsers(db:DatabaseSync) {
 }
 export function setUserRole(db:DatabaseSync,actor:string,emailInput:unknown,roleInput:unknown,active:boolean,now=Date.now()) {
   requireAccess(db,actor,'admin');const email=normalizeEmail(emailInput);
-  if(roleInput!=='admin' && roleInput!=='pokemon-reader' && roleInput!=='info-reader')throw new AccessError('Érvénytelen szerepkör.');
+  if(roleInput!=='admin' && roleInput!=='pokemon-reader' && roleInput!=='info-reader' && roleInput!=='nullpont-player')throw new AccessError('Érvénytelen szerepkör.');
   if(email===ownerEmail())throw new AccessError('A tulajdonos admin jogosultsága nem módosítható.');
   if(email===actor.toLowerCase() && (!active || roleInput!=='admin'))throw new AccessError('A saját admin hozzáférésed nem vonhatod vissza.');
   const before=db.prepare('SELECT role FROM dashboard_users WHERE email=?').get(email) as {role:Role}|undefined;
@@ -85,8 +86,8 @@ export function setUserRole(db:DatabaseSync,actor:string,emailInput:unknown,role
       db.prepare('UPDATE mobile_devices SET revoked=1,push_enabled=0,fcm_token=NULL WHERE email=?').run(email);
       db.prepare("UPDATE mobile_push_outbox SET state='cancelled' WHERE state IN ('queued','retry') AND device_id IN (SELECT id FROM mobile_devices WHERE email=?)").run(email);
     }
-    else if(roleInput==='info-reader'){
-      // This read-only role receives no module pushes, including from a prior worker during rollout.
+    else if(roleInput==='info-reader' || roleInput==='nullpont-player'){
+      // These module-less roles receive no pushes, including from a prior worker during rollout.
       db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE email=?').run(email);
       db.prepare("UPDATE mobile_push_outbox SET state='cancelled' WHERE state IN ('queued','retry') AND device_id IN (SELECT id FROM mobile_devices WHERE email=?)").run(email);
     }
