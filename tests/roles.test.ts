@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { initializeDatabase } from '../lib/db-schema.ts';
-import { ownerEmail, roleFor, requireAccess, setUserRole, initializeUsers } from '../lib/users.ts';
+import { ownerEmail, roleFor, requireAccess, setUserRole, initializeUsers, homeForRole, canAccess } from '../lib/users.ts';
 import { verifiedProfileEmail } from '../lib/access.ts';
 import { notificationSettings, saveNotifications } from '../lib/pokemon/notifications.ts';
-import { startPair, approvePair, exchangePair, deviceBySecret, deviceAuthorized, updateDevice, opaque, digest } from '../lib/mobile/store.ts';
+import { startPair, approvePair, exchangePair, deviceBySecret, deviceAuthorized, updateDevice, registerBrowserPush, opaque, digest } from '../lib/mobile/store.ts';
 import { claimScan, finishScan } from '../lib/pokemon/store.ts';
 import { sendNextPush } from '../lib/mobile/push.ts';
 import { readPokemonSnapshot } from '../lib/pokemon/snapshot.ts';
@@ -32,6 +32,17 @@ test('Roles: unknown/unverified Google profiles get no access; owner stays admin
     for(const feature of ['admin','pokemon','apk','mobile-self'] as const)assert.equal(requireAccess(db,owner,feature),'admin');
     for(const feature of ['pokemon','apk','mobile-self'] as const)assert.equal(requireAccess(db,reader,feature),'pokemon-reader');
     assert.throws(()=>requireAccess(db,reader,'admin'));assert.throws(()=>requireAccess(db,'unknown@example.com','pokemon'));
+  }finally{db.close();}
+});
+test('Roles: nullpont-player reaches only the game handoff and gets no NAS or mobile access',()=>{
+  const db=database(),player='player@example.com';try{
+    setUserRole(db,owner,player,'nullpont-player',true,1);
+    assert.equal(roleFor(db,player),'nullpont-player');assert.equal(homeForRole('nullpont-player'),'/adventure');
+    for(const feature of ['admin','pokemon','important-info','apk','mobile-self'] as const)assert.equal(canAccess('nullpont-player',feature),false);
+    for(const feature of ['admin','pokemon','important-info','apk','mobile-self'] as const)assert.throws(()=>requireAccess(db,player,feature));
+    const verifier=opaque(),pair=startPair(db,digest(verifier),'Game',1000);
+    assert.throws(()=>approvePair(db,pair.id,player,1001));
+    assert.throws(()=>registerBrowserPush(db,player,'test-fcm-token-'+opaque()));
   }finally{db.close();}
 });
 test('Roles: readers cannot manage roles; owner cannot be demoted/disabled; changes are audited and reinitialization preserves membership',()=>{

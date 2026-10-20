@@ -29,7 +29,7 @@ test('legacy role CHECK migrates transactionally, preserving users/child prefere
       INSERT INTO pokemon_user_notifications VALUES('legacy@example.com','gamerunner',0,1,0,1);`);
     const before=db.prepare("SELECT * FROM dashboard_users WHERE email='legacy@example.com'").get(),prefs=db.prepare("SELECT * FROM pokemon_user_notifications WHERE email='legacy@example.com'").all();initializeUsers(db);initializeUsers(db);
     assert.deepEqual(db.prepare("SELECT * FROM dashboard_users WHERE email='legacy@example.com'").get(),before);assert.deepEqual(db.prepare("SELECT * FROM pokemon_user_notifications WHERE email='legacy@example.com'").all(),prefs);assert.equal(db.prepare('PRAGMA foreign_keys').get()!.foreign_keys,1);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
-    db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,1,1)').run(reader,'info-reader');assert.equal(roleFor(db,reader),'info-reader');assert.throws(()=>db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,1,1)').run('bad@example.com','god'));
+    db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,1,1)').run(reader,'info-reader');assert.equal(roleFor(db,reader),'info-reader');db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,1,1)').run('game@example.com','nullpont-player');assert.equal(roleFor(db,'game@example.com'),'nullpont-player');assert.throws(()=>db.prepare('INSERT INTO dashboard_users VALUES(?,?,1,1,1)').run('bad@example.com','god'));
   }finally{db.close();}
 });
 test('rich HTML retains basic formatting and safe links, removes active/embedded content and all unwanted attributes',()=>{

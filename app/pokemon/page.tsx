@@ -5,6 +5,7 @@ import { pokemonSnapshot } from "@/lib/pokemon/data";
 import DashboardSidebar from "../dashboard-sidebar";
 import PokemonPanel from "../pokemon-panel";
 import { isOpenCodeOwner } from '@/lib/opencode-access';
+import { canAccess, homeForRole } from '@/lib/users';
 
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Pokémon figyelő · Wydrian'};
@@ -12,7 +13,7 @@ export const metadata:Metadata={title:'Pokémon figyelő · Wydrian'};
 export default async function PokemonPage() {
   const session=await requireUser().catch(()=>null);
   if(!session)redirect('/');
-  if(session.role==='info-reader')redirect('/important-info');
+  if(!canAccess(session.role,'pokemon'))redirect(homeForRole(session.role));
   return <div className="dashboard-shell">
     <DashboardSidebar name={session.user?.name} active="pokemon" role={session.role!} openCode={isOpenCodeOwner(session.user?.email)}/>
     <main className="main-content pokemon-page">

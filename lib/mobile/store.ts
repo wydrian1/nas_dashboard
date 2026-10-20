@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { SHOP_NAMES, isShopID } from '../pokemon/types.ts';
-import { roleFor } from '../users.ts';
+import { roleFor, canAccess } from '../users.ts';
 import { notificationAllowed } from '../pokemon/notifications.ts';
 import {deliveryPreferences,quietNow,productPushDue} from './preferences.ts';
 
@@ -37,7 +37,7 @@ export function pairInfo(db:DatabaseSync,id:unknown,now=Date.now()) {
   return {...row} as {id:string;label:string;code:string;approved_email:string|null;expires_at:number;consumed:number};
 }
 export function approvePair(db:DatabaseSync,id:unknown,email:string,now=Date.now()) {
-  if(!roleFor(db,email))throw new MobileError('Nincs jogosultság.',403);
+  if(!canAccess(roleFor(db,email),'mobile-self'))throw new MobileError('Nincs jogosultság.',403);
   atomic(db,()=>{
     const pair=pairInfo(db,id,now);
     if(pair.approved_email && pair.approved_email!==email.toLowerCase())throw new MobileError('Ezt a párosítást már másik fiók jóváhagyta.',403);
@@ -50,7 +50,7 @@ export function exchangePair(db:DatabaseSync,id:unknown,verifier:unknown,now=Dat
     const pair=db.prepare('SELECT * FROM mobile_pairs WHERE id=? AND challenge=? AND consumed=0 AND expires_at>?').get(id,digest(verifier),now) as {label:string;approved_email:string|null}|undefined;
     if(!pair)throw new MobileError('Lejárt vagy érvénytelen párosítás.',410);
     if(!pair.approved_email)return null;
-    if(!roleFor(db,pair.approved_email))throw new MobileError('Nincs jogosultság.',403);
+    if(!canAccess(roleFor(db,pair.approved_email),'mobile-self'))throw new MobileError('Nincs jogosultság.',403);
      const count=db.prepare("SELECT count(*) AS n FROM mobile_devices WHERE email=? AND device_type='android' AND revoked=0 AND expires_at>?").get(pair.approved_email,now) as {n:number};
     if(count.n>=10)throw new MobileError('Legfeljebb 10 telefon kapcsolható; előbb vonj vissza egyet.',409);
     const deviceId=opaque(),secret=opaque(),expiresAt=now+90*24*60*60_000;
@@ -62,17 +62,17 @@ export function exchangePair(db:DatabaseSync,id:unknown,verifier:unknown,now=Dat
 export function deviceBySecret(db:DatabaseSync,secret:unknown,now=Date.now()):MobileDevice {
   if(!validOpaque(secret))throw new MobileError('Bejelentkezés szükséges.',401);
    const device=db.prepare("SELECT * FROM mobile_devices WHERE secret_hash=? AND device_type='android' AND revoked=0 AND expires_at>?").get(digest(secret),now) as MobileDevice|undefined;
-  if(!device || !roleFor(db,device.email))throw new MobileError('Új párosítás szükséges.',401);
+  if(!device || !canAccess(roleFor(db,device.email),'mobile-self'))throw new MobileError('Új párosítás szükséges.',401);
   return device;
 }
 export function deviceAuthorized(db:DatabaseSync,id:string,email:string,now=Date.now()):boolean {
-  return !!roleFor(db,email) && !!db.prepare('SELECT 1 FROM mobile_devices WHERE id=? AND email=? AND revoked=0 AND expires_at>?').get(id,email.toLowerCase(),now);
+  return !!canAccess(roleFor(db,email),'mobile-self') && !!db.prepare('SELECT 1 FROM mobile_devices WHERE id=? AND email=? AND revoked=0 AND expires_at>?').get(id,email.toLowerCase(),now);
 }
 export function updateDevice(db:DatabaseSync,device:MobileDevice,token:unknown,enabled:unknown,now=Date.now()) {
   if(device.device_type!=='android')throw new MobileError('Ez a művelet csak Android-eszközre érvényes.',403);
   if(typeof enabled!=='boolean' || (token!==null && (typeof token!=='string' || token.length<20 || token.length>4096 || !/^[a-zA-Z0-9_:.-]+$/.test(token))))throw new MobileError('Érvénytelen push-adat.');
   if(enabled && !token)throw new MobileError('Hiányzó Firebase-azonosító.');
-  const infoReader=roleFor(db,device.email)==='info-reader',effectiveToken=infoReader ? null : token,effectiveEnabled=infoReader ? false : enabled;
+  const role=roleFor(db,device.email),pushDenied=role==='info-reader' || !canAccess(role,'mobile-self'),effectiveToken=pushDenied ? null : token,effectiveEnabled=pushDenied ? false : enabled;
   atomic(db,()=>{
     // Reinstall/re-pair can produce the same token: never notify it twice.
     if(effectiveToken)db.prepare('UPDATE mobile_devices SET push_enabled=0,fcm_token=NULL WHERE fcm_token=? AND id<>?').run(effectiveToken,device.id);
@@ -82,7 +82,7 @@ export function updateDevice(db:DatabaseSync,device:MobileDevice,token:unknown,e
 }
 export function registerBrowserPush(db:DatabaseSync,email:string,token:unknown,label:unknown='Böngésző',now=Date.now()){
   const owner=email.trim().toLowerCase();
-  if(roleFor(db,owner)==='info-reader')throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
+  if(!canAccess(roleFor(db,owner),'mobile-self'))throw new MobileError('Ehhez a szerepkörhöz nincs push-értesítés.',403);
   if(typeof token!=='string'||token.length<20||token.length>4096||!/^[A-Za-z0-9_:-]+$/.test(token)||typeof label!=='string'||!label.trim()||label.length>80||/[\x00-\x1f]/.test(label))throw new MobileError('Érvénytelen böngésző-push adat.');
   return atomic(db,()=>{
     const existing=db.prepare('SELECT id,email,device_type FROM mobile_devices WHERE fcm_token=? AND revoked=0').get(token) as {id:string;email:string;device_type:string}|undefined;
