@@ -29,6 +29,17 @@ test('TCG Bolt parser counts all category cards, but includes only active simple
   for(const bad of ['2.000&nbsp;EUR','unknown','12.34&nbsp;Ft'])assert.equal(parseTcgboltPage(fixture.replace('2.000&nbsp;Ft',bad)).products[0].priceHuf,null);
   assert.equal(parseTcgboltPage(fixture.replace('i0.wp.com/tcgbolt.hu/wp-content/uploads/','i0.wp.com/other.example/wp-content/uploads/')).products[0].image,null);
 });
+test('TCG Bolt accepts accessory-only taxonomy within the verified category without weakening identity, link or cart checks',()=>{
+  const $=load(fixture);
+  for(const [id,title] of [['1001','ECLIPSE 9-Pocket PRO-BINDER® Ultra PRO Mappa – Smoke Grey'],['1002','ECLIPSE 9-Pocket PRO-BINDER® Ultra PRO Mappa – Arctic White']]){
+    const card=$('li.post-'+id);card.removeClass('product_cat-pokemon').addClass('product_cat-kiegeszitok product_cat-tcg-kiegeszitok');card.find('.woocommerce-loop-product__title').text(title);
+  }
+  const html=$.html(),parsed=parseTcgboltPage(html);
+  assert.equal(parsed.total,4);assert.deepEqual(parsed.products.map(p=>p.externalID),['1001','1002']);assert.ok(parsed.products.every(p=>p.title.startsWith('ECLIPSE')));
+  for(const invalid of [html.replace('post-1001','post-1001 post-999'),html.replace('post-1001','missing-id'),html.replace('data-product_id="1001"','data-product_id="999"'),html.replace('?add-to-cart=1001','?add-to-cart=999'),html.replace('https://tcgbolt.hu/bolt/pokemon-demo-booster/','https://other.example/bolt/pokemon-demo-booster/'),html.replace('term-pokemon','term-other'),html.replace('https://tcgbolt.hu/termekkategoria/pokemon/','https://tcgbolt.hu/termekkategoria/kiegeszitok/')])assert.throws(()=>parseTcgboltPage(invalid));
+  const outside=load(html),extra=outside('li.post-1001').clone();extra.attr('class','product post-9999 instock purchasable');outside('body').append(extra);
+  assert.deepEqual(parseTcgboltPage(outside.html()),parsed); // Not a direct card in the verified list.
+});
 test('TCG Bolt parser fails closed on wrong category, partial/duplicate lists, unverified empty page and cart/ID/stock mismatch',()=>{
   for(const html of [fixture.replace('term-pokemon','term-other'),fixture.replace('Pokémon</h1>','Other</h1>'),fixture.replace('Mind a(z) 4','Mind a(z) 5'),fixture.replaceAll('1004','1001'),fixture.replace('data-product_id="1001"','data-product_id="999"'),fixture.replace('?add-to-cart=1001','?add-to-cart=999'),fixture.replace('product_type_simple add_to_cart_button ajax_add_to_cart','product_type_simple unknown_button'),fixture.replace('post-1001 product_cat-pokemon instock','post-1001 product_cat-pokemon outofstock'),fixture.replace('Kosárba teszem','Buy'),fixture.replace('https://tcgbolt.hu/bolt/pokemon-demo-booster/','https://other.example/bolt/pokemon-demo-booster/'),fixture.replace('Mind a(z) 4 találat megjelenítve','Nincs találat')])assert.throws(()=>parseTcgboltPage(html));
   assert.throws(()=>parseTcgboltPage(multi(1),2));assert.throws(()=>parseTcgboltPage(multi(1).replace('class="next page-numbers"','class="unknown page-numbers"')));assert.throws(()=>parseTcgboltPage(multi(1).replaceAll('page/2/','page/3/')));

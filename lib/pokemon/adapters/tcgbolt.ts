@@ -5,7 +5,7 @@ import {downloadShopPage,tcgboltFetchUrl} from '../fetch-policy.ts';
 import {robotsPermission} from '../robots.ts';
 import type {CatalogScanOptions} from './catalog-scan.ts';
 
-export const TCGBOLT_ADAPTER_VERSION='1.0.0';
+export const TCGBOLT_ADAPTER_VERSION='1.1.0';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 const pageUrl=(page:number)=>page===1 ? TCGBOLT_URL : TCGBOLT_URL+'page/'+page+'/';
 export function tcgboltProductUrl(input:string):string {
@@ -32,7 +32,9 @@ export function parseTcgboltPage(html:string,expectedPage=1) {
   const products:PokemonProduct[]=[],cardIDs:string[]=[];
   cards.each((_,el)=>{
     const card=$(el),ids=(card.attr('class')||'').match(/\bpost-([1-9]\d*)\b/g),id=ids?.length===1 ? ids[0].slice(5) : '',link=card.children('a.woocommerce-loop-product__link'),cart=card.children('a.button').not('.yith-wcqv-button'),title=normalize(link.find('.woocommerce-loop-product__title').text());
-    if(!id || !card.is('.product_cat-pokemon') || link.length!==1 || !link.attr('href') || !title || title.length>500 || cart.length!==1 || cart.attr('data-product_id')!==id)throw new Error('Hiányos TCG Bolt termékkártya vagy azonosító.');
+    // Membership comes from the verified category's direct list, not per-card taxonomy CSS.
+    // Accessories in this list can legitimately carry only accessory category classes.
+    if(!id || link.length!==1 || !link.attr('href') || !title || title.length>500 || cart.length!==1 || cart.attr('data-product_id')!==id)throw new Error('Hiányos TCG Bolt termékkártya vagy azonosító.');
     const url=tcgboltProductUrl(link.attr('href')!);cardIDs.push(id);
     if(!cart.is('.add_to_cart_button') || cart.is('.product_type_variable')){if(tcgboltProductUrl(cart.attr('href')||'')!==url || /kosárba/i.test(cart.text()))throw new Error('Ismeretlen TCG Bolt termékgomb.');return;}
     const action=new URL(cart.attr('href')||'',pageUrl(expectedPage)),target=new URL(action);target.search='';
