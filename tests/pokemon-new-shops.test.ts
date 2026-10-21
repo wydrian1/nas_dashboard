@@ -66,15 +66,15 @@ test('RT Collectors Club: removes prohibited sort/empty price filters, complete 
   await assert.rejects(scanRtcollectorsclub(new AbortController().signal,{...options,download:async(url)=>url.endsWith('/robots.txt') ? robots : first}));
   await assert.rejects(scanRtcollectorsclub(new AbortController().signal,{...options,download:async(url)=>url.endsWith('/robots.txt') ? robots : url.includes('page=2') ? second.replaceAll('6/4 termék','6/5 termék') : first}));
 });
-test('Cardverse: JSON metadata proves all three filters and full count; icon cart uses accessible Kosárba label, product ID and HUF meta',()=>{
+test('Cardverse: FacetWP proves both filters and full count; icon cart uses accessible Kosárba label, product ID and HUF meta',()=>{
   const p=parseCardversePage(cv);assert.equal(p.total,2);assert.equal(p.products.length,2);assert.deepEqual(p.products.map(p=>p.externalID),['4835','4754']);assert.deepEqual(p.products.map(p=>p.priceHuf),[146990,11990]);
-  assert.equal(p.products[0].sku,'TCG-7115067691919');assert.equal(p.products[0].image,'https://www.cardverse.hu/wp-content/uploads/wc-compressed/product-loop/4836.webp');assert.equal(p.products[1].availability,'preorder');
-  assert.equal(parseCardversePage(cv.replace('Készleten','Elfogyott')).products.length,2);
+  assert.equal(p.products[0].sku,'TCG-7115067691919');assert.equal(p.products[0].image,'https://www.cardverse.hu/wp-content/uploads/wc-compressed/product-loop/4836.webp');assert.equal(p.products[1].availability,'in_stock');
+  assert.throws(()=>parseCardversePage(cv.replace('Raktáron','Elfogyott')));
   assert.equal(parseCardversePage(cv.replace('role="button"','role="button" aria-disabled="true"')).products.length,1);
   assert.equal(parseCardversePage(cv.replace('content="HUF"','content="EUR"')).products[0].priceHuf,null);
 });
 test('Cardverse: wrong filter, partial/multi-page, missing/behavioral JSON, duplicate ID, button target or brand fails closed',()=>{
-  for(const html of [cv.replace('"values":["instock"]','"values":["outofstock"]'),cv.replace('"values":["pokemon-tcg"]','"values":["one-piece"]'),cv.replace('"foundPosts":2','"foundPosts":3'),cv.replace('"maxPages":1','"maxPages":2'),cv.replace('window.searchAndFilterData =','window.other ='),cv.replace(';</script>',';alert(1);</script>'),cv.replaceAll('4754','4835'),cv.replace('add-to-cart=4835','add-to-cart=999'),cv.replace('content="Pokémon TCG"','content="Another Brand"'),cv.replace('product_type_simple add_to_cart_button','product_type_simple renamed_cart')])assert.throws(()=>parseCardversePage(html));
+  for(const html of [cv.replace('"stock":["instock"]','"stock":["outofstock"]'),cv.replace('"brands":["pokemon-tcg"]','"brands":["one-piece"]'),cv.replace('"total_rows":2','"total_rows":3'),cv.replace('"total_pages":1','"total_pages":2'),cv.replace('window.FWP_JSON =','window.other ='),cv.replace(';</script>',';alert(1);</script>'),cv.replaceAll('4754','4835'),cv.replace('add-to-cart=4835','add-to-cart=999'),cv.replace('content="Pokémon TCG"','content="Another Brand"'),cv.replace('product_type_simple add_to_cart_button','product_type_simple renamed_cart')])assert.throws(()=>parseCardversePage(html));
 });
 test('Cardverse: only exact filtered category GET; never calls forbidden cart, JS API or nonce endpoint',async()=>{
   const requests:string[]=[];const scan=await scanCardverse(new AbortController().signal,{download:async(url)=>{requests.push(url);return url.endsWith('/robots.txt') ? 'User-agent: *\nDisallow: /*?*add-to-cart=' : cv;},wait:async()=>{}});

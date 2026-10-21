@@ -1,23 +1,18 @@
 # Cardverse — készletes Pokémon TCG
 
-Elemzés és sikeres élesítés: 2026-10-01. Az önálló worker csendes baseline-ja 20 elérhető terméket mentett, képpel és árral; állapot `ok`, e-mail kikapcsolva.
+Forrás: **https://www.cardverse.hu/termekkategoria/gyujtogetos-kartyajatekok/?_stock=instock&_brands=pokemon-tcg**
 
-https://www.cardverse.hu/termekkategoria/gyujtogetos-kartyajatekok/?_stock=instock&_cat=gyujtogetos-kartyajatekok&_brand=pokemon-tcg&~1
+## FacetWP / WooCommerce kontraktus (adapter 2.0.0)
 
-Robots és megadott szűrőlista HTTP 200. A robots tiltja az `add-to-cart` kéréseket; ezeket soha nem nyitjuk meg. Csak robots és a pontos háromszűrős kategória GET-je engedett, minimum 1500 ms szünettel. Az üres `~1` paraméter az adott Search & Filter lekérdezés jelölése, megőrizzük.
+- A webshop 2026-10-es átalakítása lecserélte a Search & Filter rendszert és a termékkártyákat. A régi `_brand`, `_cat`, `~1` paraméterek már nem igazolják a Pokémon-szűrést. A régi, pontosan ismert URL célzott adatbázis-migrációt kap; baseline, készlet, értesítési beállítások és vizsgálati ütemezés változatlanok.
+- Csak publikus HTTPS GET: robots.txt és a pontos kategória `_stock=instock`, `_brands=pokemon-tcg` paraméterekkel, szükség esetén `_paged=2..50`. Nincs kosárkérés, login, cookie, JavaScript-futtatás, FacetWP AJAX/REST API vagy nonce-használat. A meglévő DNS-pinning, méret-/időkorlát és robots-ellenőrzés megmarad, kérések között legalább 1500 ms szünettel.
+- A kategóriát a body taxonómia és a pontos canonical igazolja. A `window.FWP_HTTP` és `window.FWP_JSON` kizárólag önálló JSON-értékadásként olvasható, soha nem `eval`-lal. A kérésmetaadat, az aktív szűrőértékek és a preload két bejelölt facetje egyaránt kötelező.
+- A pager egész oldalszámot, oldalméretet, találatszámot és konzisztens oldalszámösszesítőt ad. Minden oldalon a `.products-container > #product-list-wrapper.facetwp-template > ul.products` közvetlen `article.cverse-product` kártyáinak száma pontosan egyezzen a várt oldalmérettel. Változó összesítés, ismételt oldal/ID, hiányzó vagy hibás metaadat esetén a vizsgálat hibázik, nem ír részleges készletet.
+- A stabil külső ID a közvetlen `.loop-add-to-cart` gomb `data-product_id` mezője, a SKU külön opcionális adat. A Pokémon márka strukturált jelölése, terméknév, biztonságos saját `/termek/…/` link, aktív egyszerű kosárgomb, hozzáférhető `Kosárba:` felirat és egyező `add-to-cart` cél kötelező. A kosár-URL-t csak ellenőrizzük, soha nem kérjük le.
+- Elérhető eredményhez `stock-is-instock`, `Raktáron` felirat és schema.org `InStock` bizonyíték kell; az elérhetőség `in_stock`. Előrendelést nem következtetünk névből, és ismeretlen készletjelölést nem fogadunk el. Letiltott/variánsválasztó kártya csak a teljességi számlálásba kerül. Kép és HUF-ár opcionális.
 
-Teljes közvetlen adapterpróba: **20 elérhető termék**, 20 kép és HUF-ár, egy oldalon. A gombok kosárikonok, **`aria-label=Kosárba: …`** hozzáférhető felirattal; nem hiányzó gomb vagy pusztán készletszöveg. Aktív kosárgombos általános szabályt alkalmazunk.
+## Ellenőrzés
 
-## Search & Filter / WooCommerce kontraktus
+A sanitizált fixture és regressziós tesztek lefedik az új kártyákat, mindkét JSON-forrást, a hibás/hiányzó szűrést, idegen márkát, készletellentmondást, hiányos/ismételt/változó lapozást, kosárcélt és az állapotmegőrző URL-migrációt. Élő felderítéskor az új szűrés **14 készletes Pokémon-terméket** adott egy oldalon; a régi URL más márkákat is tartalmazott.
 
-Adapter: `lib/pokemon/adapters/cardverse.ts`, `1.0.0`, webshopkulcs `cardverse`.
-
-- `body.tax-product_cat.term-gyujtogetos-kartyajatekok` kategóriamarker. A webshop canonical értéke a főoldal, h1 sincs, ezért ezek nem megbízható kategóriaazonosítók.
-- A HTML-be ágyazott **`window.searchAndFilterData = {JSON};`** adatait JSON.parse-szal olvassuk, soha nem eval-lal. Kötelező a pontos három kiválasztott érték: stock=instock, cat=gyujtogetos-kartyajatekok, brand=pokemon-tcg.
-- Query 1 aktív WooCommerce/shop, taxonomy archive URL pontos, `currentPage=1`, `maxPages=1`, `foundPosts=20`, `postsPerPage=32` megfigyelt. A teljes kártyaszámnak a `foundPosts` értékkel egyeznie kell. Egy jelen levő load-more konténer önmagában nem jelent további termékeket; a query metaadat igazolja a teljességet.
-- Fő grid: `.search-filter-query--id-1 > #product-list.sf-product-list > article.cvx-product.product`. ID: `post-ID`, gomb `data-product_id` és `add-to-cart=ID` egyező, SKU: `data-product_sku`. Minden kártya `meta[itemprop=brand]` értéke „Pokémon TCG”.
-- Cím/link: közvetlen `a.main-cta-wrapper`, `.cvx-product-title`, saját HTTPS `/termek/slug/`. Nem szűrünk Pokémon kezdetű címre: például Mega Lucario nevű termék is a validált márkalistához tartozik.
-- Aktív `a.cvx-add-to-cart-loop.product_type_simple.add_to_cart_button`, `role=button`, „Kosárba:” aria-label. Gombcél azonosítója és maradék szűrőparaméterei egyezőek; csak szövegként validáljuk, nem kérjük le. Disabled/hidden gomb kizárva; termékoldal/opció gomb nem aktív kosárgomb.
-- Ár: `meta[itemprop=price]` csak `priceCurrency=HUF` mellett. Kép: saját WordPress HTTPS `/wp-content/uploads/`, jelenleg tömörített `wc-compressed/product-loop/` képek.
-
-Nem használunk nyilvános nonce-t, REST API-t, JS-es szűrőhidrálást, kosarat vagy termékoldalt. A jelenleg teljes egyoldalas listát támogatjuk; többoldalassá válás/hiányos JSON/szűrő/ID/gomb esetén hiba és korábbi állapot megőrzése. Önálló 3 perces ütemezés (3–60), csendes baseline, e-mail kikapcsolva, saját beállítások/események és közös `/pokemon` lista. Tesztek: `tests/pokemon-new-shops.test.ts`; anonim minta: `tests/fixtures/pokemon/cardverse/catalog.html`.
+A forrásmódosítás nem jelent élesítést; a következő workerindításkor lefutó migráció nem törli a korábbi baseline-t.

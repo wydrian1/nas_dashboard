@@ -167,7 +167,7 @@ export function cardverseFetchUrl(input:string):URL {
   const url=new URL(input);
   if(url.origin!=='https://www.cardverse.hu' || url.username || url.password || url.hash)throw new ShopRequestError('Nem engedélyezett Cardverse-cím.');
   if(url.pathname==='/robots.txt'){if(url.search)throw new ShopRequestError('Érvénytelen robots-cím.');return url;}
-  if(url.pathname!==CARDVERSE_CATEGORY || url.searchParams.get('_stock')!=='instock' || url.searchParams.get('_cat')!=='gyujtogetos-kartyajatekok' || url.searchParams.get('_brand')!=='pokemon-tcg' || url.searchParams.get('~1')!=='' || [...url.searchParams.keys()].some(key=>!['_stock','_cat','_brand','~1'].includes(key) || url.searchParams.getAll(key).length!==1))throw new ShopRequestError('Nem engedélyezett Cardverse-szűrő vagy útvonal.');
+  if(url.pathname!==CARDVERSE_CATEGORY || url.searchParams.get('_stock')!=='instock' || url.searchParams.get('_brands')!=='pokemon-tcg' || [...url.searchParams.keys()].some(key=>!['_stock','_brands','_paged'].includes(key) || url.searchParams.getAll(key).length!==1) || (url.searchParams.has('_paged') && !/^(?:[2-9]|[1-4]\d|50)$/.test(url.searchParams.get('_paged')!)))throw new ShopRequestError('Nem engedélyezett Cardverse-szűrő vagy útvonal.');
   return url;
 }
 export function tcgboltFetchUrl(input:string):URL {

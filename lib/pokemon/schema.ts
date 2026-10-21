@@ -58,6 +58,7 @@ export function initializePokemon(database: DatabaseSync) {
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('sportkartyabolt','Sport Kártya Bolt',?)").run(SPORTKARTYABOLT_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('rtcollectorsclub','RT Collectors Club',?)").run(RTCOLLECTORSCLUB_URL);
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('cardverse','Cardverse',?)").run(CARDVERSE_URL);
+  database.prepare("UPDATE pokemon_shops SET url=? WHERE id='cardverse' AND url=?").run(CARDVERSE_URL,'https://www.cardverse.hu/termekkategoria/gyujtogetos-kartyajatekok/?_stock=instock&_cat=gyujtogetos-kartyajatekok&_brand=pokemon-tcg&~1');
   database.prepare("INSERT OR IGNORE INTO pokemon_shops(id,name,url) VALUES('metagames','Metagames',?)").run(METAGAMES_URL);
   // Update only the old fixed link; preserve baseline, schedule, products and personal rules.
   database.prepare("UPDATE pokemon_shops SET url=? WHERE id='metagames' AND url=?").run(METAGAMES_URL,METAGAMES_URL+'?keszlet=csak-keszleten');
