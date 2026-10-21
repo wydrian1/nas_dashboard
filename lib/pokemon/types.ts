@@ -20,7 +20,7 @@ export const RTCOLLECTORSCLUB_COLLECTION = "/collections/pokemon-dobozok";
 export const RTCOLLECTORSCLUB_URL = `https://rtcollectorsclub.com${RTCOLLECTORSCLUB_COLLECTION}?filter.v.availability=1&filter.v.price.gte=&filter.v.price.lte=&sort_by=best-selling`;
 export const RTCOLLECTORSCLUB_CATALOG_URL = `https://rtcollectorsclub.com${RTCOLLECTORSCLUB_COLLECTION}?filter.v.availability=1`;
 export const CARDVERSE_CATEGORY = "/termekkategoria/gyujtogetos-kartyajatekok/";
-export const CARDVERSE_URL = `https://www.cardverse.hu${CARDVERSE_CATEGORY}?_stock=instock&_cat=gyujtogetos-kartyajatekok&_brand=pokemon-tcg&~1`;
+export const CARDVERSE_URL = `https://www.cardverse.hu${CARDVERSE_CATEGORY}?_stock=instock&_brands=pokemon-tcg`;
 export const METAGAMES_CATEGORY = '/gyujtogetos-kartyajatekok/pokemon-tcg';
 export const METAGAMES_URL = `https://www.metagames.hu${METAGAMES_CATEGORY}`;
 export const TCGBOLT_CATEGORY = '/termekkategoria/pokemon/';
