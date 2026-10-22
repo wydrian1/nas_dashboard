@@ -4,7 +4,7 @@ import { GEEKEMPIRE_URL, type PokemonProduct, type ShopScan } from "../types.ts"
 import { downloadShopPage, geekempireFetchUrl } from "../fetch-policy.ts";
 import { robotsPermission } from "../robots.ts";
 
-export const GEEKEMPIRE_ADAPTER_VERSION='1.1.0';
+export const GEEKEMPIRE_ADAPTER_VERSION='1.2.0';
 const normalize=(text:string)=>text.replace(/\s+/g,' ').trim();
 export function geekempireProductUrl(input:string):string {
   const url=new URL(input,GEEKEMPIRE_URL);
@@ -30,6 +30,11 @@ export function parseGeekempirePage(html:string) {
       if(button.length>1 || (button.length===1 && button.attr('data-product_id')!==undefined && button.attr('data-product_id')!==id))throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
       if(button.length){const details=new URL(button.attr('href') || '',GEEKEMPIRE_URL);if(details.search || details.hash || geekempireProductUrl(details.href)!==url || /kosárba/i.test(normalize(button.text())))throw new Error('Nem felismerhető GeekEmpire termékgomb.');}
       return; // Explicit reserved stock may omit the normal cart button/ID, but still counts toward completeness.
+    }
+    if(button.length===1 && /^Hamarosan$/i.test(normalize(button.text()))){
+      const details=new URL(button.attr('href') || '',GEEKEMPIRE_URL);
+      if(!button.is('.product_type_simple') || button.is('.add_to_cart_button') || (button.attr('data-product_id')!==undefined && button.attr('data-product_id')!==id) || details.search || details.hash || geekempireProductUrl(details.href)!==url)throw new Error('Nem felismerhető GeekEmpire Hamarosan gomb.');
+      return; // Coming-soon details links omit cart IDs; stock text alone does not make them purchasable.
     }
     if(button.length!==1 || button.attr('data-product_id')!==id)throw new Error('Hiányos GeekEmpire termékkártya vagy azonosító.');
     if(!button.is('.add_to_cart_button') || button.is('.product_type_variable')){

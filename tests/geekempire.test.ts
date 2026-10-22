@@ -16,6 +16,28 @@ const fixture=readFileSync(new URL('./fixtures/pokemon/geekempire/catalog.html',
 const products=parseGeekempirePage(fixture).products;
 const robots='User-agent: *\nDisallow: /*add-to-cart=*\nDisallow: /kosar/\nDisallow: /checkout/\nCrawl-delay: 5';
 function reservedPage(){const $=load(fixture),card=$('li.post-113394');card.find('.stock').text('Foglalt');card.children('a.button').remove();return $;}
+function comingSoonPage(){const $=load(fixture),card=$('li.post-113394');card.addClass('onbackorder product_tag-hamarosan');card.find('.stock').text('Előrendelhető');card.children('a.button').replaceWith('<a class="button product_type_simple" href="/termek/pokemon-example-box/">Hamarosan</a>');return $;}
+test('GeekEmpire: observed Hamarosan details button without cart ID counts toward completeness but not availability',async()=>{
+  const $=comingSoonPage(),parsed=parseGeekempirePage($.html());
+  assert.equal(parsed.total,3);assert.deepEqual(parsed.cardIDs,['113394','115714','31882']);assert.deepEqual(parsed.products.map(p=>p.externalID),['115714']);
+  assert.equal(parsed.products[0].availability,'preorder'); // The other active preorder remains available.
+  const requests:string[]=[];const result=await scanGeekempire(AbortSignal.timeout(5000),{download:async url=>{requests.push(url);return url.endsWith('/robots.txt')?robots:$.html();},wait:async()=>{}});
+  assert.equal(result.total,1);assert.equal(result.pages,1);assert.deepEqual(requests,['https://geekempire.hu/robots.txt',GEEKEMPIRE_URL]);
+  const button=$('li.post-113394 > a.button');button.attr('data-product_id','113394').text('  HAMAROSAN  ');
+  assert.deepEqual(parseGeekempirePage($.html()).products,parsed.products);
+  button.text('Kosárba').addClass('add_to_cart_button').attr('href',GEEKEMPIRE_URL+'?add-to-cart=113394');
+  assert.deepEqual(parseGeekempirePage($.html()).products.map(p=>p.externalID),['113394','115714']); // Tag/name alone never excludes a real preorder cart.
+});
+test('GeekEmpire: Hamarosan exception keeps identity, category, own details link, button and completeness checks',()=>{
+  const html=comingSoonPage().html();
+  for(const invalid of [html.replace('post-113394','post-113394 post-999'),html.replace('post-113394','missing-id'),html.replace('product_cat-pokemon-kartya','product_cat-other'),html.replace('Mind a(z) 3','Mind a(z) 4'),html.replaceAll('31882','113394')])assert.throws(()=>parseGeekempirePage(invalid));
+  const invalidAttributes:Record<string,string>[]=[{href:'https://other.example/termek/pokemon-example-box/'},{href:'/termek/other-product/'},{href:'/termek/pokemon-example-box/?add-to-cart=113394'},{href:'/termek/pokemon-example-box/#buy'},{'data-product_id':'999'},{class:'button product_type_simple add_to_cart_button'},{class:'button product_type_variable'}];
+  for(const attrs of invalidAttributes){
+    const $=load(html);$('li.post-113394 > a.button').attr(attrs);assert.throws(()=>parseGeekempirePage($.html()));
+  }
+  for(const text of ['Tovább','Hamarosan Kosárba','Ismeretlen']){const $=load(html);$('li.post-113394 > a.button').text(text);assert.throws(()=>parseGeekempirePage($.html()));}
+  for(const duplicate of [false,true]){const $=load(html),button=$('li.post-113394 > a.button');if(duplicate)button.after(button.clone());else button.remove();assert.throws(()=>parseGeekempirePage($.html()));}
+});
 test('GeekEmpire: explicit reserved stock without a cart button retains card completeness and skips only that item',async()=>{
   const $=reservedPage(),html=$.html(),parsed=parseGeekempirePage(html);
   assert.equal(parsed.total,3);assert.deepEqual(parsed.cardIDs,['113394','115714','31882']);assert.deepEqual(parsed.products.map(p=>p.externalID),['115714']);
