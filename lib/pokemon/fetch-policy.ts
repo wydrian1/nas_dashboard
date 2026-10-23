@@ -139,7 +139,7 @@ export function reflexshopFetchUrl(input:string):URL {
 }
 export function geekempireFetchUrl(input:string):URL {
   const url=new URL(input);
-  if(url.origin!=='https://geekempire.hu' || url.username || url.password || url.hash || url.search || !['/robots.txt','/termekkategoria/kartya/pokemon-kartya/'].includes(url.pathname))throw new ShopRequestError('Nem engedélyezett GeekEmpire-cím vagy szűrő.');
+  if(url.origin!=='https://geekempire.hu' || url.username || url.password || url.hash || url.search || (!['/robots.txt','/termekkategoria/kartya/pokemon-kartya/'].includes(url.pathname) && !/^\/termekkategoria\/kartya\/pokemon-kartya\/page\/(?:[2-9]|[1-4]\d|50)\/$/.test(url.pathname)))throw new ShopRequestError('Nem engedélyezett GeekEmpire-cím vagy szűrő.');
   return url;
 }
 export function tcgfutarFetchUrl(input:string):URL {

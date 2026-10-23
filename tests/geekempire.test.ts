@@ -17,6 +17,50 @@ const products=parseGeekempirePage(fixture).products;
 const robots='User-agent: *\nDisallow: /*add-to-cart=*\nDisallow: /kosar/\nDisallow: /checkout/\nCrawl-delay: 5';
 function reservedPage(){const $=load(fixture),card=$('li.post-113394');card.find('.stock').text('Foglalt');card.children('a.button').remove();return $;}
 function comingSoonPage(){const $=load(fixture),card=$('li.post-113394');card.addClass('onbackorder product_tag-hamarosan');card.find('.stock').text('Előrendelhető');card.children('a.button').replaceWith('<a class="button product_type_simple" href="/termek/pokemon-example-box/">Hamarosan</a>');return $;}
+function paginated(page:number,total=29){
+  const $=load(fixture),pages=Math.ceil(total/25),url=GEEKEMPIRE_URL+(page===1?'':'page/'+page+'/'),first=(page-1)*25+1,last=Math.min(page*25,total),template=$('li.product').first().toString();
+  $('link[rel="canonical"]').each((_,el)=>{if(page>1)$(el).attr('href',$(el).attr('href')+'page/'+page+'/');});
+  $('.woocommerce-result-count').text(first+'–'+last+' termék, összesen '+total+' db');$('ul.products').empty();
+  for(let index=first;index<=last;index++){
+    const id=String(1000+index),card=$(template.replaceAll('113394',id));card.find('.woocommerce-loop-product__title').text('Product '+index);card.children('a.woocommerce-loop-product__link').attr('href','/termek/product-'+index+'/');card.children('a.button').attr('href',url+'?add-to-cart='+id);
+    if(index===26){card.find('.stock').text('Foglalt');card.children('a.button').remove();}
+    if(index===27){card.find('.stock').text('Előrendelhető');card.children('a.button').removeClass('add_to_cart_button ajax_add_to_cart').removeAttr('data-product_id').text('Hamarosan').attr('href','/termek/product-'+index+'/');}
+    $('ul.products').append(card);
+  }
+  const nav=$('<nav class="woocommerce-pagination"><ul class="page-numbers"></ul></nav>');
+  function link(index:number,label:string,extra=''){nav.find('ul').append($('<li>').append($('<a>').addClass('page-numbers '+extra).attr('href',GEEKEMPIRE_URL+(index===1?'':'page/'+index+'/')).text(label)));}
+  if(page>1)link(page-1,'←','prev');
+  for(let index=1;index<=pages;index++){if(index===page)nav.find('ul').append('<li><span class="page-numbers current" aria-current="page">'+index+'</span></li>');else link(index,String(index));}
+  if(page<pages)link(page+1,'→','next');$('body').append(nav);return $.html();
+}
+test('GeekEmpire: complete paginated scan counts reserved/coming-soon cards, validates current-page carts and rechecks the head',async()=>{
+  const first=paginated(1),last=paginated(2),parsed=parseGeekempirePage(last,2);
+  assert.equal(parsed.total,29);assert.equal(parsed.pages,2);assert.equal(parsed.cardIDs.length,4);assert.deepEqual(parsed.products.map(p=>p.externalID),['1028','1029']);
+  const requests:string[]=[],waits:number[]=[];const scan=await scanGeekempire(AbortSignal.timeout(5000),{download:async url=>{requests.push(url);return url.endsWith('/robots.txt')?robots:url.endsWith('/page/2/')?last:first;},wait:async ms=>{waits.push(ms);}});
+  assert.equal(scan.total,27);assert.equal(scan.pages,2);assert.equal(new Set(scan.products.map(p=>p.externalID)).size,27);assert.deepEqual(requests,['https://geekempire.hu/robots.txt',GEEKEMPIRE_URL,GEEKEMPIRE_URL+'page/2/',GEEKEMPIRE_URL]);assert.deepEqual(waits,[5000,5000,5000]);
+  const three=await scanGeekempire(AbortSignal.timeout(5000),{download:async url=>url.endsWith('/robots.txt')?robots:paginated(Number(url.match(/\/page\/(\d+)\/$/)?.[1]||1),51),wait:async()=>{}});
+  assert.equal(three.pages,3);assert.equal(three.total,49);assert.equal(new Set(three.products.map(p=>p.externalID)).size,49);
+});
+test('GeekEmpire: rejects partial ranges, wrong canonical/current page, missing/unsafe navigation and wrong-page carts',()=>{
+  const first=paginated(1),last=paginated(2);
+  for(const html of [first.replace('1–25','2–25'),first.replace('1–25','1–24'),first.replace('összesen 29 db','összesen 601 db'),first.replace('aria-current="page"','aria-current="false"'),first.replace('class="page-numbers next"','class="unknown"'),first.replaceAll(GEEKEMPIRE_URL+'page/2/','https://other.example/page/2/'),first.replace('post-1001','post-1002')])assert.throws(()=>parseGeekempirePage(html));
+  assert.throws(()=>parseGeekempirePage(last));assert.throws(()=>parseGeekempirePage(first,2));
+  assert.throws(()=>parseGeekempirePage(last.replace('/page/2/?add-to-cart=1028','/?add-to-cart=1028'),2));
+  const $=load(first);$('.woocommerce-pagination').remove();assert.throws(()=>parseGeekempirePage($.html()));
+  const partial=load(last);partial('li.product').first().remove();assert.throws(()=>parseGeekempirePage(partial.html(),2));
+});
+test('GeekEmpire: repeated pages/IDs, changing totals/head, blocked second page and abort never return partial results',async()=>{
+  const first=paginated(1),last=paginated(2);
+  for(const second of [first,last.replaceAll('1028','1001'),paginated(2,30)])await assert.rejects(()=>scanGeekempire(AbortSignal.timeout(5000),{download:async url=>url.endsWith('/robots.txt')?robots:url.endsWith('/page/2/')?second:first,wait:async()=>{}}));
+  let heads=0;await assert.rejects(()=>scanGeekempire(AbortSignal.timeout(5000),{download:async url=>url.endsWith('/robots.txt')?robots:url.endsWith('/page/2/')?last:++heads===1?first:first.replace('Product 1','Changed product'),wait:async()=>{}}),/eleje megváltozott/);
+  const requests:string[]=[];await assert.rejects(()=>scanGeekempire(AbortSignal.timeout(5000),{download:async url=>{requests.push(url);return url.endsWith('/robots.txt')?robots+'\nDisallow: /termekkategoria/kartya/pokemon-kartya/page/':first;},wait:async()=>{}}));assert.deepEqual(requests,['https://geekempire.hu/robots.txt',GEEKEMPIRE_URL]);
+  const controller=new AbortController();await assert.rejects(()=>scanGeekempire(controller.signal,{download:async url=>{if(url.endsWith('/robots.txt'))return robots;controller.abort();return first;},wait:async()=>{}}));
+});
+test('GeekEmpire: pagination allowlist permits only canonical category pages 2–50, never actions, aliases or alternate filters',()=>{
+  for(const url of [GEEKEMPIRE_URL+'page/2/',GEEKEMPIRE_URL+'page/24/',GEEKEMPIRE_URL+'page/50/'])assert.equal(geekempireFetchUrl(url).href,url);
+  for(const suffix of ['page/1/','page/0/','page/02/','page/51/','page/2/?add-to-cart=1','page/2/?sort=price','page/2/#x'])assert.throws(()=>geekempireFetchUrl(GEEKEMPIRE_URL+suffix));
+  assert.throws(()=>geekempireFetchUrl('https://geekempire.hu/termekkategoria/pokemon-kartya/page/2/'));
+});
 test('GeekEmpire: observed Hamarosan details button without cart ID counts toward completeness but not availability',async()=>{
   const $=comingSoonPage(),parsed=parseGeekempirePage($.html());
   assert.equal(parsed.total,3);assert.deepEqual(parsed.cardIDs,['113394','115714','31882']);assert.deepEqual(parsed.products.map(p=>p.externalID),['115714']);
@@ -71,7 +115,7 @@ test('GeekEmpire: active cart authoritative, disabled cart excluded, optional in
 });
 test('GeekEmpire: exact category, observed duplicate canonical, total card IDs and cart action validated; partial/paginated list fails closed',()=>{
   for(const html of [fixture.replace('class="tax-product_cat term-pokemon-kartya"','class="other-category"'),fixture.replace('https://geekempire.hu/termekkategoria/pokemon-kartya/','https://other.example/category/'),fixture.replace('Mind a(z) 3','Mind a(z) 4'),fixture.replaceAll('31882','113394'),fixture.replace('data-product_id="113394"','data-product_id="999"'),fixture.replace('?add-to-cart=113394','?add-to-cart=999'),fixture.replace('class="button product_type_simple add_to_cart_button ajax_add_to_cart"','class="button product_type_simple renamed_cart"'),fixture.replace('</body>','<nav class="woocommerce-pagination">2</nav></body>')])assert.throws(()=>parseGeekempirePage(html));
-  for(const url of [GEEKEMPIRE_URL+'?add-to-cart=113394',GEEKEMPIRE_URL+'?yith_wcan=1',GEEKEMPIRE_URL+'page/2/','https://geekempire.hu/wp-json/wc/store/products','https://geekempire.hu/kosar/','https://geekempire.hu/robots.txt?x=1'])assert.throws(()=>geekempireFetchUrl(url));
+  for(const url of [GEEKEMPIRE_URL+'?add-to-cart=113394',GEEKEMPIRE_URL+'?yith_wcan=1',GEEKEMPIRE_URL+'page/51/','https://geekempire.hu/wp-json/wc/store/products','https://geekempire.hu/kosar/','https://geekempire.hu/robots.txt?x=1'])assert.throws(()=>geekempireFetchUrl(url));
   for(const url of ['javascript:alert(1)','https://other.example/termek/pokemon/','https://u:p@geekempire.hu/termek/pokemon/','https://geekempire.hu/kosar/'])assert.throws(()=>geekempireProductUrl(url));
 });
 test('GeekEmpire: honor 5s robots delay; only robots/category GET, never forbidden add-to-cart or product links',async()=>{
