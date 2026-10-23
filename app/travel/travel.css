@@ -1,0 +1,5 @@
+.travel-page .page-heading{flex-wrap:wrap;gap:16px}
+.travel-open{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.travel-document{display:block;width:100%;height:calc(100dvh - 210px);min-height:560px;border:1px solid var(--border);border-radius:14px;background:#fff}
+.travel-empty{padding:24px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+@media(max-width:760px){.travel-document{height:80dvh;min-height:420px;border-radius:8px}}

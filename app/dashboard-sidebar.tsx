@@ -3,7 +3,7 @@ import type { Role } from '@/lib/users';
 import {WEB_VERSION} from '@/lib/mobile/release';
 import {nullpontUrl} from '@/lib/nullpont-link';
 
-export default function DashboardSidebar({name,active='overview',unread,role='admin',openCode=false}:{name?:string|null;active?:'overview'|'pokemon'|'news'|'config'|'notes'|'finance'|'collections'|'files'|'opencode'|'important-info'|'search'|'system'|'notifications'|'adventure';unread?:number;role?:Role;openCode?:boolean}) {
+export default function DashboardSidebar({name,active='overview',unread,role='admin',openCode=false}:{name?:string|null;active?:'overview'|'pokemon'|'news'|'config'|'notes'|'finance'|'collections'|'files'|'opencode'|'important-info'|'search'|'system'|'notifications'|'adventure'|'travel';unread?:number;role?:Role;openCode?:boolean}) {
   return <aside className="sidebar">
     <a className="brand" href="/"><img className="brand-mark small" src="/brand-w-modules.svg" alt="" width="41" height="41"/><span>Wydrian<span className="brand-sub">DASHBOARD</span></span></a>
     <div className="nav-label">MUNKATERÜLET</div>
@@ -13,6 +13,7 @@ export default function DashboardSidebar({name,active='overview',unread,role='ad
        <a className={active==='finance' ? 'active' : undefined} aria-current={active==='finance' ? 'page' : undefined} href="/finance"><span className="nav-icon" aria-hidden="true">◈</span><span className="nav-text">Pénzügy</span></a>
        <a className={active==='collections' ? 'active' : undefined} aria-current={active==='collections' ? 'page' : undefined} href="/collections"><span className="nav-icon" aria-hidden="true">▧</span><span className="nav-text">Gyűjtemények</span></a>
        <a className={active==='files' ? 'active' : undefined} aria-current={active==='files' ? 'page' : undefined} href="/files"><span className="nav-icon" aria-hidden="true">▱</span><span className="nav-text">Fájlok</span></a>
+       <a className={active==='travel' ? 'active' : undefined} aria-current={active==='travel' ? 'page' : undefined} href="/travel"><span className="nav-icon" aria-hidden="true">✈</span><span className="nav-text">Utazás</span></a>
       <a className={active==='notes' ? 'active' : undefined} aria-current={active==='notes' ? 'page' : undefined} href="/notes"><span className="nav-icon" aria-hidden="true">✓</span><span className="nav-text">Jegyzetek / teendők</span></a></>}
       {(role==='admin'||role==='pokemon-reader') && <a className={active==='pokemon' ? 'active' : undefined} aria-current={active==='pokemon' ? 'page' : undefined} href="/pokemon"><span className="nav-icon" aria-hidden="true">◉</span><span className="nav-text">Pokémon figyelő</span></a>}
       {role==='pokemon-reader'&&<a className={active==='notifications'?'active':undefined} aria-current={active==='notifications'?'page':undefined} href="/notifications"><span className="nav-icon" aria-hidden="true">♧</span><span className="nav-text">Értesítési központ</span></a>}
